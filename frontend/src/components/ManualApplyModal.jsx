@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { client, logPoong } from "../api.js";
 import { shortPersona } from "../utils/persona.js";
 
@@ -22,10 +22,12 @@ export default function ManualApplyModal({
   const [tailorResult, setTailorResult] = useState(null);
   const [questionsText, setQuestionsText] = useState("");
   const [answers, setAnswers] = useState([]);
+  const [savedQaFolder, setSavedQaFolder] = useState("");
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
   const [urlInferred, setUrlInferred] = useState(false);
+  const answersPanelRef = useRef(null);
 
   useEffect(() => {
     if (!open) return;
@@ -34,11 +36,17 @@ export default function ManualApplyModal({
     setTailorResult(null);
     setQuestionsText("");
     setAnswers([]);
+    setSavedQaFolder("");
     setBusy("");
     setError("");
     setStatus("");
     setUrlInferred(false);
   }, [open, workingPersonaId]);
+
+  useEffect(() => {
+    if (!answers.length) return;
+    answersPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [answers]);
 
   if (!open) return null;
 
@@ -48,6 +56,7 @@ export default function ManualApplyModal({
     tailorResult?.resume_folder ||
     tailorResult?.folder ||
     tailorResult?.package?.folder_path ||
+    savedQaFolder ||
     "";
 
   const setField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
@@ -58,6 +67,7 @@ export default function ManualApplyModal({
     setTailorResult(null);
     setQuestionsText("");
     setAnswers([]);
+    setSavedQaFolder("");
     setBusy("");
     setError("");
     setStatus("");
@@ -76,7 +86,9 @@ export default function ManualApplyModal({
       return null;
     }
     if ((form.description || "").trim().length < 50) {
-      setError("Paste a full JD (at least ~50 characters). Company/title/URL are auto-filled from it.");
+      setError(
+        "Paste a full JD (at least ~50 characters). Company/title/URL are auto-filled from it."
+      );
       return null;
     }
     setBusy("prepare");
@@ -93,6 +105,7 @@ export default function ManualApplyModal({
       setJob(saved);
       setTailorResult(null);
       setAnswers([]);
+      setSavedQaFolder("");
       setUrlInferred(Boolean(res.url_inferred));
       setForm((prev) => ({
         ...prev,
@@ -177,9 +190,13 @@ export default function ManualApplyModal({
         url: form.url.trim() || current.url,
       });
       setAnswers(res.answers || []);
+      if (res.saved_folder) setSavedQaFolder(res.saved_folder);
       setStatus(
         `Generated ${(res.answers || []).length} answer(s)` +
-          (res.resume_used ? " using the tailored resume" : " (JD + profile only)")
+          (res.resume_used ? " using the tailored resume" : " (JD + profile only)") +
+          (res.saved_folder
+            ? `\nSaved Q&A to: ${res.saved_folder}\n(questions.json, answers.json, application_qa.txt)`
+            : "")
       );
     } catch (e) {
       setError(String(e.message || e));
@@ -242,9 +259,10 @@ export default function ManualApplyModal({
           </button>
         </div>
         <p className="muted">
-          Uses the active Working as profile ({profileName}). Paste only the JD if you want —
-          company, title, and URL are extracted from it. Resume files save under{" "}
-          <code>data/applications/&lt;profile&gt;/&lt;seq&gt;-&lt;company&gt;/</code>.
+          1) Paste the full JD (URL can be in the JD or the URL field). 2) Click{" "}
+          <strong>Add to job list</strong> or <strong>Generate resume</strong> — that is when
+          company / title / URL / location auto-fill. 3) Paste application questions, then{" "}
+          <strong>Generate answers</strong> — they appear below and are saved in the job folder.
         </p>
 
         {error ? <div className="error-banner">{error}</div> : null}
@@ -261,13 +279,13 @@ export default function ManualApplyModal({
             value={form.description}
             disabled={Boolean(busy)}
             onChange={(e) => setField("description", e.target.value)}
-            placeholder="Paste the full JD here. Company / title / URL will be filled from this text."
+            placeholder="Paste the full JD here. Click Add / Generate resume to auto-fill fields below."
           />
         </label>
 
         <div className="manual-apply-grid">
           <label>
-            Company (auto)
+            Company (auto after Add / Generate)
             <input
               value={form.company}
               disabled={Boolean(busy)}
@@ -276,7 +294,7 @@ export default function ManualApplyModal({
             />
           </label>
           <label>
-            Title (auto)
+            Title (auto after Add / Generate)
             <input
               value={form.title}
               disabled={Boolean(busy)}
@@ -287,7 +305,7 @@ export default function ManualApplyModal({
         </div>
 
         <label>
-          Job / apply URL (auto)
+          Job / apply URL (auto after Add / Generate)
           <input
             value={form.url}
             disabled={Boolean(busy)}
@@ -295,7 +313,7 @@ export default function ManualApplyModal({
               setField("url", e.target.value);
               setUrlInferred(false);
             }}
-            placeholder="Extracted from JD when present"
+            placeholder="Paste here or leave blank to extract from JD"
           />
         </label>
         {urlInferred ? (
@@ -303,7 +321,7 @@ export default function ManualApplyModal({
         ) : null}
 
         <label>
-          Location (auto)
+          Location (auto after Add / Generate)
           <input
             value={form.location}
             disabled={Boolean(busy)}
@@ -343,12 +361,12 @@ export default function ManualApplyModal({
             {resumeFolder ? (
               <>
                 <br />
-                Resume folder: <span className="detail-mono">{resumeFolder}</span>
+                Folder: <span className="detail-mono">{resumeFolder}</span>
               </>
             ) : (
               <>
                 <br />
-                Resume will save under{" "}
+                Folder will be{" "}
                 <span className="detail-mono">
                   data/applications/{activePersonaId}/{job.seq_no}-…
                 </span>
@@ -387,16 +405,22 @@ export default function ManualApplyModal({
         </div>
 
         {answers.length ? (
-          <div className="manual-answer-list">
-            {answers.map((row) => (
-              <div key={row.question} className="manual-answer-card">
-                <div className="manual-q">{row.question}</div>
-                <div className="manual-a">{row.answer || "—"}</div>
-                <button type="button" onClick={() => copyAnswer(row.answer)}>
-                  Copy answer
-                </button>
-              </div>
-            ))}
+          <div className="manual-answers-panel" ref={answersPanelRef}>
+            <div className="manual-answers-panel-head">
+              <strong>Generated answers</strong>
+              <span className="muted">{answers.length} question(s)</span>
+            </div>
+            <div className="manual-answer-list">
+              {answers.map((row) => (
+                <div key={row.question} className="manual-answer-card">
+                  <div className="manual-q">{row.question}</div>
+                  <div className="manual-a">{row.answer || "—"}</div>
+                  <button type="button" onClick={() => copyAnswer(row.answer)}>
+                    Copy answer
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         ) : null}
       </div>

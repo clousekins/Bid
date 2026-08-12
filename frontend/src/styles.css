@@ -1228,18 +1228,40 @@ button.danger {
   padding: 0.45rem 0.55rem;
 }
 
+.manual-answers-panel {
+  margin-top: 0.75rem;
+  border: 1px solid var(--shell-border);
+  border-radius: 10px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.manual-answers-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid var(--shell-border);
+  background: color-mix(in srgb, var(--profile-accent) 8%, #fff);
+  font-size: 0.86rem;
+}
+
 .manual-answer-list {
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
-  margin-top: 0.35rem;
+  max-height: min(42vh, 420px);
+  overflow: auto;
+  padding: 0.65rem 0.75rem 0.85rem;
+  -webkit-overflow-scrolling: touch;
 }
 
 .manual-answer-card {
   border: 1px solid var(--shell-border);
   border-radius: 8px;
   padding: 0.55rem 0.65rem;
-  background: #fff;
+  background: color-mix(in srgb, var(--shell-elev) 80%, #fff);
 }
 
 .manual-q {

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,7 @@ from app.db.enums import JobStatus
 from app.db.models import Job, JobPackage
 from app.db.session import get_db
 from app.services.apply_answers import generate_field_answers
+from app.services.folder_writer import ensure_job_folder
 from app.services.jd_extract import extract_job_fields_from_jd
 from app.services.persona import get_active_persona_id, load_persona
 from app.services.pipeline import process_listing
@@ -288,11 +290,41 @@ async def manual_answers(body: ManualAnswersBody, db: AsyncSession = Depends(get
     )
 
     ordered = [{"question": q, "answer": answers.get(q, "")} for q in questions]
+    answer_map = {row["question"]: row["answer"] for row in ordered}
+
+    saved_folder: str | None = None
+    if job is not None:
+        pkg = await _package_for_persona(db, job.id, body.persona_id)
+        if pkg and pkg.folder_path:
+            folder = Path(pkg.folder_path)
+            folder.mkdir(parents=True, exist_ok=True)
+        else:
+            folder = ensure_job_folder(
+                body.persona_id, int(job.seq_no or 0), job.company or "Company"
+            )
+            if pkg:
+                pkg.folder_path = str(folder)
+                await db.commit()
+        (folder / "questions.json").write_text(
+            json.dumps(questions, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        (folder / "answers.json").write_text(
+            json.dumps(answer_map, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        qa_text = "\n\n".join(
+            f"Q: {row['question']}\nA: {row['answer'] or ''}" for row in ordered
+        )
+        (folder / "application_qa.txt").write_text(qa_text, encoding="utf-8")
+        saved_folder = str(folder)
+
     return {
         "ok": True,
         "persona_id": body.persona_id,
         "job_id": body.job_id,
         "resume_used": bool(resume_excerpt),
         "answers": ordered,
-        "answer_map": answers,
+        "answer_map": answer_map,
+        "saved_folder": saved_folder,
     }
