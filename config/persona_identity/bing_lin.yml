@@ -1,0 +1,64 @@
+persona_id: bing_lin
+display_name: Bing Lin
+default_professional_title: Senior Data Engineer
+total_experience: "7+ years"
+
+identity:
+  legal_name: Bing Lin
+  email: binglin09@outlook.com
+  phone: "(409) 995-3801"
+  location_city: Austin
+  location_state: TX
+  location_country: US
+  linkedin_url: https://www.linkedin.com/in/binglin3
+  work_authorization: "Authorized to work in the US"
+
+screening_answers:
+  - question: "Are you authorized to work in the United States?"
+    answer: "Yes"
+  - question: "Do you now or will you in the future require sponsorship?"
+    answer: "No"
+  - question: "How many years of experience do you have?"
+    answer: "7"
+  - question: "Current Employer"
+    answer: "Procore Technologies"
+  - question: "Current Job Title"
+    answer: "Senior Data Engineer"
+
+tailor:
+  mode: html_resume_bundle
+  prompt_file: bing_lin.prompt.md
+  css_file: bing_lin.css
+  experience_ground_truth:
+    - company: Procore Technologies
+      title: Senior Data Engineer
+      location: Austin, TX
+      start: "Aug 2023"
+      end: Present
+      bullets: 7
+    - company: Bank of America
+      title: Application Architect
+      location: Austin, TX
+      start: "Jun 2022"
+      end: "Jul 2023"
+      bullets: 5
+    - company: Google
+      title: Cloud Software Engineer
+      location: Austin, TX
+      start: "Dec 2019"
+      end: "Dec 2021"
+      bullets: 5
+    - company: BNY Mellon
+      title: Software Engineer
+      location: Greater Pittsburgh Area, PA
+      start: "Jun 2017"
+      end: "Aug 2019"
+      bullets: 4
+  education_ground_truth:
+    - degree: Master's degree, Machine Learning
+      school: Georgia Institute of Technology
+      location: Atlanta, Georgia
+      year: "2020"
+    - degree: Bachelor of Science in Computer Science
+      school: Florida State University
+      year: "2013 - 2017"

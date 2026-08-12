@@ -1,0 +1,10 @@
+settings:
+  us_remote_strict: true
+  max_pages_per_source: 5
+  request_timeout_sec: 30
+  concurrency: 4
+  skip_already_applied_company: true
+  batch_insert_limit: 50
+
+sites: []
+greenhouse_boards: []

@@ -1,0 +1,86 @@
+persona_id: andrew_nguyen
+display_name: Andrew Nguyen
+default_professional_title: Senior Data Engineer
+total_experience: "8+ years"
+
+identity:
+  legal_name: Andrew Nguyen
+  email: marek.nguyenkim@gmail.com
+  phone: "(xxx) xxx-xxxx"
+  location_city: Sunnyvale
+  location_state: CA
+  location_country: US
+  linkedin_url: https://linkedin.com/in/andrew-nguyen-94030ba2
+  work_authorization: "Authorized to work in the US"
+
+screening_answers:
+  - question: "Are you authorized to work in the United States?"
+    answer: "Yes"
+  - question: "Do you now or will you in the future require sponsorship?"
+    answer: "No"
+  - question: "How many years of experience do you have?"
+    answer: "8"
+  - question: "Current Employer"
+    answer: "Amazon"
+  - question: "Current Job Title"
+    answer: "Senior Data Engineer"
+
+tailor:
+  mode: html_resume_bundle
+  prompt_file: andrew_nguyen.prompt.md
+  css_file: andrew_nguyen.css
+  experience_ground_truth:
+    - company: Amazon
+      title: Senior Data Engineer
+      location: Sunnyvale, CA
+      start: "Apr 2024"
+      end: Present
+      bullets: 6
+      cloud: AWS only
+    - company: Twitch
+      title: Senior Data Engineer
+      location: San Francisco, CA
+      start: "May 2022"
+      end: "Apr 2024"
+      bullets: 6
+      cloud: AWS only
+    - company: AliveCor Inc.
+      title: Data Engineer
+      location: Mountain View, CA
+      start: "Mar 2020"
+      end: "May 2022"
+      bullets: 5
+      cloud: AWS only
+    - company: "605"
+      title: Data Engineer
+      location: New York, NY
+      start: "May 2018"
+      end: "Mar 2020"
+      bullets: 4
+      cloud: AWS only
+    - company: NYU Winthrop Hospital
+      title: Data Programmer
+      location: Mineola, NY
+      start: "Jul 2017"
+      end: "May 2018"
+      bullets: 3
+      cloud: on-premise SQL Server
+    - company: Northwell Health
+      title: Financial Data Analyst
+      location: Westbury, NY
+      start: "Nov 2015"
+      end: "Jul 2017"
+      bullets: 3
+      cloud: on-premise SQL Server
+    - company: Zimmer Biomet
+      title: Inventory Analyst
+      location: Syosset, NY
+      start: "Nov 2014"
+      end: "Nov 2015"
+      bullets: 0
+      note: early non-technical foundation role
+  education_ground_truth:
+    - degree: Bachelor's degree, Economics
+      school: Stony Brook University
+      location: Stony Brook, NY
+      year: "2012"

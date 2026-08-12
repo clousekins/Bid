@@ -1,0 +1,306 @@
+Above is the job description.
+
+Below is the candidate profile. Tailor the resume to the job description.
+
+Long Nguyen | Senior Software Engineer
+Tustin, California | [longnguyensnr@outlook.com](mailto:longnguyensnr@outlook.com) | 9295476426 | linkedin.com/in/long-nguyen-8a0a9757/
+
+#### Keep the candidate’s name, email, phone number, location, and LinkedIn information exactly as written. Do not modify, reformat, shorten, or remove any part of the contact information.
+
+---
+
+TARGET ROLE ALIGNMENT — REQUIRED
+
+Read the job description and identify its main role title as [TARGET_ROLE].
+Tailor the entire resume specifically for [TARGET_ROLE].
+Do not keep “Senior Software Engineer” as the default resume title unless that is the target role.
+The headline, summary, skills, experience titles, experience bullets, HTML title, and cover letter must all align with [TARGET_ROLE].
+
+ROLE TITLE RULES
+
+Create [TARGET_ROLE_BASE] by removing seniority words such as Senior, Staff, Lead, Principal, Junior, or Entry-Level from [TARGET_ROLE].
+
+Rename every experience role to match the target role while preserving the candidate’s career level:
+
+Most recent senior role: use [TARGET_ROLE] or “Senior [TARGET_ROLE_BASE]”
+Previous professional roles: use [TARGET_ROLE_BASE]
+Internship role: use “[TARGET_ROLE_BASE] Intern”
+
+Examples:
+
+If the JD role is “Senior Salesforce Developer”:
+
+Senior Salesforce Developer | Google | Apr 2024 - Present
+Salesforce Developer | Google | Jan 2021 - Apr 2024
+Salesforce Developer | Arbor Networks | Aug 2015 - Dec 2020
+Salesforce Developer Intern | Arbor Networks | May 2014 - Aug 2015
+
+If the JD role is “Senior Backend Engineer”:
+
+Senior Backend Engineer | Google | Apr 2024 - Present
+Backend Engineer | Google | Jan 2021 - Apr 2024
+Backend Engineer | Arbor Networks | Aug 2015 - Dec 2020
+Backend Engineer Intern | Arbor Networks | May 2014 - Aug 2015
+
+If the JD role is “Cloud Platform Engineer”:
+
+Senior Cloud Platform Engineer | Google | Apr 2024 - Present
+Cloud Platform Engineer | Google | Jan 2021 - Apr 2024
+Cloud Platform Engineer | Arbor Networks | Aug 2015 - Dec 2020
+Cloud Platform Engineer Intern | Arbor Networks | May 2014 - Aug 2015
+
+EXPERIENCE ALIGNMENT RULES
+
+Rewrite every experience bullet around the responsibilities, technologies, and engineering problems relevant to [TARGET_ROLE].
+Do not only add JD keywords to generic software-engineering bullets.
+Each role must clearly read as relevant experience for [TARGET_ROLE].
+Keep the original company domain intact:
+Google experience must remain grounded in cloud computing, enterprise platforms, distributed systems, digital services, and large-scale applications.
+Arbor Networks experience must remain grounded in cybersecurity, network security, DDoS mitigation, traffic analytics, telecommunications, and security platforms but the most important thing is to align with the JD.
+Translate the original domain experience into work analogous to the target role.
+Do not copy the target company’s exact product or claim the candidate worked in the target company’s domain.
+Use the JD’s required technologies when technically reasonable and supported by the company context.
+All core JD skills must appear naturally in the experience bullets.
+Every skill listed in the Skills section must appear in at least one experience bullet.
+Do not produce generic Software Engineer bullets when the target role is more specialized.
+The final resume must make it immediately clear that the candidate has performed [TARGET_ROLE]-aligned work throughout their career.
+
+SUMMARY
+
+Start with: “Reliable and technically thorough [TARGET_ROLE] with 11+ years of experience...”
+Write 3–4 sentences focused directly on [TARGET_ROLE].
+Highlight the candidate’s relevant delivery experience, technical ownership, enterprise-scale work, and target-role expertise.
+Do not describe the candidate broadly as a general software engineer unless the JD is for a general software-engineering role.
+
+Bullet construction:
+
+* Every bullet must contain at least 25 words.
+* Every bullet must be technically detailed and readable.
+* Structure bullets around:
+  Problem or requirement → engineering action → technical result or business impact
+* Approximately 60% of bullets should emphasize outcomes or improvements.
+* Approximately 40% should emphasize technical ownership and responsibilities.
+* Use numbers, percentages, throughput, latency, scale, reliability, deployment frequency, incident reduction, or productivity measurements only when they are supplied by the source material or clearly established in the candidate profile.
+* Never fabricate metrics merely to satisfy the achievement-focused requirement.
+* When no metric is available, describe a concrete qualitative impact such as improved maintainability, reduced operational risk, more predictable deployments, faster diagnosis, or clearer service ownership.
+* Start bullets with strong action verbs.
+* Never begin a bullet with:
+
+  * Led
+  * Architected
+  * Collaborated
+  * Helped
+  * Worked on
+  * Responsible for
+  * Participated in
+* Avoid repeating the same opening verb more than twice throughout the resume.
+* Highlight important technologies and technical concepts using `<strong>` tags.
+* Embed the JD’s core skills naturally throughout the experience bullets.
+* Every skill included in the Skills section must appear at least once in an experience bullet.
+* Do not add a technology to Skills unless it also appears naturally in Experience.
+* Do not use buzzwords, vague claims, or soft-skill filler.
+* Do not claim direct client architecture responsibilities unless the experience context supports customer-facing or client-facing technical ownership.
+* Do not claim people management unless explicitly provided.
+* Do not claim artificial intelligence or machine learning implementation merely because the company operates in that area. Include AI or ML only when relevant to the JD and supported by a realistic engineering context.
+
+Technical consistency requirements:
+
+* Maintain one technically coherent platform strategy within each project context.
+* Do not combine competing platforms serving the same function inside one project without a clear migration or integration reason.
+* Do not place <strong>BigQuery</strong> and <strong>Amazon Redshift</strong> in the same project as interchangeable warehouses.
+* Do not combine <strong>Google Cloud Platform</strong>, <strong>AWS</strong>, and <strong>Azure</strong> within one project unless the source profile explicitly establishes a multi-cloud architecture.
+* Google roles should primarily use technologies appropriate to <strong>Google Cloud Platform</strong>.
+* Arbor Networks roles should remain grounded in network security, DDoS mitigation, traffic analytics, cybersecurity, telecommunications, and cloud-native security systems.
+* Do not combine equivalent frameworks, databases, message brokers, testing tools, or deployment platforms merely to increase keyword coverage.
+* Do not introduce technically impossible integrations or unsupported vendor products.
+* Core JD skills must appear naturally at least once in the experience section.
+* Related JD skills may be included only when they fit the candidate’s established background.
+
+---
+
+SKILLS
+
+* Place the JD’s most important supported skills first.
+* Follow them with relevant skills from the candidate profile.
+* Include at least 30 skills total.
+* Use exactly 5 categories.
+* Use only these category names:
+
+  1. Languages & Frameworks
+  2. Cloud & Infrastructure
+  3. Backend & APIs
+  4. Databases & Storage
+  5. DevOps & Testing
+* Do not create additional categories.
+* Do not use bullet points.
+* Format each category exactly as:
+
+`<p><strong>Category Name:</strong> <span>Skill1, Skill2, Skill3</span></p>`
+
+* Bold only the category label.
+* Do not bold individual skills in the Skills section.
+* Every listed skill must appear naturally at least once in an experience bullet.
+* Do not list unsupported skills solely because they appear in the JD.
+* Do not include duplicate skills under different categories.
+* Do not combine unrelated concepts into one skill entry.
+* Keep technologies in their technically correct categories.
+
+---
+
+EDUCATION
+
+Bachelor of Science in Computer Science | Worcester Polytechnic Institute | 2012 - 2015
+
+Do not alter the degree, institution, or dates.
+
+---
+
+HTML OUTPUT INSTRUCTIONS
+
+* Return one complete and valid HTML document.
+* Do not place the HTML inside a Markdown code fence.
+* Do not use Markdown bold syntax such as `**text**`.
+* Use `<strong>` tags where required.
+* Do not include inline CSS or a `<style>` block.
+* Preserve the supplied external CSS file reference exactly.
+* Keep the candidate’s contact information exactly as originally written.
+* The LinkedIn URL must appear as a clickable link.
+* Do not change the phone number to a different format.
+* Do not add an address, portfolio, GitHub profile, certifications, or other contact information.
+* The Skills section must appear before the Experience section, following the provided structure.
+* Replace every placeholder with completed resume content.
+* Do not leave notes, instructions, brackets, or placeholder text in the final HTML.
+
+Filename requirements:
+
+* Use this exact format:
+
+`Long_Nguyen_[TARGET_COMPANY_NAME]_[TARGET_JOB_TITLE].html`
+
+* Replace spaces, slashes, hyphens, ampersands, punctuation, and special characters with underscores.
+* Remove repeated underscores.
+* Use the same filename, without the `.html` extension, inside the HTML `<title>` element.
+
+------------------------------------------------------------------------------------------------------------
+Use the following HTML structure:
+
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>[FILENAME WITHOUT .html]</title>
+<link rel="stylesheet" href="file:///D:/my%20resume/HTML%20Template/thomas_lee.css">
+</head>
+<body>
+<div class="resume">
+  <div class="header">
+    <div class="name">Long Nguyen</div>
+    <div class="title">[TARGET_JOB_TITLE]</div>
+    <div class="contact">Tustin, California &nbsp;&middot;&nbsp; longnguyensnr@outlook.com &nbsp;&middot;&nbsp; 9295476426 &nbsp;&middot;&nbsp; <a href="https://www.linkedin.com/in/long-nguyen-8a0a9757/">linkedin.com/in/long-nguyen-8a0a9757/</a></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Summary</div>
+    <p class="summary">Write the completed summary here.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Skills</div>
+    <div class="skills">
+      <p><strong>Languages &amp; Frameworks:</strong> <span>skills here</span></p>
+      <p><strong>Cloud &amp; Infrastructure:</strong> <span>skills here</span></p>
+      <p><strong>Backend &amp; APIs:</strong> <span>skills here</span></p>
+      <p><strong>Databases &amp; Storage:</strong> <span>skills here</span></p>
+      <p><strong>DevOps &amp; Testing:</strong> <span>skills here</span></p>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Experience</div>
+
+```
+<div class="job">
+  <div class="job-header">
+    <span class="job-role">Senior Software Engineer[OPTIONAL RELEVANT SPECIALIZATION]</span>
+    <span class="job-date">Apr 2024 - Present</span>
+  </div>
+  <div class="job-sub"><span class="job-company">Google</span> &nbsp;&middot;&nbsp; Irvine, California</div>
+  <ul>
+    <li>Completed bullet here.</li>
+  </ul>
+</div>
+
+<div class="job">
+  <div class="job-header">
+    <span class="job-role">Software Engineer[OPTIONAL RELEVANT SPECIALIZATION]</span>
+    <span class="job-date">Jan 2021 - Apr 2024</span>
+  </div>
+  <div class="job-sub"><span class="job-company">Google</span> &nbsp;&middot;&nbsp; Los Angeles, California</div>
+  <ul>
+    <li>Completed bullet here.</li>
+  </ul>
+</div>
+
+<div class="job">
+  <div class="job-header">
+    <span class="job-role">Software Engineer[OPTIONAL RELEVANT SPECIALIZATION]</span>
+    <span class="job-date">Aug 2015 - Dec 2020</span>
+  </div>
+  <div class="job-sub"><span class="job-company">Arbor Networks</span> &nbsp;&middot;&nbsp; Burlington, Massachusetts</div>
+  <ul>
+    <li>Completed bullet here.</li>
+  </ul>
+</div>
+
+<div class="job">
+  <div class="job-header">
+    <span class="job-role">Software Engineer Intern[OPTIONAL RELEVANT SPECIALIZATION]</span>
+    <span class="job-date">May 2014 - Aug 2015</span>
+  </div>
+  <div class="job-sub"><span class="job-company">Arbor Networks</span> &nbsp;&middot;&nbsp; Burlington, Massachusetts</div>
+  <ul>
+    <li>Completed bullet here.</li>
+  </ul>
+</div>
+```
+
+  </div>
+
+  <div class="section">
+    <div class="section-title">Education</div>
+    <div class="edu">
+      <div class="edu-row">
+        <span class="edu-degree">Bachelor of Science in Computer Science</span>
+        <span class="edu-date">2012 - 2015</span>
+      </div>
+      <div class="edu-school">Worcester Polytechnic Institute</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
+
+---
+
+COVER LETTER
+
+After the HTML, write a short, impactful cover letter in plain text.
+
+* Do not use HTML tags in the cover letter.
+* Do not repeat the entire resume.
+* Address the target company and [TARGET_JOB_TITLE].
+* Connect the candidate’s most relevant cloud, backend, distributed-systems, enterprise-software, or network-security experience to the position.
+* Keep it concise, technically credible, and professional.
+* Do not invent a hiring manager’s name.
+* Do not add unsupported achievements, tools, responsibilities, or metrics.
+* Use approximately 150–220 words.
+
+---
+
+INTERVIEW Q&A INSTRUCTION
+
+After completing the resume and cover letter, confirm with only this sentence:
+
+After you share the interview questions, I will answer them in a concise, human, and professional tone.

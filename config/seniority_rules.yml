@@ -1,0 +1,9 @@
+reject_title_patterns:
+  - "(?i)\\bintern(ship)?\\b"
+  - "(?i)\\bjunior\\b"
+  - "(?i)\\bentry[\\s-]level\\b"
+  - "(?i)\\bnew\\s*grad\\b"
+  - "(?i)\\bco-?op\\b"
+  - "(?i)\\bapprentice\\b"
+  # Associate without senior/staff/lead/principal elsewhere handled in code
+  - "(?i)^associate\\b"

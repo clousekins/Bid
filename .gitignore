@@ -1,0 +1,16 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+node_modules/
+frontend/dist/
+data/
+tools/cloudflared.exe
+POONG_FULL_REQUIREMENTS.md
+*.db
+.DS_Store
+Thumbs.db

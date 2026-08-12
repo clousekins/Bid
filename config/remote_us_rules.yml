@@ -1,0 +1,40 @@
+mode: us_remote_strict
+
+# Location / remote_restricted_to are authoritative.
+# Non-US countries in those fields fail even if the JD mentions the US.
+
+pass_signals:
+  remote:
+    - remote
+    - work from home
+    - wfh
+    - distributed
+    - remote solely
+    - remote ok
+  us:
+    - united states
+    - usa
+    - u.s.
+    - u.s.a.
+    - us only
+    - remote us
+    - remote, us
+    - anywhere in the us
+
+fail_signals:
+  hybrid_onsite:
+    - hybrid
+    - onsite
+    - on-site
+    - in-office
+  non_us_geo:
+    - spain
+    - india
+    - brazil
+    - canada
+    - united kingdom
+    - uk
+    - europe
+    - latam
+    - emea
+    - apac

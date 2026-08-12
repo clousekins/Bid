@@ -1,0 +1,32 @@
+active_option: brian_gou
+options:
+- id: phong_v_cao
+  option_number: 1
+  label: Phong V Cao
+  persona_file: persona_identity/phong_v_cao.yml
+  prompt_file: persona_identity/phong_v_cao.prompt.md
+  enabled: true
+- id: brian_gou
+  option_number: 2
+  label: Brian Gou
+  persona_file: persona_identity/brian_gou.yml
+  prompt_file: persona_identity/brian_gou.prompt.md
+  enabled: true
+- id: andrew_nguyen
+  option_number: 3
+  label: Andrew Nguyen
+  persona_file: persona_identity/andrew_nguyen.yml
+  prompt_file: persona_identity/andrew_nguyen.prompt.md
+  enabled: true
+- id: bing_lin
+  option_number: 4
+  label: Bing Lin
+  persona_file: persona_identity/bing_lin.yml
+  prompt_file: persona_identity/bing_lin.prompt.md
+  enabled: true
+- id: long_nguyen
+  option_number: 5
+  label: Long Nguyen
+  persona_file: persona_identity/long_nguyen.yml
+  prompt_file: persona_identity/long_nguyen.prompt.md
+  enabled: true

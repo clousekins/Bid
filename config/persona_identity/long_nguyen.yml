@@ -1,0 +1,58 @@
+persona_id: long_nguyen
+display_name: Long Nguyen
+default_professional_title: Senior Software Engineer
+total_experience: "11+ years"
+
+identity:
+  legal_name: Long Nguyen
+  email: longnguyensnr@outlook.com
+  phone: "9295476426"
+  location_city: Tustin
+  location_state: CA
+  location_country: US
+  linkedin_url: https://www.linkedin.com/in/long-nguyen-8a0a9757/
+  work_authorization: "Authorized to work in the US"
+
+screening_answers:
+  - question: "Are you authorized to work in the United States?"
+    answer: "Yes"
+  - question: "Do you now or will you in the future require sponsorship?"
+    answer: "No"
+  - question: "How many years of experience do you have?"
+    answer: "11"
+  - question: "Current Employer"
+    answer: "Google"
+  - question: "Current Job Title"
+    answer: "Senior Software Engineer"
+
+tailor:
+  mode: html_resume_bundle
+  prompt_file: long_nguyen.prompt.md
+  css_file: long_nguyen.css
+  experience_ground_truth:
+    - company: Google
+      title: Senior Software Engineer
+      location: Irvine, California
+      start: "Apr 2024"
+      end: Present
+      note: Align title to TARGET_ROLE; keep Google domain (cloud, enterprise platforms, distributed systems)
+    - company: Google
+      title: Software Engineer
+      location: Los Angeles, California
+      start: "Jan 2021"
+      end: "Apr 2024"
+    - company: Arbor Networks
+      title: Software Engineer
+      location: Burlington, Massachusetts
+      start: "Aug 2015"
+      end: "Dec 2020"
+      note: Cybersecurity / network security / DDoS domain; align to TARGET_ROLE
+    - company: Arbor Networks
+      title: Software Engineer Intern
+      location: Burlington, Massachusetts
+      start: "May 2014"
+      end: "Aug 2015"
+  education_ground_truth:
+    - degree: Bachelor of Science in Computer Science
+      school: Worcester Polytechnic Institute
+      year: "2012 - 2015"

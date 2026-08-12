@@ -1,0 +1,376 @@
+persona_id: phong_v_cao
+display_name: Phong V Cao
+default_professional_title: Senior AI Software Engineer
+total_experience: "11+ years"
+
+identity:
+  legal_name: Phong V Cao
+  email: pvc.pc.ai@gmail.com
+  phone: "+1 (737) 378-2821"
+  address_line: "21717 Gallus Dr"
+  location_city: Pflugerville
+  location_state: TX
+  location_postal: "78660"
+  location_country: US
+  linkedin_url: https://www.linkedin.com/in/phcao/
+  github_url: https://github.com/phongvcao
+  work_authorization: "Authorized to work in the US"
+  citizenship: "US Citizen"
+  salary_expectation: "150000-180000 USD per year"
+  veteran_status: "I am not a protected veteran"
+  disability_status: "I do not have a disability"
+  gender: "Male"
+  ethnicity: "Asian"
+
+screening_answers:
+  - question: "Are you authorized to work in the United States?"
+    answer: "Yes"
+  - question: "Do you now or will you in the future require sponsorship?"
+    answer: "No"
+  - question: "Are you willing to work remotely in the United States?"
+    answer: "Yes"
+  - question: "How many years of experience do you have?"
+    answer: "11"
+  - question: "What is your expected salary?"
+    answer: "150000-180000 USD per year"
+  - question: "Are you a US Citizen?"
+    answer: "Yes"
+  - question: "Are you a U.S. citizen?"
+    answer: "Yes"
+  - question: "Work Authorization"
+    answer: "US Citizen"
+  - question: "Full Mailing Address"
+    answer: "21717 Gallus Dr Pflugerville, TX 78660"
+  - question: "Degree"
+    answer: "Bachelor's Degree"
+  - question: "Discipline"
+    answer: "Computer Science"
+  - question: "Current Employer"
+    answer: "NVIDIA"
+  - question: "Current Job Title"
+    answer: "Senior Software Engineer"
+  - question: "Are you open to Travel?"
+    answer: "Yes"
+  - question: "Were you referred for this position?"
+    answer: "No"
+  - question: "Gender identity"
+    answer: "Male"
+  - question: "racial/ethnic background"
+    answer: "Asian"
+  - question: "Do you have a disability"
+    answer: "No, I do not have a disability"
+  - question: "veteran"
+    answer: "I am not a protected veteran"
+  - question: "SMS"
+    answer: "Yes"
+  - question: "government agency experience"
+    answer: "No"
+
+
+tailor:
+  mode: strategist_resume
+  prompt_file: phong_v_cao.prompt.md
+  css_file: phong_v_cao.css
+  system_prompt: |
+    You are a senior technical resume strategist. Output ONLY the final resume.
+  skills_ground_truth:
+    programming_languages:
+      - Python
+      - C++
+      - SQL
+      - JavaScript
+      - TypeScript
+      - Bash
+    ai_and_machine_learning:
+      - Large Language Models
+      - Transformer Models
+      - PyTorch
+      - NVIDIA NeMo
+      - Distributed Training
+      - Fine-Tuning
+      - Post-Training Optimization
+      - Model Evaluation
+      - Prompt Evaluation
+      - Hallucination Analysis
+      - Safety Evaluation
+      - Feature Engineering
+      - Supervised Learning
+      - Unsupervised Learning
+      - Classification
+      - Ranking
+      - Anomaly Detection
+      - Explainable AI
+      - Weak Supervision
+      - Time-Series Analytics
+      - Graph-Based Machine Learning
+      - Drift Detection
+      - Model Monitoring
+    inference_and_model_serving:
+      - TensorRT-LLM
+      - Triton Inference Server
+      - NVIDIA NIM
+      - vLLM
+      - Quantization
+      - Continuous Batching
+      - Paged Attention
+      - KV-Cache Optimization
+      - Streaming Inference
+      - GPU-Aware Scheduling
+    distributed_and_gpu_systems:
+      - CUDA
+      - NCCL
+      - Multi-GPU Training
+      - Data Parallelism
+      - Tensor Parallelism
+      - Pipeline Parallelism
+      - Mixed Precision
+      - GPU Scheduling
+      - Distributed Checkpointing
+      - Fault Tolerance
+      - Elastic Recovery
+      - Multithreading
+      - Concurrency
+      - Performance Profiling
+    backend_and_data:
+      - Microservices
+      - REST APIs
+      - gRPC
+      - Event-Driven Architecture
+      - Apache Kafka
+      - Message Queues
+      - SQL
+      - ETL
+      - Data Pipelines
+      - Feature Pipelines
+      - Data Validation
+      - Telemetry Processing
+      - Time-Series Data
+      - Graph Processing
+    cloud_and_infrastructure:
+      - NVIDIA DGX Cloud
+      - Google Cloud Platform
+      - Kubernetes
+      - GKE
+      - Docker
+      - Slurm
+      - Linux
+      - CI/CD
+      - Git
+      - Infrastructure Automation
+    monitoring_and_observability:
+      - Prometheus
+      - Grafana
+      - Logging
+      - Metrics
+      - Distributed Tracing
+      - Model Observability
+      - Production Monitoring
+      - Performance Profiling
+      - Root-Cause Analysis
+    frontend:
+      - Angular
+      - TypeScript
+      - JavaScript
+      - HTML
+      - CSS
+  experience_ground_truth:
+    - company: NVIDIA
+      title: Senior Software Engineer
+      location: Austin, TX
+      start: "2024-05"
+      end: Present
+      tense: present
+      core_environment:
+        - Production-scale LLM training, evaluation, and inference
+        - NVIDIA DGX Cloud and distributed GPU infrastructure
+        - Python and C++ services and tooling
+        - PyTorch and NVIDIA NeMo training workflows
+        - CUDA and NCCL-based distributed execution
+        - Multi-node and multi-GPU workloads
+        - Data, tensor, and pipeline parallelism
+        - Distributed checkpointing and elastic recovery
+        - Training-data validation and experiment reproducibility
+        - Model-quality, safety, and regression evaluation
+        - TensorRT-LLM, Triton Inference Server, NVIDIA NIM, and optimized model serving
+        - Quantization using FP16, BF16, FP8, and lower-precision configurations
+        - Continuous batching, paged attention, and KV-cache optimization
+        - GPU-aware request scheduling
+        - Kubernetes and Slurm workload orchestration
+        - Prometheus, Grafana, logs, metrics, traces, and production monitoring
+      business_functions:
+        - Develop distributed training capabilities for transformer and LLM workloads running across DGX Cloud GPU clusters
+        - Optimize data-, tensor-, and pipeline-parallel execution by balancing memory consumption, communication overhead, batch size, sequence length, and useful training throughput
+        - Preserve model weights, optimizer state, learning-rate schedules, RNG state, and dataset progress through distributed checkpoints
+        - Recover interrupted multi-node training jobs without unnecessarily restarting complete experiments
+        - Detect unhealthy or persistently slow workers and classify failures
+        - Validate training data for malformed records, duplicates, outliers, tokenization issues, contamination, and distribution shifts
+        - Maintain deterministic configuration, versioned datasets, traceable artifacts, and reproducible experiments
+        - Compare checkpoints using perplexity, task accuracy, instruction-following, safety, hallucination rate, and domain evaluations
+        - Implement model-regression gates that prevent deployment when candidates degrade important tasks or safety categories
+        - Optimize model serving using TensorRT-LLM, Triton, NIM, quantization, continuous batching, paged attention, KV-cache reuse, and GPU-aware scheduling
+        - Profile prefill and decode phases across TTFT, inter-token latency, tokens/sec, concurrent sequences, and GPU memory
+        - Monitor input-token distribution, output length, batch formation, KV-cache pressure, safety-filter activity, latency, and quality regressions
+      adaptation_notes: >
+        Strongest evidence for LLM/GenAI, distributed training, GPU systems, evaluation,
+        serving, AI platforms, Python, C++, Kubernetes, performance, MLOps.
+        Do not assign consumer apps, ads, autonomous-driving, or unrelated domains to NVIDIA.
+      bullet_count: "8-10"
+    - company: Tesla
+      title: Senior Software Engineer
+      location: Austin, TX
+      start: "2023-05"
+      end: "2024-02"
+      tense: past
+      core_environment:
+        - Applied ML for manufacturing quality at Giga Texas
+        - High-volume equipment, process, inspection, component, and production data
+        - Python, SQL, PyTorch, and scikit-learn
+        - Event and data pipelines
+        - Anomaly detection and supervised classification
+        - Time-series and statistical feature engineering
+        - Severe class imbalance and cost-sensitive decisions
+        - Leakage-resistant validation and explainable AI
+        - Production integration with inspection, quality-hold, engineer-review, and rework
+        - Model monitoring, drift detection, feedback loops, and retraining
+        - Lightweight Angular and TypeScript interfaces where needed
+      business_functions:
+        - Identify manufacturing anomalies and predict quality risks from equipment and process data
+        - Join station measurements, telemetry, component lots, process parameters, and quality outcomes at unit level
+        - Engineer rolling averages, variance, baseline deviations, degradation trends, and process-component interactions
+        - Develop anomaly-detection and classification models for torque irregularities, degradation, cycle-time regressions, defect clusters, and rework risk
+        - Address class imbalance through weighting, stratified evaluation, threshold tuning, and cost-sensitive rules
+        - Prevent leakage by separating train/validation across time, lines, equipment, and lots
+        - Calibrate thresholds based on cost of missing defects versus unnecessary inspections
+        - Generate explanations for measurements, deviations, component attributes, and process stages
+        - Integrate outputs with controlled auditable physical-quality workflows
+        - Monitor feature availability, drift, prediction distributions, precision/recall, and engineer agreement
+      adaptation_notes: >
+        Strongest for applied ML, predictive analytics, industrial AI, anomaly detection,
+        time-series, feature engineering, explainability, Kafka, SQL, Python services, monitoring.
+        Do not describe autonomous-driving, vehicle-perception, robotics, battery-control, or FSD.
+      bullet_count: "6-8"
+    - company: Google
+      title: Software Engineer
+      location: Austin, TX
+      start: "2019-12"
+      end: "2023-03"
+      tense: past
+      core_environment:
+        - Google Cloud Network Intelligence Center
+        - Cloud-network diagnosis and recommendation systems
+        - GCP and GKE environments
+        - Large-scale configuration, topology, telemetry, and operational data
+        - VPCs, routes, firewall policies, VMs, load balancers, GKE, VPN tunnels, managed services
+        - Dependency graphs and graph processing
+        - Classification and ranking models with candidate generation
+        - Deterministic reachability and policy analysis
+        - Evidence-based root-cause findings, offline evaluation, shadow deployment
+      business_functions:
+        - Transform cloud configurations and operational signals into ranked root-cause findings and remediations
+        - Represent networks, routes, policies, compute, LBs, K8s, VPNs, and managed services as dependency graphs
+        - Generate features from topology, configuration relationships, resource state, changes, traffic, and recurrence
+        - Rank root causes by evidence strength, impact, historical frequency, and customer-service risk
+        - Combine statistical models with deterministic reachability checks and policy rules
+        - Build training labels from resolved incidents, support diagnoses, corrections, and feedback
+        - Narrow millions of relationships to candidate sets before expensive ranking
+        - Generate explanations identifying routes, firewall policies, dependencies, changes, or capacity conditions
+        - Evaluate with precision@K, recall@K, MRR, false-positive rate, and category coverage
+        - Run shadow evaluations before exposing recommendations to customers
+      adaptation_notes: >
+        Strong for GCP, GKE, distributed cloud, network intelligence, graph processing, ranking,
+        recommendation, backend APIs, observability, root-cause analysis.
+        Do not introduce Search, Ads, YouTube, Gmail, Maps, or unrelated consumer products.
+      bullet_count: "7-9"
+    - company: Arista Networks
+      title: Software Engineer
+      location: Santa Clara, CA
+      start: "2015-06"
+      end: "2019-12"
+      tense: past
+      core_environment:
+        - Arista CloudVision and EOS telemetry
+        - High-frequency network telemetry
+        - Interface state, routing changes, queue utilization, packet loss, flows, environmental conditions
+        - Streaming and time-series processing
+        - Statistical and unsupervised anomaly detection
+        - Topology and temporal event correlation
+        - Alert scoring, noise reduction, historical replay and backtesting
+      business_functions:
+        - Develop analytics from high-frequency EOS telemetry
+        - Align multi-device events while preserving ordering for incident analysis
+        - Normalize device-specific signals and handle missing telemetry
+        - Engineer features involving utilization, counter-change rates, route churn, flapping, queue pressure
+        - Detect unseen network behavior when labeled datasets are unavailable
+        - Establish baselines specific to devices, interfaces, roles, and time periods
+        - Correlate anomalies across topology and time; differentiate isolated vs shared upstream events
+        - Score alerts using magnitude, duration, recurrence, topology impact, and signal agreement
+        - Replay historical telemetry to evaluate detectors against recorded incidents
+        - Present prioritized anomalies and evidence through CloudVision
+      adaptation_notes: >
+        Strong for networking, observability, telemetry, streaming, Kafka, time-series,
+        anomaly detection, cloud infrastructure, event correlation, root-cause analysis.
+        Do not transform into unrelated financial, healthcare, ecommerce, or consumer work.
+      bullet_count: "6-8"
+    - company: Stony Brook University
+      title: Research Assistant
+      location: Stony Brook, NY
+      start: "2014-09"
+      end: "2015-01"
+      tense: past
+      concise: true
+      business_functions:
+        - Built Python pipelines to collect, clean, validate, and transform research data
+        - Automated experiments and result aggregation with reproducible analytical workflows
+        - Collaborated with faculty and students to turn research questions into measurable experiments
+      bullet_count: "2-3"
+    - company: Stony Brook University
+      title: Web Developer
+      location: Stony Brook, NY
+      start: "2014-05"
+      end: "2014-09"
+      tense: past
+      concise: true
+      business_functions:
+        - Developed a data-driven university application using Python, JavaScript, and Angular
+        - Built reusable backend capabilities for validation, transformation, retrieval, and integration
+        - Created searchable/filterable interfaces with structured error handling and end-to-end testing
+      bullet_count: "2-3"
+  education_ground_truth:
+    - institution: Stony Brook University
+      degree: Bachelor of Science in Computer Science
+      location: Stony Brook, NY
+      start: "2012-08"
+      end: "2015-05"
+  projects_ground_truth:
+    - name: Distributed LLM Training and Recovery
+      technologies: [Python, C++, PyTorch, NeMo, NCCL, Slurm, Kubernetes]
+      capabilities:
+        - Multi-node transformer training
+        - Distributed checkpointing and experiment tracking
+        - Failure injection and unhealthy-worker detection
+        - Automatic recovery and parallel-strategy benchmarking
+        - Measurement of useful progress, checkpoint overhead, lost iterations, detection latency, restart time
+    - name: Optimized LLM Inference and Evaluation
+      technologies: [Python, TensorRT-LLM, Triton, vLLM, Kubernetes]
+      capabilities:
+        - Streaming APIs with continuous batching and KV-cache reuse
+        - Quantization, autoscaling, request-level observability
+        - TTFT, inter-token latency, throughput, concurrency, memory, cost benchmarking
+        - Task-quality and safety evaluations, canaries, version routing, rollback
+    - name: Industrial Anomaly Detection
+      technologies: [Python, PyTorch, scikit-learn, SQL, Kafka]
+      capabilities:
+        - Time-aware training pipelines and event-stream processing
+        - Class imbalance, delayed labels, leakage prevention, drift
+        - Threshold calibration, asymmetric costs, human review, lineage
+    - name: Cloud Network Diagnosis Platform
+      technologies: [Python, GCP, graph processing, classification, ranking, cloud telemetry]
+      capabilities:
+        - Dependency graphs, configuration/telemetry ingestion
+        - Reachability analysis, candidate generation, ranking, shadow evaluation
+    - name: Secure AI Deployment Pipeline
+      use_when: [AI-platform, DevSecOps, cybersecurity, MLOps, software-supply-chain]
+      capabilities:
+        - Automated build/test/model-validation/container-scanning/deploy/rollback
+        - Versioned code, configs, datasets, containers, model artifacts
+        - K8s deployment policies, least-privilege identities, security gates, audit history

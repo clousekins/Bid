@@ -1,0 +1,49 @@
+from __future__ import annotations
+
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+
+from app.config import get_settings
+from app.services.octo import browser_diag
+from app.services.persona import get_active_persona_id, list_personas, set_active_persona
+
+router = APIRouter(prefix="/api/settings", tags=["settings"])
+
+
+class PersonaActivate(BaseModel):
+    persona_id: str
+
+
+@router.get("")
+async def get_settings_api():
+    s = get_settings()
+    return {
+        "openai_model": s.openai_model,
+        "auto_submit": s.auto_submit,
+        "octo_enabled": s.octo_enabled,
+        "octo_api_url": s.octo_api_url,
+        "octo_profile_configured": bool(s.octo_profile_uuid),
+        "browser_cdp_configured": bool(s.browser_cdp_url),
+        "apply_allow_launch_chromium": s.apply_allow_launch_chromium,
+        "active_persona": get_active_persona_id(),
+        "access_token_enabled": bool(s.access_token),
+    }
+
+
+@router.get("/browser-diag")
+async def settings_browser_diag():
+    return await browser_diag()
+
+
+@router.get("/personas")
+async def settings_personas():
+    return {"personas": list_personas(), "active": get_active_persona_id()}
+
+
+@router.post("/personas/activate")
+async def activate_persona(body: PersonaActivate):
+    try:
+        set_active_persona(body.persona_id)
+    except ValueError as exc:
+        raise HTTPException(400, detail=str(exc)) from exc
+    return {"active": get_active_persona_id()}

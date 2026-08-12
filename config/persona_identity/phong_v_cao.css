@@ -1,0 +1,158 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: 'Calibri', 'Segoe UI', 'Trebuchet MS', sans-serif;
+    font-size: 12.5px;
+    color: #1c1c1c;
+    background: #fff;
+    line-height: 1.5;
+    margin: 28px 32px;
+}
+.resume { max-width: 100%; }
+
+/* Header */
+.header {
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 2.5px solid #0f4c5c;
+}
+.name {
+    font-family: 'Calibri', 'Segoe UI', sans-serif;
+    font-size: 28px;
+    font-weight: 700;
+    color: #0f4c5c;
+    letter-spacing: 0.8px;
+    margin-bottom: 3px;
+}
+.title {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #e36414;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+}
+.contact {
+    font-size: 11.5px;
+    color: #444;
+    line-height: 1.45;
+}
+.contact a {
+    color: #0f4c5c;
+    text-decoration: none;
+}
+.contact .sep { color: #99a; margin: 0 4px; }
+
+/* Sections */
+.section { margin-top: 14px; }
+.section-title {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #0f4c5c;
+    border-bottom: 1.5px solid #0f4c5c;
+    padding-bottom: 3px;
+    margin-bottom: 8px;
+}
+.summary {
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: #222;
+    text-align: justify;
+}
+
+/* Jobs */
+.job { margin-bottom: 12px; }
+.job-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 1px;
+}
+.job-company {
+    font-size: 13px;
+    font-weight: 700;
+    color: #0f4c5c;
+}
+.job-role {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #1c1c1c;
+}
+.job-meta {
+    font-size: 11.5px;
+    color: #e36414;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.job-location {
+    font-size: 11.5px;
+    color: #555;
+    margin-bottom: 3px;
+}
+
+ul {
+    padding-left: 0;
+    margin-top: 4px;
+    list-style: none;
+}
+li {
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: #1c1c1c;
+    margin-bottom: 3px;
+    padding-left: 14px;
+    position: relative;
+}
+li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: #e36414;
+    font-size: 14px;
+    line-height: 1;
+    top: 0;
+}
+strong { font-weight: 700; color: #1c1c1c; }
+
+/* Skills */
+.skills p,
+.skills li {
+    font-size: 12.5px;
+    line-height: 1.5;
+}
+.skills strong { color: #0f4c5c; }
+
+/* Education */
+.edu { margin-bottom: 6px; }
+.edu-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+}
+.edu-degree { font-size: 13px; font-weight: 700; color: #1c1c1c; }
+.edu-school { font-size: 12px; color: #555; font-style: italic; }
+.edu-date { font-size: 11.5px; color: #e36414; font-weight: 600; white-space: nowrap; }
+
+/* Cover letter / fallback headings from raw markdown */
+h1 {
+    font-size: 28px;
+    font-weight: 700;
+    color: #0f4c5c;
+    margin: 0 0 6px;
+}
+h2 {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #0f4c5c;
+    border-bottom: 1.5px solid #0f4c5c;
+    padding-bottom: 3px;
+    margin: 14px 0 8px;
+}
+h3 { font-size: 13px; font-weight: 700; margin: 10px 0 2px; color: #1c1c1c; }
+p { margin: 4px 0; }
+.meta { color: #444; margin-bottom: 10px; font-size: 11.5px; }

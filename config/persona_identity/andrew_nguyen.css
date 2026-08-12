@@ -1,0 +1,69 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: 'Georgia', 'Times New Roman', 'Garamond', serif;
+    font-size: 12.5px; color: #1c1c1c; background: #fff; line-height: 1.55;
+}
+.resume { max-width: 100%; }
+
+/* Header */
+.header { text-align: left; margin-bottom: 10px; border-left: 4px solid #1a3a5c; padding-left: 14px; }
+.name {
+    font-family: 'Georgia', 'Garamond', serif;
+    font-size: 30px; font-weight: 700; color: #1a3a5c;
+    letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 2px;
+}
+.title {
+    font-size: 11.5px; font-weight: 400; color: #4a6a8a;
+    letter-spacing: 2.5px; text-transform: uppercase; margin-bottom: 5px;
+    font-family: 'Georgia', serif; font-style: italic;
+}
+.contact { font-size: 11.5px; color: #555; margin-bottom: 0; }
+.contact a { color: #1a3a5c; text-decoration: none; }
+.header-rule { height: 2px; background: linear-gradient(to right, #1a3a5c 60%, #c8d8e8 100%); width: 100%; margin-top: 8px; }
+
+/* Section */
+.section { margin-top: 11px; }
+.section-title {
+    font-size: 10px; font-weight: 700; letter-spacing: 3px;
+    text-transform: uppercase; color: #1a3a5c;
+    margin-bottom: 6px; padding-bottom: 2px;
+    border-bottom: 1px solid #1a3a5c;
+    font-family: 'Georgia', serif;
+}
+
+/* Summary */
+.summary { font-size: 12.5px; line-height: 1.6; color: #222; text-align: justify; font-family: 'Georgia', serif; }
+
+/* Jobs */
+.job { margin-bottom: 10px; }
+.job-header {
+    display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 1px;
+}
+.job-role { font-size: 12px; font-weight: 700; color: #1c1c1c; font-family: 'Georgia', serif; }
+.job-company { color: #1a3a5c; font-weight: 700; font-style: italic; }
+.job-date { font-size: 11px; color: #4a6a8a; font-weight: 600; white-space: nowrap; font-family: 'Georgia', serif; }
+.job-location { font-size: 11px; color: #666; margin-bottom: 3px; }
+
+ul { padding-left: 0; margin-top: 3px; list-style: none; }
+li {
+    font-size: 12.5px; line-height: 1.5; color: #1c1c1c;
+    margin-bottom: 3px; padding-left: 14px; position: relative;
+    font-family: 'Georgia', serif;
+}
+li::before {
+    content: "▸"; position: absolute; left: 0;
+    color: #1a3a5c; font-size: 9px; top: 2px;
+}
+strong { font-weight: 700; color: #1c1c1c; }
+
+/* Skills */
+.skills p { font-size: 12.5px; line-height: 1.5; margin-bottom: 3px; display: flex; font-family: 'Georgia', serif; }
+.skills strong { color: #1a3a5c; white-space: nowrap; margin-right: 5px; min-width: 210px; flex-shrink: 0; font-style: normal; }
+.skills span { flex: 1; color: #333; }
+
+/* Education */
+.edu-item { margin-bottom: 4px; }
+.edu-row { display: flex; justify-content: space-between; align-items: baseline; }
+.edu-degree { font-size: 13px; font-weight: 700; color: #1c1c1c; font-family: 'Georgia', serif; }
+.edu-date { font-size: 11px; color: #4a6a8a; font-weight: 600; white-space: nowrap; }
+.edu-school { font-size: 12px; color: #555; font-style: italic; font-family: 'Georgia', serif; }
