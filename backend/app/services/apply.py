@@ -609,6 +609,7 @@ async def mark_job_applied(
             url=job.apply_url or job.url,
             persona_id=apply_persona,
             job_id=job.id,
+            location=job.location,
         )
         if sheet_result.get("sheet"):
             sheet_msg = "Logged to Google Sheet (title / company / link)"

@@ -10,11 +10,32 @@ const emptyForm = {
   description: "",
 };
 
+function resumeReadyFromJob(job, personaId) {
+  const pkg = (job?.packages || []).find((p) => p.persona_id === personaId);
+  return Boolean(pkg && ["resume_ready", "applying", "applied"].includes(pkg.status));
+}
+
+function tailorFromJob(job, personaId) {
+  const pkg = (job?.packages || []).find((p) => p.persona_id === personaId);
+  if (!resumeReadyFromJob(job, personaId)) return null;
+  return {
+    ok: true,
+    resume_folder: pkg.folder_path,
+    folder: pkg.folder_path,
+    package: pkg,
+    job,
+  };
+}
+
 export default function ManualApplyModal({
   open,
+  openKey = 0,
   workingPersonaId,
+  resumeJob,
+  prepItem,
   onClose,
   onCreated,
+  onQueueGenerate,
   onAssistedApply,
 }) {
   const [form, setForm] = useState(emptyForm);
@@ -27,21 +48,123 @@ export default function ManualApplyModal({
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
   const [urlInferred, setUrlInferred] = useState(false);
+  const [jobListed, setJobListed] = useState(false);
   const answersPanelRef = useRef(null);
+  const handledReadyKey = useRef("");
+  const hydrateKey = `${open}:${openKey}:${workingPersonaId || ""}`;
 
   useEffect(() => {
     if (!open) return;
-    setForm(emptyForm);
-    setJob(null);
-    setTailorResult(null);
-    setQuestionsText("");
-    setAnswers([]);
-    setSavedQaFolder("");
-    setBusy("");
-    setError("");
-    setStatus("");
-    setUrlInferred(false);
-  }, [open, workingPersonaId]);
+    let cancelled = false;
+
+    const hydrate = async () => {
+      handledReadyKey.current = "";
+      setError("");
+      setBusy("");
+      setUrlInferred(false);
+      if (!resumeJob?.id) {
+        setForm(emptyForm);
+        setJob(null);
+        setTailorResult(null);
+        setQuestionsText("");
+        setAnswers([]);
+        setSavedQaFolder("");
+        setStatus("");
+        setJobListed(false);
+        return;
+      }
+
+      let full = resumeJob;
+      try {
+        full = await client.getJob(resumeJob.id);
+      } catch {
+        full = resumeJob;
+      }
+      if (cancelled) return;
+
+      setJob(full);
+      setJobListed(true);
+      setForm({
+        company: full.company || "",
+        title: full.title || "",
+        url: full.url || "",
+        location: full.location || "",
+        description: full.description || "",
+      });
+      setTailorResult(tailorFromJob(full, workingPersonaId));
+      setStatus(
+        resumeReadyFromJob(full, workingPersonaId)
+          ? `Resume already on file for #${full.seq_no}. Paste questions to generate answers, or regenerate if needed.`
+          : `Continuing #${full.seq_no} ${full.company} — ${full.title}. JD is saved; generate the resume when ready.`
+      );
+
+      try {
+        const qa = await client.getJobQa(full.id, workingPersonaId);
+        if (cancelled) return;
+        if (qa.questions?.length) setQuestionsText(qa.questions.join("\n"));
+        else setQuestionsText("");
+        setAnswers(qa.answers || []);
+        setSavedQaFolder(qa.folder || "");
+      } catch (e) {
+        if (!cancelled) logPoong("manual qa hydrate fail", e);
+      }
+    };
+
+    hydrate();
+    return () => {
+      cancelled = true;
+    };
+  }, [hydrateKey]);
+
+  useEffect(() => {
+    if (!open || !job?.id || !prepItem) return;
+    if (prepItem.jobId && prepItem.jobId !== job.id) return;
+
+    if (prepItem.status === "queued" || prepItem.status === "running") {
+      handledReadyKey.current = "";
+      setBusy("tailor");
+      setStatus(
+        `Resume generating in the background (${prepItem.pct || 8}%). ` +
+          "Close this window anytime and start another Manual apply — this job keeps going."
+      );
+      return;
+    }
+
+    if (prepItem.status === "failed") {
+      setBusy("");
+      setError(prepItem.error || "Resume generation failed");
+      return;
+    }
+
+    if (prepItem.status === "ready" && handledReadyKey.current !== prepItem.key) {
+      handledReadyKey.current = prepItem.key;
+      (async () => {
+        try {
+          const full = await client.getJob(job.id);
+          setJob(full);
+          setForm((prev) => ({
+            ...prev,
+            company: full.company || prev.company,
+            title: full.title || prev.title,
+            url: full.url || prev.url,
+            location: full.location || prev.location,
+            description: full.description || prev.description,
+          }));
+          const next = tailorFromJob(full, workingPersonaId);
+          setTailorResult(next || { ok: true, job: full, resume_folder: full.folder_path });
+          setBusy("");
+          setStatus(
+            `Resume ready for #${full.seq_no} ${full.company}. ` +
+              "Paste questions and generate answers — JD and resume are still here."
+          );
+          await onCreated?.(full);
+        } catch (e) {
+          setBusy("");
+          setError(String(e.message || e));
+        }
+      })();
+    }
+  }, [open, job?.id, prepItem?.key, prepItem?.status, prepItem?.pct, prepItem?.error, prepItem?.jobId, workingPersonaId, onCreated]);
 
   useEffect(() => {
     if (!answers.length) return;
@@ -52,30 +175,26 @@ export default function ManualApplyModal({
 
   const activePersonaId = workingPersonaId || "";
   const profileName = shortPersona(activePersonaId);
+  const generating = Boolean(
+    busy === "tailor" ||
+      (prepItem &&
+        (prepItem.status === "queued" || prepItem.status === "running") &&
+        (!prepItem.jobId || prepItem.jobId === job?.id))
+  );
+  const resumeReady = Boolean(tailorResult?.ok) || resumeReadyFromJob(job, activePersonaId);
   const resumeFolder =
     tailorResult?.resume_folder ||
     tailorResult?.folder ||
     tailorResult?.package?.folder_path ||
     savedQaFolder ||
     "";
+  const listed = Boolean(job) || jobListed;
+  const formBusy = Boolean(busy) && busy !== "tailor";
+  const pct = generating ? prepItem?.pct || 12 : resumeReady ? 100 : 0;
 
   const setField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
-  const reset = () => {
-    setForm(emptyForm);
-    setJob(null);
-    setTailorResult(null);
-    setQuestionsText("");
-    setAnswers([]);
-    setSavedQaFolder("");
-    setBusy("");
-    setError("");
-    setStatus("");
-    setUrlInferred(false);
-  };
-
   const close = () => {
-    reset();
     onClose?.();
   };
 
@@ -103,6 +222,7 @@ export default function ManualApplyModal({
       });
       const saved = res.job;
       setJob(saved);
+      setJobListed(true);
       setTailorResult(null);
       setAnswers([]);
       setSavedQaFolder("");
@@ -115,9 +235,10 @@ export default function ManualApplyModal({
         location: saved.location || prev.location || "Remote, US",
       }));
       setStatus(
-        `Added #${saved.seq_no} ${saved.company} — ${saved.title}` +
+        `Job listed as #${saved.seq_no} ${saved.company} — ${saved.title}. ` +
+          "No resume files yet — click Generate resume next." +
           (res.url_inferred
-            ? " (no URL found in JD — placeholder set; edit URL before assisted apply)"
+            ? " No URL found in JD — placeholder set; edit URL before assisted apply."
             : "")
       );
       await onCreated?.(saved);
@@ -138,26 +259,51 @@ export default function ManualApplyModal({
       current = await prepareJob();
       if (!current) return;
     }
+    if (generating) return;
     setBusy("tailor");
+    setStatus(
+      "Queued resume generation. You can wait here, or Close and start another Manual apply — progress stays in the In flight strip."
+    );
     try {
-      const res = await client.manualTailor({
-        job_id: current.id,
-        persona_id: activePersonaId,
+      await onQueueGenerate?.(current);
+      await onCreated?.(current);
+    } catch (e) {
+      setBusy("");
+      setError(String(e.message || e));
+      logPoong("manual-tailor queue fail", e);
+    }
+  };
+
+  const saveJobDetails = async () => {
+    if (!job?.id) {
+      setError("Add the job to the list first, then you can edit and save details.");
+      return;
+    }
+    setError("");
+    setBusy("save");
+    try {
+      const updated = await client.patchJob(job.id, {
+        company: form.company.trim(),
+        title: form.title.trim(),
+        url: form.url.trim(),
+        location: form.location.trim(),
       });
-      if (!res.ok) {
-        throw new Error(res.reason || "tailor_failed");
-      }
-      setTailorResult(res);
-      if (res.job) setJob(res.job);
-      const folder = res.resume_folder || res.folder || "";
+      setJob(updated);
+      setForm((prev) => ({
+        ...prev,
+        company: updated.company || prev.company,
+        title: updated.title || prev.title,
+        url: updated.url || prev.url,
+        location: updated.location || prev.location,
+      }));
+      setUrlInferred(false);
       setStatus(
-        `Resume ready as ${res.persona_id || activePersonaId}` +
-          (folder ? `\nSaved to: ${folder}` : "")
+        `Updated job #${updated.seq_no}: ${updated.company} — ${updated.title}\nURL: ${updated.url}`
       );
-      await onCreated?.(res.job || current);
+      await onCreated?.(updated);
     } catch (e) {
       setError(String(e.message || e));
-      logPoong("manual-tailor fail", e);
+      logPoong("manual-save-fields fail", e);
     } finally {
       setBusy("");
     }
@@ -174,7 +320,7 @@ export default function ManualApplyModal({
       current = await prepareJob();
       if (!current) return;
     }
-    if (!tailorResult?.ok) {
+    if (!resumeReady) {
       setError("Generate the resume first so answers can use it.");
       return;
     }
@@ -220,7 +366,7 @@ export default function ManualApplyModal({
       setError("Save/generate the job first.");
       return;
     }
-    if (!tailorResult?.ok) {
+    if (!resumeReady) {
       setError("Generate the resume first, then Assisted apply can upload it.");
       return;
     }
@@ -250,20 +396,84 @@ export default function ManualApplyModal({
   };
 
   return (
-    <div className="modal-backdrop" onClick={close}>
-      <div className="modal manual-apply-modal" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-backdrop">
+      <div className="modal manual-apply-modal">
         <div className="manual-apply-head">
-          <h3 style={{ margin: 0 }}>Manual apply · {profileName}</h3>
+          <h3 style={{ margin: 0 }}>
+            {resumeJob?.id ? "Continue apply" : "Manual apply"} · {profileName}
+          </h3>
           <button type="button" onClick={close}>
-            Close
+            {generating ? "Close & keep generating" : "Close"}
           </button>
         </div>
         <p className="muted">
-          1) Paste the full JD (URL can be in the JD or the URL field). 2) Click{" "}
-          <strong>Add to job list</strong> or <strong>Generate resume</strong> — that is when
-          company / title / URL / location auto-fill. 3) Paste application questions, then{" "}
-          <strong>Generate answers</strong> — they appear below and are saved in the job folder.
+          1) Paste the full JD. 2) <strong>Add to job list</strong> only saves the job.
+          <strong> Generate resume</strong> runs in the background — close and start another job
+          anytime. 3) Come back here to generate answers from the saved JD + resume.
         </p>
+
+        <div className="manual-flow-status" aria-label="Manual apply progress">
+          <div className={`manual-flow-step ${listed ? "done" : "idle"}`}>
+            <span className="manual-flow-dot" />
+            <div>
+              <strong>1. Job list</strong>
+              <span>
+                {listed
+                  ? `Saved #${job?.seq_no} ${job?.company || ""} — in the main jobs table`
+                  : "Not added yet"}
+              </span>
+            </div>
+          </div>
+          <div
+            className={`manual-flow-step ${
+              resumeReady ? "done" : generating ? "next" : listed ? "next" : "idle"
+            }`}
+          >
+            <span className="manual-flow-dot" />
+            <div>
+              <strong>2. Resume</strong>
+              <span>
+                {resumeReady
+                  ? "Generated — files are in the job folder"
+                  : generating
+                    ? `Generating… ${pct}%`
+                    : listed
+                      ? "Job is listed; generate the resume next"
+                      : "Waiting for job list"}
+              </span>
+            </div>
+          </div>
+          <div
+            className={`manual-flow-step ${
+              answers.length ? "done" : resumeReady ? "next" : "idle"
+            }`}
+          >
+            <span className="manual-flow-dot" />
+            <div>
+              <strong>3. Answers</strong>
+              <span>
+                {answers.length
+                  ? `${answers.length} answer(s) ready to copy`
+                  : resumeReady
+                    ? "Paste questions, then generate"
+                    : "After the resume"}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {generating || (listed && !resumeReady) ? (
+          <div className={`manual-live-bar ${generating ? "active" : ""}`}>
+            <div className="manual-live-bar-track" aria-hidden>
+              <span style={{ width: `${generating ? pct : 0}%` }} />
+            </div>
+            <div className="manual-live-bar-copy">
+              {generating
+                ? `Working on #${job?.seq_no} ${job?.company || ""} — close this and apply to the next one.`
+                : "Resume not generated yet."}
+            </div>
+          </div>
+        ) : null}
 
         {error ? <div className="error-banner">{error}</div> : null}
         {status ? (
@@ -277,7 +487,7 @@ export default function ManualApplyModal({
           <textarea
             rows={9}
             value={form.description}
-            disabled={Boolean(busy)}
+            disabled={formBusy}
             onChange={(e) => setField("description", e.target.value)}
             placeholder="Paste the full JD here. Click Add / Generate resume to auto-fill fields below."
           />
@@ -288,7 +498,7 @@ export default function ManualApplyModal({
             Company (auto after Add / Generate)
             <input
               value={form.company}
-              disabled={Boolean(busy)}
+              disabled={formBusy}
               onChange={(e) => setField("company", e.target.value)}
               placeholder="Extracted from JD"
             />
@@ -297,7 +507,7 @@ export default function ManualApplyModal({
             Title (auto after Add / Generate)
             <input
               value={form.title}
-              disabled={Boolean(busy)}
+              disabled={formBusy}
               onChange={(e) => setField("title", e.target.value)}
               placeholder="Extracted from JD"
             />
@@ -308,7 +518,7 @@ export default function ManualApplyModal({
           Job / apply URL (auto after Add / Generate)
           <input
             value={form.url}
-            disabled={Boolean(busy)}
+            disabled={formBusy}
             onChange={(e) => {
               setField("url", e.target.value);
               setUrlInferred(false);
@@ -324,31 +534,38 @@ export default function ManualApplyModal({
           Location (auto after Add / Generate)
           <input
             value={form.location}
-            disabled={Boolean(busy)}
+            disabled={formBusy}
             onChange={(e) => setField("location", e.target.value)}
             placeholder="Remote, US"
           />
         </label>
 
         <div className="modal-actions">
-          <button type="button" disabled={Boolean(busy)} onClick={prepareJob}>
+          <button type="button" disabled={formBusy || generating} onClick={prepareJob}>
             {busy === "prepare" ? "Saving…" : "Add to job list"}
+          </button>
+          <button type="button" disabled={formBusy || !job} onClick={saveJobDetails}>
+            {busy === "save" ? "Saving details…" : "Save job details"}
           </button>
           <button
             type="button"
             className="primary"
-            disabled={Boolean(busy)}
+            disabled={formBusy || generating}
             onClick={generateResume}
           >
-            {busy === "tailor" ? "Generating resume…" : "Generate resume"}
+            {generating
+              ? `Generating… ${pct}%`
+              : resumeReady
+                ? "Regenerate resume"
+                : "Generate resume"}
           </button>
-          <button type="button" disabled={Boolean(busy) || !job} onClick={openJobPage}>
+          <button type="button" disabled={!job} onClick={openJobPage}>
             Open job page
           </button>
           <button
             type="button"
             className="primary"
-            disabled={Boolean(busy) || !job || !tailorResult?.ok}
+            disabled={formBusy || !job || !resumeReady}
             onClick={startAssisted}
           >
             Assisted apply
@@ -380,7 +597,7 @@ export default function ManualApplyModal({
           <textarea
             rows={7}
             value={questionsText}
-            disabled={Boolean(busy)}
+            disabled={formBusy}
             onChange={(e) => setQuestionsText(e.target.value)}
             placeholder={
               "Paste one question per line, e.g.\nYears of Python experience?\nAre you authorized to work in the US?\nWhy are you interested in this role?"
@@ -392,13 +609,13 @@ export default function ManualApplyModal({
           <button
             type="button"
             className="primary"
-            disabled={Boolean(busy)}
+            disabled={formBusy || generating || !resumeReady}
             onClick={generateAnswers}
           >
             {busy === "answers" ? "Generating answers…" : "Generate answers"}
           </button>
           {answers.length ? (
-            <button type="button" disabled={Boolean(busy)} onClick={copyAll}>
+            <button type="button" disabled={formBusy} onClick={copyAll}>
               Copy all Q&A
             </button>
           ) : null}

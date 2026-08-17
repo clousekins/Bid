@@ -1,5 +1,110 @@
+import { useEffect, useState } from "react";
 import { personaLabel } from "../utils/persona.js";
 import { packageStatusLabel, pipelineLabel } from "../utils/statusLabels.js";
+
+function EditableField({
+  label,
+  value,
+  field,
+  multiline = false,
+  href = false,
+  extra,
+  onSave,
+  busy,
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value || "");
+
+  useEffect(() => {
+    if (!editing) setDraft(value || "");
+  }, [value, editing]);
+
+  const save = async () => {
+    const next = draft.trim();
+    if (next === (value || "").trim()) {
+      setEditing(false);
+      return;
+    }
+    await onSave(field, next);
+    setEditing(false);
+  };
+
+  return (
+    <div className="detail-row">
+      <span className="detail-label">{label}</span>
+      <div className="detail-edit-wrap">
+        {editing ? (
+          <>
+            {multiline ? (
+              <textarea
+                className="detail-edit-input"
+                rows={2}
+                value={draft}
+                autoFocus
+                disabled={busy}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setEditing(false);
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) save();
+                }}
+              />
+            ) : (
+              <input
+                className="detail-edit-input"
+                value={draft}
+                autoFocus
+                disabled={busy}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") save();
+                  if (e.key === "Escape") setEditing(false);
+                }}
+              />
+            )}
+            <button type="button" className="detail-edit-save" disabled={busy} onClick={save}>
+              Save
+            </button>
+            <button type="button" disabled={busy} onClick={() => setEditing(false)}>
+              Cancel
+            </button>
+          </>
+        ) : (
+          <>
+            {href && value ? (
+              <a
+                className="detail-link cell-ellipsis"
+                href={value}
+                target="_blank"
+                rel="noreferrer"
+                title={value}
+              >
+                {value}
+              </a>
+            ) : (
+              <span className="detail-value">
+                {value || "—"}
+                {extra}
+              </span>
+            )}
+            <button
+              type="button"
+              className="detail-pencil"
+              title={`Edit ${label.toLowerCase()}`}
+              aria-label={`Edit ${label}`}
+              disabled={busy}
+              onClick={() => {
+                setDraft(value || "");
+                setEditing(true);
+              }}
+            >
+              ✎
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function JobDetail({
   job,
@@ -12,7 +117,12 @@ export default function JobDetail({
   onMarkApplied,
   onBlock,
   onDelete,
+  onUpdateFields,
+  onContinueManual,
+  generating = false,
 }) {
+  const [saving, setSaving] = useState(false);
+
   if (!job) {
     return (
       <div className="panel detail detail-empty work-panel">
@@ -29,6 +139,16 @@ export default function JobDetail({
   const workingLabel = personaLabel(workingPersonaId);
   const myStatus = workingPackage?.status || "need_resume";
 
+  const saveField = async (field, next) => {
+    if (!onUpdateFields) return;
+    setSaving(true);
+    try {
+      await onUpdateFields({ [field]: next });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="panel detail work-panel">
       <div className="panel-head">
@@ -38,6 +158,7 @@ export default function JobDetail({
         <span className={`pill package-status status-strong ${myStatus}`}>
           {packageStatusLabel(myStatus)}
         </span>
+        {generating ? <span className="pill generating">Generating</span> : null}
       </div>
 
       <div className="detail-body">
@@ -49,35 +170,40 @@ export default function JobDetail({
           <span className="detail-label">Pipeline</span>
           <span className={`pill ${job.status}`}>{pipelineLabel(job.status)}</span>
         </div>
-        <div className="detail-row">
-          <span className="detail-label">Company</span>
-          <span className="detail-value">
-            {job.company}
-            {job.staffing_firm ? (
+        <EditableField
+          label="Company"
+          field="company"
+          value={job.company}
+          extra={
+            job.staffing_firm ? (
               <span className="muted"> (via {job.staffing_firm})</span>
-            ) : null}
-          </span>
-        </div>
-        <div className="detail-row">
-          <span className="detail-label">Title</span>
-          <span className="detail-value">{job.title}</span>
-        </div>
-        <div className="detail-row">
-          <span className="detail-label">Location</span>
-          <span className="detail-value">{job.location || "—"}</span>
-        </div>
-        <div className="detail-row">
-          <span className="detail-label">URL</span>
-          <a
-            className="detail-link cell-ellipsis"
-            href={job.url}
-            target="_blank"
-            rel="noreferrer"
-            title={job.url}
-          >
-            {job.url}
-          </a>
-        </div>
+            ) : null
+          }
+          onSave={saveField}
+          busy={saving}
+        />
+        <EditableField
+          label="Title"
+          field="title"
+          value={job.title}
+          onSave={saveField}
+          busy={saving}
+        />
+        <EditableField
+          label="Location"
+          field="location"
+          value={job.location || ""}
+          onSave={saveField}
+          busy={saving}
+        />
+        <EditableField
+          label="URL"
+          field="url"
+          value={job.url}
+          href
+          onSave={saveField}
+          busy={saving}
+        />
         <div className="detail-row">
           <span className="detail-label">Folder</span>
           <span className="detail-mono cell-ellipsis" title={job.folder_path || ""}>
@@ -120,11 +246,16 @@ export default function JobDetail({
       </div>
 
       <div className="actions">
+        {onContinueManual ? (
+          <button type="button" className="primary" onClick={onContinueManual}>
+            Continue apply
+          </button>
+        ) : null}
         <button type="button" className="primary" onClick={onGenerate}>
           Generate for {workingLabel}
         </button>
         <button type="button" onClick={onAssistedApply}>
-          Apply as {workingLabel}
+          Assisted apply
         </button>
         <button type="button" onClick={onOpenJd}>
           Open JD

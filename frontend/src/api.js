@@ -68,6 +68,8 @@ export const client = {
     return res.json();
   },
   getJob: (id) => api(`/api/jobs/${id}`),
+  getJobQa: (id, persona_id) =>
+    api(`/api/jobs/${id}/qa?${new URLSearchParams({ persona_id })}`),
   deleteJob: (id) => api(`/api/jobs/${id}`, { method: "DELETE" }),
   deleteJobsRange: (body) =>
     api("/api/jobs/delete-range", { method: "POST", json: body }),
@@ -78,6 +80,11 @@ export const client = {
     api(`/api/jobs/${id}/status`, {
       method: "PATCH",
       json: { status, ...extra },
+    }),
+  patchJob: (id, fields) =>
+    api(`/api/jobs/${id}`, {
+      method: "PATCH",
+      json: fields,
     }),
   blockCompany: (id) => api(`/api/jobs/${id}/block-company`, { method: "POST" }),
   deepScanOne: (id) => api(`/api/jobs/${id}/deep-scan`, { method: "POST" }),

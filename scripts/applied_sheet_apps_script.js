@@ -10,7 +10,7 @@
  * 4. Copy the Web App URL into .env as:
  *    APPLIED_SHEETS_WEBHOOK_URL=https://script.google.com/macros/s/.../exec
  *
- * POONG will POST JSON: { title, company, url, persona_id, timestamp }
+ * POONG will POST JSON: { title, company, url, location, persona_id, timestamp }
  * and append a row to the configured tab.
  */
 
@@ -26,6 +26,7 @@ function doPost(e) {
     var title = data.title || data.job_title || "";
     var company = data.company || data.company_name || "";
     var url = data.url || data.link || data.job_link || "";
+    var location = data.location || "";
     var persona = data.persona_id || "";
     var ts = data.timestamp || new Date().toISOString();
 
@@ -43,9 +44,9 @@ function doPost(e) {
     if (!sh) sh = ss.getSheets()[0];
 
     if (sh.getLastRow() === 0) {
-      sh.appendRow(["Title", "Company", "Job Link", "Applied At", "Persona"]);
+      sh.appendRow(["Title", "Company", "Job Link", "Applied At", "Persona", "Location"]);
     }
-    sh.appendRow([title, company, url, ts, persona]);
+    sh.appendRow([title, company, url, ts, persona, location]);
     return ContentService.createTextOutput(
       JSON.stringify({ ok: true })
     ).setMimeType(ContentService.MimeType.JSON);

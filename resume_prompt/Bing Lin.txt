@@ -4,7 +4,7 @@ If the JD mentions security clearance (active/eligible/ability to obtain), outpu
 Below is the candidate profile. Tailor the resume to the job description.
 
 Bing Lin | Senior Data Engineer
-Austin, TX | binglin09@outlook.com | (409) 995-3801 | linkedin.com/in/binglin3
+Austin, TX | binglin09@outlook.com | +1 (737) 378-2582 | linkedin.com/in/binglin3
 
 #### Keep this contact info exactly as written. Do not alter name, email, phone, location, or LinkedIn. ####
 
@@ -87,7 +87,7 @@ Return a filename: PersonName_CompanyName_JobTitle(e,g: Aleksander_Rasek_Company
   <div class="header">
     <div class="name">Bing Lin</div>
     <div class="title">Senior Data Engineer</div>
-    <div class="contact">Austin, TX &nbsp;&nbsp;&middot;&nbsp;&nbsp; binglin09@outlook.com &nbsp;&nbsp;&middot;&nbsp;&nbsp; (409) 995-3801 &nbsp;&nbsp;&middot;&nbsp;&nbsp; <a href="https://wwww.linkedin.com/in/binglin3">linkedin.com/in/binglin3</a></div>
+    <div class="contact">Austin, TX &nbsp;&nbsp;&middot;&nbsp;&nbsp; binglin09@outlook.com &nbsp;&nbsp;&middot;&nbsp;&nbsp; +1 (737) 378-2582 &nbsp;&nbsp;&middot;&nbsp;&nbsp; <a href="https://wwww.linkedin.com/in/binglin3">linkedin.com/in/binglin3</a></div>
     <div class="header-rule"></div>
   </div>
 

@@ -3,6 +3,7 @@ import { client, logPoong } from "./api.js";
 import { useJobsWorkspace } from "./hooks/useJobsWorkspace.js";
 import { useBatchJobs } from "./hooks/useBatchJobs.js";
 import { useAssistedApply } from "./hooks/useAssistedApply.js";
+import { usePrepQueue } from "./hooks/usePrepQueue.js";
 import { shortPersona } from "./utils/persona.js";
 import WorkspaceHeader from "./components/WorkspaceHeader.jsx";
 import Toolbar from "./components/Toolbar.jsx";
@@ -11,10 +12,12 @@ import JobsTable from "./components/JobsTable.jsx";
 import JobDetail from "./components/JobDetail.jsx";
 import ApplyConsole from "./components/ApplyConsole.jsx";
 import ManualApplyModal from "./components/ManualApplyModal.jsx";
+import PrepDock from "./components/PrepDock.jsx";
 
 export default function App() {
   const ws = useJobsWorkspace();
   const batch = useBatchJobs(ws.refresh);
+  const prep = usePrepQueue(ws.refresh);
   const apply = useAssistedApply({
     workingPersonaId: ws.workingPersonaId,
     refresh: ws.refresh,
@@ -27,6 +30,8 @@ export default function App() {
   const [seqTo, setSeqTo] = useState(20);
   const [showAdd, setShowAdd] = useState(false);
   const [showManualApply, setShowManualApply] = useState(false);
+  const [manualJob, setManualJob] = useState(null);
+  const [manualOpenKey, setManualOpenKey] = useState(0);
   const [addForm, setAddForm] = useState({
     company: "",
     title: "",
@@ -36,6 +41,17 @@ export default function App() {
   });
 
   const workingLabel = shortPersona(ws.workingPersonaId);
+
+  const openManual = (job = null) => {
+    setManualJob(job);
+    setManualOpenKey((n) => n + 1);
+    setShowManualApply(true);
+  };
+
+  const closeManual = () => {
+    setShowManualApply(false);
+    setManualJob(null);
+  };
 
   const runOrError = async (fn) => {
     try {
@@ -136,7 +152,7 @@ export default function App() {
         }}
         onRefresh={ws.refresh}
         onAddJob={() => setShowAdd(true)}
-        onManualApply={() => setShowManualApply(true)}
+        onManualApply={() => openManual(null)}
         onUpload={onUpload}
         onDeleteRange={async () => {
           const msg =
@@ -243,6 +259,25 @@ export default function App() {
         busy={batch.busy}
       />
 
+      <PrepDock
+        items={prep.items}
+        workingPersonaId={ws.workingPersonaId}
+        onOpen={async (row) => {
+          try {
+            const full = await client.getJob(row.jobId);
+            openManual(full);
+          } catch {
+            openManual({
+              id: row.jobId,
+              seq_no: row.seq,
+              company: row.company,
+              title: row.title,
+            });
+          }
+        }}
+        onDismiss={prep.dismiss}
+      />
+
       <div className="layout">
         <JobsTable
           jobs={ws.jobs}
@@ -260,11 +295,15 @@ export default function App() {
           onSelect={ws.selectJob}
           onToggleCheck={ws.toggleCheck}
           onToggleCheckAll={ws.toggleCheckAll}
+          generatingIds={prep.generatingIds}
+          onContinue={(job) => openManual(job)}
         />
         <div className="side-column">
           <JobDetail
             job={ws.selected}
             workingPersonaId={ws.workingPersonaId}
+            generating={prep.generatingIds.has(ws.selected?.id)}
+            onContinueManual={() => ws.selected && openManual(ws.selected)}
             onGenerate={async () => {
               if (!ws.selected || !ws.workingPersonaId) return;
               try {
@@ -281,6 +320,12 @@ export default function App() {
               } finally {
                 batch.setBusy(false);
               }
+            }}
+            onUpdateFields={async (fields) => {
+              if (!ws.selected) return;
+              const updated = await client.patchJob(ws.selected.id, fields);
+              ws.setSelected(updated);
+              await ws.refresh();
             }}
             onAssistedApply={() =>
               ws.selected && apply.startAssistedOne(ws.selected, ws.workingPersonaId)
@@ -419,9 +464,18 @@ export default function App() {
 
       <ManualApplyModal
         open={showManualApply}
+        openKey={manualOpenKey}
         workingPersonaId={ws.workingPersonaId}
-        onClose={() => setShowManualApply(false)}
-        onCreated={async () => {
+        resumeJob={manualJob}
+        prepItem={
+          manualJob?.id
+            ? prep.itemFor(manualJob.id, ws.workingPersonaId)
+            : null
+        }
+        onClose={closeManual}
+        onQueueGenerate={(job) => prep.enqueueTailor(job, ws.workingPersonaId)}
+        onCreated={async (job) => {
+          if (job?.id) setManualJob(job);
           await ws.refresh();
         }}
         onAssistedApply={async (job) => {

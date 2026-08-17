@@ -24,6 +24,8 @@ export default function JobsTable({
   total = 0,
   onPageChange,
   onPageSizeChange,
+  generatingIds,
+  onContinue,
 }) {
   const visibleIds = jobs.map((j) => j.id);
   const checkedVisible = visibleIds.filter((id) => checkedIds.has(id));
@@ -120,6 +122,7 @@ export default function JobsTable({
                     .join(", ")
                 : "";
               const showPipeline = PIPELINE_INLINE.has(j.status);
+              const generating = generatingIds?.has(j.id);
 
               return (
                 <tr
@@ -161,10 +164,28 @@ export default function JobsTable({
                     <span className={`pill package-status status-strong ${myStatus}`}>
                       {packageStatusLabel(myStatus)}
                     </span>
+                    {generating ? (
+                      <span className="pill generating" title="Resume generating in the background">
+                        Generating
+                      </span>
+                    ) : null}
                     {showPipeline ? (
                       <span className={`pill pipeline-inline ${j.status}`} title="Listing pipeline">
                         {pipelineLabel(j.status)}
                       </span>
+                    ) : null}
+                    {onContinue ? (
+                      <button
+                        type="button"
+                        className="table-continue"
+                        title="Open Manual apply for this job"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onContinue(j);
+                        }}
+                      >
+                        Apply
+                      </button>
                     ) : null}
                   </td>
                   <td className="cell-others">

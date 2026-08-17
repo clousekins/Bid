@@ -25,7 +25,7 @@ def _append_local_csv(row: list[str]) -> None:
     new_file = not path.exists()
     with path.open("a", encoding="utf-8", newline="") as f:
         if new_file:
-            f.write("timestamp,title,company,url,persona_id,job_id\n")
+            f.write("timestamp,title,company,url,location,persona_id,job_id\n")
         # minimal CSV escape
         cells = []
         for c in row:
@@ -43,6 +43,7 @@ async def log_applied_to_sheet(
     url: str,
     persona_id: str = "",
     job_id: int | None = None,
+    location: str | None = None,
 ) -> dict[str, Any]:
     """Append applied job to Google Sheet (webhook and/or service account).
 
@@ -51,7 +52,7 @@ async def log_applied_to_sheet(
     settings = get_settings()
     ts = datetime.now(timezone.utc).isoformat()
     link = url or ""
-    local_row = [ts, title, company, link, persona_id, str(job_id or "")]
+    local_row = [ts, title, company, link, location or "", persona_id, str(job_id or "")]
     try:
         _append_local_csv(local_row)
     except Exception as exc:  # noqa: BLE001
@@ -71,6 +72,7 @@ async def log_applied_to_sheet(
         "job_title": title,
         "company_name": company,
         "job_link": link,
+        "location": location or "",
         "persona_id": persona_id,
         "job_id": job_id,
         "timestamp": ts,
@@ -105,6 +107,7 @@ async def log_applied_to_sheet(
                 url=link,
                 ts=ts,
                 persona_id=persona_id,
+                location=location or "",
             )
             if ok:
                 results["sheet"] = True
@@ -127,6 +130,7 @@ async def _append_via_service_account(
     url: str,
     ts: str,
     persona_id: str,
+    location: str = "",
 ) -> bool:
     """Append a row with gspread + service account JSON."""
     settings = get_settings()
@@ -172,13 +176,16 @@ async def _append_via_service_account(
     except Exception:  # noqa: BLE001
         header = []
     if not header or not any(header):
-        ws.update("A1:E1", [["Title", "Company", "Job Link", "Applied At", "Persona"]])
+        ws.update(
+            "A1:F1",
+            [["Title", "Company", "Job Link", "Applied At", "Persona", "Location"]],
+        )
     elif not any("title" in (c or "").lower() for c in header):
         # Sheet already has other content — still append our columns at end of used range
         pass
 
     ws.append_row(
-        [title, company, url, ts, persona_id],
+        [title, company, url, ts, persona_id, location],
         value_input_option="USER_ENTERED",
     )
     return True

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
@@ -8,18 +10,24 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.db.enums import JobStatus, PackageStatus, can_transition
-from app.db.models import Application, Job, JobPackage
+from app.db.models import Application, Job, JobPackage, utcnow
 from app.db.session import get_db
 from app.services.apply import mark_job_applied, stop_apply_for_job
 from app.services.apply_session import apply_sessions
 from app.services.deep_scan import deep_scan_job
-from app.services.folder_writer import remove_all_persona_outputs, sync_job_folder
+from app.services.folder_writer import (
+    job_folder_name,
+    remove_all_persona_outputs,
+    sync_job_folder,
+)
 from app.services.manual_ingest import parse_upload
 from app.services.persona import get_active_persona_id
-from app.services.pipeline import process_listing
+from app.services.pipeline import _get_or_create_company, process_listing
 from app.services.renumber import renumber_all_jobs
 from app.services.tailor import tailor_job
+from app.validators.dedupe import normalize_company
 
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])
 
@@ -40,6 +48,14 @@ class StatusPatch(BaseModel):
     status: str
     persona_id: str | None = None
     package_id: int | None = None
+
+
+class JobFieldsPatch(BaseModel):
+    company: str | None = None
+    title: str | None = None
+    url: str | None = None
+    location: str | None = None
+    apply_url: str | None = None
 
 
 class RangeDelete(BaseModel):
@@ -460,6 +476,140 @@ async def get_job(job_id: int, db: AsyncSession = Depends(get_db)):
     if not job:
         raise HTTPException(404, detail="not_found")
     return _job_dict(job)
+
+
+@router.get("/{job_id}/qa")
+async def get_job_qa(
+    job_id: int,
+    persona_id: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+):
+    job = await _get_job_with_packages(db, job_id)
+    if not job:
+        raise HTTPException(404, detail="not_found")
+    pkg = next((p for p in (job.packages or []) if p.persona_id == persona_id), None)
+    folder = Path(pkg.folder_path) if pkg and pkg.folder_path else None
+    if not folder or not folder.exists():
+        return {"ok": True, "questions": [], "answers": [], "folder": None}
+
+    questions: list[str] = []
+    answers: list[dict[str, str]] = []
+    q_path = folder / "questions.json"
+    a_path = folder / "answers.json"
+    try:
+        if q_path.exists():
+            raw_q = json.loads(q_path.read_text(encoding="utf-8"))
+            if isinstance(raw_q, list):
+                questions = [str(q) for q in raw_q]
+    except (OSError, json.JSONDecodeError):
+        questions = []
+    try:
+        if a_path.exists():
+            raw_a = json.loads(a_path.read_text(encoding="utf-8"))
+            if isinstance(raw_a, dict):
+                answers = [{"question": k, "answer": str(v or "")} for k, v in raw_a.items()]
+            elif isinstance(raw_a, list):
+                answers = [
+                    {"question": str(row.get("question") or ""), "answer": str(row.get("answer") or "")}
+                    for row in raw_a
+                    if isinstance(row, dict)
+                ]
+    except (OSError, json.JSONDecodeError):
+        answers = []
+    if answers and not questions:
+        questions = [row["question"] for row in answers if row.get("question")]
+    return {
+        "ok": True,
+        "folder": str(folder),
+        "questions": questions,
+        "answers": answers,
+    }
+
+
+def _rename_job_folders(job: Job, old_company: str, new_company: str) -> None:
+    if not job.seq_no or old_company == new_company:
+        return
+    old_name = job_folder_name(job.seq_no, old_company)
+    new_name = job_folder_name(job.seq_no, new_company)
+    if old_name == new_name:
+        return
+    root = get_settings().output_root
+    if not root.exists():
+        return
+    for persona_dir in root.iterdir():
+        if not persona_dir.is_dir():
+            continue
+        old_path = persona_dir / old_name
+        new_path = persona_dir / new_name
+        if old_path.exists() and old_path.is_dir() and not new_path.exists():
+            old_path.rename(new_path)
+    if job.folder_path:
+        job.folder_path = job.folder_path.replace(old_name, new_name)
+    for pkg in job.packages or []:
+        if pkg.folder_path:
+            pkg.folder_path = pkg.folder_path.replace(old_name, new_name)
+
+
+@router.patch("/{job_id}")
+async def patch_job_fields(
+    job_id: int, body: JobFieldsPatch, db: AsyncSession = Depends(get_db)
+):
+    job = await _get_job_with_packages(db, job_id)
+    if not job:
+        raise HTTPException(404, detail="not_found")
+
+    old_company = job.company
+    if body.company is not None:
+        company = body.company.strip()
+        if not company:
+            raise HTTPException(400, detail="company_required")
+        job.company = company
+        job.normalized_company = normalize_company(company)
+        company_row = await _get_or_create_company(db, company, job.normalized_company)
+        job.company_id = company_row.id
+    if body.title is not None:
+        title = body.title.strip()
+        if not title:
+            raise HTTPException(400, detail="title_required")
+        job.title = title
+    if body.url is not None:
+        url = body.url.strip()
+        if not url:
+            raise HTTPException(400, detail="url_required")
+        old_url = job.url
+        job.url = url
+        if not job.apply_url or job.apply_url == old_url:
+            job.apply_url = url
+    if body.apply_url is not None:
+        apply_url = body.apply_url.strip()
+        job.apply_url = apply_url or job.url
+    if body.location is not None:
+        job.location = body.location.strip() or None
+
+    job.updated_at = utcnow()
+    if job.company != old_company:
+        _rename_job_folders(job, old_company, job.company)
+
+    if job.seq_no:
+        personas = {job.persona_id}
+        for pkg in job.packages or []:
+            if pkg.persona_id:
+                personas.add(pkg.persona_id)
+        for pid in personas:
+            sync_job_folder(
+                persona_id=pid,
+                seq_no=job.seq_no,
+                company=job.company,
+                title=job.title,
+                url=job.url,
+                location=job.location,
+                status=job.status,
+                description=job.description,
+                job_id=job.id,
+            )
+
+    await db.commit()
+    return _job_dict(await _get_job_with_packages(db, job.id) or job)
 
 
 @router.delete("/{job_id}")
