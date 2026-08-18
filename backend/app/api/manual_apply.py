@@ -19,7 +19,8 @@ from app.services.apply_answers import generate_field_answers
 from app.services.folder_writer import ensure_job_folder
 from app.services.jd_extract import extract_job_fields_from_jd
 from app.services.persona import get_active_persona_id, load_persona
-from app.services.pipeline import process_listing
+from app.services.pipeline import find_job_by_url, process_listing
+from app.services.deep_scan import deep_scan_job, preview_url_fetch
 from app.services.tailor import tailor_job
 
 router = APIRouter(prefix="/api/manual-apply", tags=["manual-apply"])
@@ -32,6 +33,12 @@ class ManualPrepareBody(BaseModel):
     company: str | None = None
     title: str | None = None
     location: str | None = None
+
+
+class ManualFetchBody(BaseModel):
+    persona_id: str
+    url: str | None = None
+    job_id: int | None = None
 
 
 class ManualTailorBody(BaseModel):
@@ -135,6 +142,49 @@ def _job_payload(job: Job) -> dict[str, Any]:
     }
 
 
+@router.post("/fetch")
+async def manual_fetch(body: ManualFetchBody, db: AsyncSession = Depends(get_db)):
+    try:
+        load_persona(body.persona_id)
+    except ValueError as exc:
+        raise HTTPException(400, detail=str(exc)) from exc
+
+    job = None
+    if body.job_id is not None:
+        job = (
+            await db.execute(
+                select(Job).options(selectinload(Job.packages)).where(Job.id == body.job_id)
+            )
+        ).scalar_one_or_none()
+        if not job:
+            raise HTTPException(404, detail="not_found")
+        url = (body.url or job.apply_url or job.url or "").strip()
+        preview = await preview_url_fetch(
+            db, url=url, persona_id=body.persona_id, job=job
+        )
+        await db.commit()
+        job = (
+            await db.execute(
+                select(Job).options(selectinload(Job.packages)).where(Job.id == job.id)
+            )
+        ).scalar_one()
+        preview["job"] = _job_payload(job)
+        return preview
+
+    url = (body.url or "").strip()
+    preview = await preview_url_fetch(db, url=url, persona_id=body.persona_id)
+    await db.commit()
+    if preview.get("job_id"):
+        job = (
+            await db.execute(
+                select(Job).options(selectinload(Job.packages)).where(Job.id == preview["job_id"])
+            )
+        ).scalar_one_or_none()
+        if job:
+            preview["job"] = _job_payload(job)
+    return preview
+
+
 @router.post("/prepare")
 async def manual_prepare(body: ManualPrepareBody, db: AsyncSession = Depends(get_db)):
     try:
@@ -162,15 +212,62 @@ async def manual_prepare(body: ManualPrepareBody, db: AsyncSession = Depends(get
         "description": jd,
         "source": "manual_apply",
     }
+    existing = await find_job_by_url(db, url)
+    if existing and not url_inferred:
+        job = (
+            await db.execute(
+                select(Job).options(selectinload(Job.packages)).where(Job.id == existing.id)
+            )
+        ).scalar_one()
+        if jd and len(jd) >= 50 and (not job.description or len(job.description) < 50):
+            job.description = jd
+            job.status = JobStatus.JD_READY.value
+            await db.commit()
+            job = (
+                await db.execute(
+                    select(Job).options(selectinload(Job.packages)).where(Job.id == job.id)
+                )
+            ).scalar_one()
+        return {
+            "ok": True,
+            "job": _job_payload(job),
+            "persona_id": body.persona_id,
+            "extracted": extracted,
+            "url_inferred": url_inferred,
+            "warning": "duplicate_url",
+            "resume_save_hint": (
+                f"data/applications/{body.persona_id}/{{seq}}-{company.replace(' ', '-')}/"
+            ),
+        }
+
     result = await process_listing(
         db,
         listing,
         persona_id=body.persona_id or get_active_persona_id(),
         skip_content_gates=True,
-        bypass_gates=True,
+        bypass_gates=False,
     )
     await db.commit()
-    if not result.ok or not result.job:
+    if result.reason == "duplicate_url" and result.job:
+        job = (
+            await db.execute(
+                select(Job).options(selectinload(Job.packages)).where(Job.id == result.job.id)
+            )
+        ).scalar_one()
+        return {
+            "ok": True,
+            "job": _job_payload(job),
+            "persona_id": body.persona_id,
+            "extracted": extracted,
+            "url_inferred": url_inferred,
+            "warning": "duplicate_url",
+            "resume_save_hint": (
+                f"data/applications/{body.persona_id}/{{seq}}-{company.replace(' ', '-')}/"
+            ),
+        }
+    if result.reason in {"company_already_applied", "company_blocked"}:
+        raise HTTPException(409, detail=result.reason)
+    if not result.job:
         raise HTTPException(400, detail=result.reason or "insert_failed")
 
     job = (

@@ -26,6 +26,7 @@ export default function JobsTable({
   onPageSizeChange,
   generatingIds,
   onContinue,
+  onFetchJd,
 }) {
   const visibleIds = jobs.map((j) => j.id);
   const checkedVisible = visibleIds.filter((id) => checkedIds.has(id));
@@ -123,6 +124,10 @@ export default function JobsTable({
                 : "";
               const showPipeline = PIPELINE_INLINE.has(j.status);
               const generating = generatingIds?.has(j.id);
+              const needsJd =
+                j.status === "new" ||
+                j.status === "scan_failed" ||
+                j.jd_fetched === false;
 
               return (
                 <tr
@@ -173,6 +178,19 @@ export default function JobsTable({
                       <span className={`pill pipeline-inline ${j.status}`} title="Listing pipeline">
                         {pipelineLabel(j.status)}
                       </span>
+                    ) : null}
+                    {needsJd && onFetchJd ? (
+                      <button
+                        type="button"
+                        className="table-continue"
+                        title="Fetch job description from the apply URL"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onFetchJd(j);
+                        }}
+                      >
+                        Fetch
+                      </button>
                     ) : null}
                     {onContinue ? (
                       <button

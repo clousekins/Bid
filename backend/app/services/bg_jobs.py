@@ -38,6 +38,7 @@ def _get_locks() -> dict[str, asyncio.Lock]:
         _locks = {
             BackgroundJobKind.DEEP_SCAN.value: asyncio.Lock(),
             BackgroundJobKind.TAILOR.value: asyncio.Lock(),
+            BackgroundJobKind.DISCOVER.value: asyncio.Lock(),
         }
     return _locks
 
@@ -218,7 +219,11 @@ async def _pick_next() -> int | None:
     locks = _get_locks()
     factory = get_session_factory()
     async with factory() as session:
-        for kind in (BackgroundJobKind.DEEP_SCAN.value, BackgroundJobKind.TAILOR.value):
+        for kind in (
+            BackgroundJobKind.DEEP_SCAN.value,
+            BackgroundJobKind.TAILOR.value,
+            BackgroundJobKind.DISCOVER.value,
+        ):
             lock = locks[kind]
             if lock.locked():
                 continue
@@ -265,6 +270,8 @@ async def _run_job(job_id: int) -> None:
                     await _exec_deep_scan(session, row)
                 elif row.kind == BackgroundJobKind.TAILOR.value:
                     await _exec_tailor(session, row)
+                elif row.kind == BackgroundJobKind.DISCOVER.value:
+                    await _exec_discover(session, row)
                 else:
                     row.status = BackgroundJobStatus.FAILED.value
                     row.error = f"unknown kind {row.kind}"
@@ -500,3 +507,103 @@ async def _exec_tailor(session, row: BackgroundJob) -> None:
         row2.progress = json.dumps(progress)
         row2.updated_at = _utcnow()
         await session2.commit()
+
+
+async def _exec_discover(session, row: BackgroundJob) -> None:
+    from app.services.discover import collect_new_listings
+    from app.services.pipeline import process_listing
+
+    bg_id = row.id
+    persona_id = row.persona_id
+    listings, meta = await collect_new_listings()
+    insert_limit = int(meta.get("insert_limit") or 50)
+    items: list[dict[str, Any]] = []
+    progress: dict[str, Any] = {
+        "done": 0,
+        "total": len(listings),
+        "items": items,
+        "inserted": 0,
+        "skipped": 0,
+        "rejected": 0,
+        **meta,
+    }
+    row.progress = json.dumps(progress)
+    await session.commit()
+
+    if not listings:
+        row.status = BackgroundJobStatus.COMPLETED.value
+        row.progress = json.dumps(progress)
+        await session.commit()
+        return
+
+    factory = get_session_factory()
+    for listing in listings:
+        if await _bg_cancelled(bg_id):
+            break
+        if int(progress.get("inserted") or 0) >= insert_limit:
+            progress["more_available"] = True
+            break
+        result_row = {
+            "company": listing.get("company"),
+            "title": listing.get("title"),
+            "source": listing.get("source"),
+            "ok": False,
+            "reason": "",
+        }
+        try:
+            async with factory() as work:
+                result = await process_listing(
+                    work,
+                    listing,
+                    persona_id=persona_id,
+                    skip_content_gates=False,
+                    insert_rejects=True,
+                )
+                await work.commit()
+                if result.job and result.ok:
+                    result_row["ok"] = True
+                    result_row["job_id"] = result.job.id
+                    result_row["seq_no"] = result.job.seq_no
+                    progress["inserted"] = int(progress.get("inserted") or 0) + 1
+                elif result.skipped or not result.ok:
+                    result_row["reason"] = result.reason or "skipped"
+                    if result.reason in {
+                        "company_already_applied",
+                        "company_blocked",
+                        "duplicate_url",
+                        "duplicate_external_id",
+                        "already_seen",
+                    }:
+                        progress["skipped"] = int(progress.get("skipped") or 0) + 1
+                    else:
+                        progress["rejected"] = int(progress.get("rejected") or 0) + 1
+                        if result.job:
+                            result_row["job_id"] = result.job.id
+                else:
+                    result_row["reason"] = result.reason or "unknown"
+                    progress["skipped"] = int(progress.get("skipped") or 0) + 1
+        except Exception as exc:  # noqa: BLE001
+            result_row["reason"] = str(exc)[:400]
+            progress["skipped"] = int(progress.get("skipped") or 0) + 1
+        items.append(result_row)
+        progress["done"] = len(items)
+        progress["items"] = items[-50:]
+        async with factory() as session2:
+            row2 = await session2.get(BackgroundJob, bg_id)
+            if not row2:
+                return
+            row2.progress = json.dumps(progress)
+            row2.updated_at = _utcnow()
+            await session2.commit()
+
+    async with factory() as session3:
+        row3 = await session3.get(BackgroundJob, bg_id)
+        if not row3:
+            return
+        if row3.cancel_requested:
+            row3.status = BackgroundJobStatus.CANCELLED.value
+        else:
+            row3.status = BackgroundJobStatus.COMPLETED.value
+        row3.progress = json.dumps(progress)
+        row3.updated_at = _utcnow()
+        await session3.commit()

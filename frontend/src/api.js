@@ -88,9 +88,11 @@ export const client = {
     }),
   blockCompany: (id) => api(`/api/jobs/${id}/block-company`, { method: "POST" }),
   deepScanOne: (id) => api(`/api/jobs/${id}/deep-scan`, { method: "POST" }),
+  manualFetch: (body) => api("/api/manual-apply/fetch", { method: "POST", json: body }),
   tailorOne: (id, body = {}) =>
     api(`/api/jobs/${id}/tailor`, { method: "POST", json: body }),
   deepScanRange: (body) => api("/api/sync/deep-scan", { method: "POST", json: body }),
+  discoverJobs: (body = {}) => api("/api/sync/discover", { method: "POST", json: body }),
   tailorRange: (body) => api("/api/sync/tailor", { method: "POST", json: body }),
   deepScanIds: (job_ids) =>
     api("/api/sync/deep-scan", { method: "POST", json: { job_ids } }),

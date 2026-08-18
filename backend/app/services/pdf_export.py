@@ -71,6 +71,8 @@ def _inline(s: str) -> str:
     s = _esc(s)
     s = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", s)
     s = re.sub(r"`(.+?)`", r"<code>\1</code>", s)
+    # Restore HTML bold if the model wrote <strong>/<b> (escaped by _esc).
+    s = re.sub(r"&lt;(/?)(strong|b)&gt;", r"<\1\2>", s, flags=re.I)
     return s
 
 

@@ -1,3 +1,6 @@
+# Discovery boards — public APIs / ATS career pages first
+# LinkedIn intentionally excluded. Count ≈ feed adapters + ATS board tokens (20–30+).
+
 settings:
   us_remote_strict: true
   max_pages_per_source: 5
@@ -6,5 +9,181 @@ settings:
   skip_already_applied_company: true
   batch_insert_limit: 50
 
-sites: []
-greenhouse_boards: []
+sites:
+  - id: remoteok
+    name: Remote OK
+    enabled: true
+    adapter: remoteok
+    base_url: https://remoteok.com
+    notes: Public JSON API
+
+  - id: remotive
+    name: Remotive
+    enabled: true
+    adapter: remotive
+    base_url: https://remotive.com
+    notes: Public JSON API
+
+  - id: weworkremotely
+    name: We Work Remotely
+    enabled: true
+    adapter: weworkremotely
+    base_url: https://weworkremotely.com
+    notes: RSS feeds
+
+  - id: himalayas
+    name: Himalayas
+    enabled: true
+    adapter: himalayas
+    base_url: https://himalayas.app
+    notes: Public jobs API
+
+  - id: jobicy
+    name: Jobicy
+    enabled: true
+    adapter: jobicy
+    base_url: https://jobicy.com
+    notes: Public JSON API
+
+  - id: arbeitnow
+    name: Arbeitnow
+    enabled: true
+    adapter: arbeitnow
+    base_url: https://www.arbeitnow.com
+    notes: Public JSON API (filter US remote)
+
+  - id: themuse
+    name: The Muse
+    enabled: true
+    adapter: themuse
+    base_url: https://www.themuse.com
+    notes: Public jobs API
+
+  - id: greenhouse_ats
+    name: Greenhouse ATS
+    enabled: true
+    adapter: greenhouse
+    base_url: https://boards-api.greenhouse.io
+    notes: Company board tokens from greenhouse_boards
+
+  - id: lever_ats
+    name: Lever ATS
+    enabled: true
+    adapter: lever
+    base_url: https://api.lever.co
+    notes: Company posting slugs from lever_boards
+
+  - id: ashby_ats
+    name: Ashby ATS
+    enabled: true
+    adapter: ashby
+    base_url: https://api.ashbyhq.com
+    notes: Job-board names from ashby_boards
+
+  - id: hn_whoishiring
+    name: HN Who is Hiring
+    enabled: false
+    adapter: hn_whoishiring
+    base_url: https://news.ycombinator.com
+    notes: Optional — enable later
+
+  - id: indeed
+    name: Indeed
+    enabled: false
+    adapter: indeed
+    base_url: https://www.indeed.com
+    notes: Bot-walled; deferred
+
+  - id: glassdoor
+    name: Glassdoor
+    enabled: false
+    adapter: glassdoor
+    base_url: https://www.glassdoor.com
+    notes: Deferred
+
+# Greenhouse company career boards
+greenhouse_boards:
+  - cloudflare
+  - stripe
+  - gitlab
+  - hashicorp
+  - datadog
+  - vercel
+  - notion
+  - figma
+  - discord
+  - ramp
+  - airbnb
+  - dropbox
+  - twilio
+  - hubspot
+  - mongodb
+  - elastic
+  - snowflakecomputing
+  - pluralsight
+  - duolingo
+  - reddit
+  - zapier
+  - asana
+  - calendly
+  - gusto
+  - latch
+  - postman
+  - browserstack
+  - auth0
+  - mixpanel
+  - amplitude
+  - airtable
+  - coinbase
+  - robinhood
+  - pinterest
+  - spotify
+  - square
+  - doordash
+  - instacart
+  - lyft
+  - uber
+  - shopify
+  - dribbble
+  - medium
+  - khanacademy
+  - coursera
+
+# Lever posting board slugs (api.lever.co/v0/postings/{slug})
+lever_boards:
+  - mattermost
+  - activecampaign
+  - buildkite
+  - netlify
+  - palantir
+  - rockbot
+  - rethinkdb
+  - lucidchart
+  - eventbrite
+
+# Ashby job-board names (api.ashbyhq.com/posting-api/job-board/{name})
+ashby_boards:
+  - linear
+  - openai
+  - anthropic
+  - ramp
+  - vercel
+  - notion
+  - retool
+  - honeycomb
+  - watershed
+  - planar
+
+discovery:
+  posted_within_days: 14
+  max_jobs: 50
+  queries:
+    - AI Engineer
+    - Machine Learning Engineer
+    - LLM Engineer
+    - Software Engineer
+    - Data Engineer
+    - DevOps Engineer
+    - Platform Engineer
+    - Backend Engineer
+    - Full Stack Engineer

@@ -3,14 +3,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from app.db.enums import JobStatus
-from app.db.models import Application, Company, Job, JobSourceSeen, RejectedJob
+from app.db.enums import JobStatus, PackageStatus
+from app.db.models import Application, Company, Job, JobPackage, JobSourceSeen, RejectedJob
 from app.services.folder_writer import sync_job_folder
 from app.services.persona import get_active_persona_id
-from app.validators.dedupe import normalize_company
+from app.validators.dedupe import canonicalize_url, normalize_company
 from app.validators.it_domain import check_it_domain
 from app.validators.remote_us import check_remote_us
 from app.validators.seniority import check_seniority
@@ -64,7 +65,44 @@ async def company_is_applied(session: AsyncSession, persona_id: str, normalized:
         )
         .limit(1)
     )
-    return result.scalar_one_or_none() is not None
+    if result.scalar_one_or_none() is not None:
+        return True
+    pkg = await session.execute(
+        select(JobPackage.id)
+        .join(Job, Job.id == JobPackage.job_id)
+        .where(
+            JobPackage.persona_id == persona_id,
+            JobPackage.status == PackageStatus.APPLIED.value,
+            Job.normalized_company == normalized,
+        )
+        .limit(1)
+    )
+    return pkg.scalar_one_or_none() is not None
+
+
+async def find_job_by_url(session: AsyncSession, url: str) -> Job | None:
+    canon = canonicalize_url(url)
+    if not canon:
+        return None
+    variants = {url.strip(), url.strip().rstrip("/"), canon}
+    row = (
+        await session.execute(
+            select(Job)
+            .options(selectinload(Job.packages))
+            .where(or_(Job.url.in_(variants), Job.apply_url.in_(variants)))
+            .order_by(Job.id.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if row:
+        return row
+    jobs = (
+        await session.execute(select(Job).options(selectinload(Job.packages)).order_by(Job.id.desc()).limit(400))
+    ).scalars().all()
+    for job in jobs:
+        if canonicalize_url(job.url or "") == canon or canonicalize_url(job.apply_url or "") == canon:
+            return job
+    return None
 
 
 async def company_is_blocked(session: AsyncSession, normalized: str) -> bool:
@@ -147,6 +185,12 @@ async def process_listing(
             )
         )
         return ProcessResult(ok=False, skipped=True, reason="company_already_applied")
+
+    existing_url = await find_job_by_url(session, url)
+    if existing_url:
+        return ProcessResult(
+            ok=False, skipped=True, reason="duplicate_url", job=existing_url
+        )
 
     reject_reason: str | None = None
     reject_stage = "stage1"

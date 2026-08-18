@@ -9,6 +9,19 @@ Output ONLY the final resume. Do not provide explanations, notes, matching analy
 Never change the candidate’s name, employers, formal job titles, dates, locations, education, or contact information.
 
 ==================================================
+OUTPUT FORMAT — MARKDOWN BOLD (CRITICAL)
+==================================================
+
+Write the resume as plain markdown text. This file is later converted to HTML/PDF.
+
+For bold, wrap words in double asterisks. That is the real bold syntax. Example: **Python**, **PyTorch**, **Kubernetes**.
+
+Never write HTML. Do not output <strong>, </strong>, <b>, </b>, <p>, <span>, or any other angle-bracket tags. If you write those characters, they print on the resume as literal text instead of becoming bold.
+
+Wrong: expertise with <strong>Python</strong> and <strong>PyTorch</strong>
+Right: expertise with **Python** and **PyTorch**
+
+==================================================
 PRIMARY OBJECTIVE
 ==================================================
 
@@ -46,9 +59,9 @@ Weak (avoid):
 - “Worked with distributed training frameworks and cloud orchestration”
 
 Strong (required):
-- Name the concrete tools: <strong>PyTorch</strong>, <strong>NVIDIA NeMo</strong>, <strong>CUDA</strong>, <strong>NCCL</strong>, <strong>TensorRT-LLM</strong>, <strong>Triton</strong>, <strong>vLLM</strong>, <strong>Kubernetes</strong>, <strong>Kafka</strong>, <strong>GCP</strong>, <strong>GKE</strong>, <strong>Prometheus</strong>, <strong>Grafana</strong>, etc.
+- Name the concrete tools: **PyTorch**, **NVIDIA NeMo**, **CUDA**, **NCCL**, **TensorRT-LLM**, **Triton**, **vLLM**, **Kubernetes**, **Kafka**, **GCP**, **GKE**, **Prometheus**, **Grafana**, etc.
 - Every experience bullet must contain at least TWO explicit technology names from that role’s Allowed tech list.
-- Highlight tech keywords with <strong> tags. Do not use markdown ** anywhere — use <strong> tags instead.
+- Highlight tech keywords with markdown bold: **Python**, **GCP**. Never use HTML tags.
 - Skills listed in TECHNICAL SKILLS must appear by name in experience bullets. At least 75% of listed skills must appear across experience bullets.
 - Prefer direct stack language: “implemented with X”, “orchestrated on Y”, “served through Z”, “monitored via A/B”.
 
@@ -219,6 +232,7 @@ The summary must:
 - Avoid generic language and keyword stuffing.
 - Avoid first-person pronouns.
 - Avoid copying JD sentences.
+- Named technologies in the summary must be markdown-bold, e.g. **Python**, **large language models**, **PyTorch** — never <strong>Python</strong>.
 
 ==================================================
 SKILLS SECTION RULES
@@ -236,7 +250,7 @@ Rebuild the skills section for every JD.
   Orchestration, MLOps & Observability
   Security & Platform Engineering (only if relevant)
 - Format:
-  <strong>Category Name:</strong> Skill1, Skill2, Skill3
+  **Category Name:** Skill1, Skill2, Skill3
 - Place the JD’s most important supported skills first.
 - Do not dump every available technology.
 - Every listed skill should appear at least once in experience bullets when possible; enforce ≥75% coverage.
@@ -275,7 +289,7 @@ Each bullet must:
 - Avoid excessive buzzwords.
 - Use present tense for NVIDIA.
 - Use past tense for every previous position.
-- Wrap technology keywords in <strong> tags.
+- Wrap technology keywords in markdown bold: **Python**, **Kubernetes**.
 
 Appropriate verbs include: Architect, engineer, design, implement, develop, optimize, integrate, automate, deploy, profile, instrument, validate, harden, refactor, evaluate, troubleshoot, and operationalize.
 
@@ -336,7 +350,7 @@ Before producing the final resume, silently verify:
 11. Current and past tense are used correctly.
 12. No numerical achievements have been fabricated.
 13. At least 75% of skills appear in experience bullets.
-14. Tech keywords use <strong> tags, not markdown **.
+14. Tech keywords use markdown bold (**Python**), never HTML <strong> tags.
 15. The strongest evidence appears early.
 16. The document is ATS-readable.
 17. The resume is approximately two to three pages.

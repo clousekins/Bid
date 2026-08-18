@@ -261,7 +261,7 @@ export default function JobDetail({
           Open JD
         </button>
         <button type="button" onClick={onDeepScan}>
-          Deep-scan one
+          Fetch JD
         </button>
         <button type="button" onClick={onSkip}>
           Skip

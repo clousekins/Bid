@@ -19,7 +19,13 @@ export function useBatchJobs(refresh) {
         const oks = items.filter((i) => i && i.ok === true).length;
         const lastFail = [...items].reverse().find((i) => i && i.ok === false);
         setBatchProgress(
-          `${job.kind} ${job.status}: ${p.done || 0}/${p.total || "?"} ok=${oks} fail=${fails}` +
+          `${job.kind} ${job.status}: ${p.done || 0}/${p.total || "?"}` +
+            (p.discovered_raw != null ? ` raw=${p.discovered_raw}` : "") +
+            (p.after_filters != null ? ` filtered=${p.after_filters}` : "") +
+            (p.inserted != null ? ` inserted=${p.inserted}` : ` ok=${oks}`) +
+            (p.skipped != null ? ` skipped=${p.skipped}` : ` fail=${fails}`) +
+            (p.rejected != null ? ` gated=${p.rejected}` : "") +
+            (p.more_available ? " more=1" : "") +
             (p.concurrency ? ` concurrency=${p.concurrency}` : "") +
             (p.generate_as ? ` as=${p.generate_as}` : "") +
             (job.error ? ` ${job.error}` : "") +
@@ -50,7 +56,9 @@ export function useBatchJobs(refresh) {
       const res =
         kind === "deep_scan"
           ? await client.deepScanRange(body)
-          : await client.tailorRange(body);
+          : kind === "discover"
+            ? await client.discoverJobs(body)
+            : await client.tailorRange(body);
       logPoong("enqueued", kind, res);
       setBgJobId(res.job_id);
       setBatchProgress(`${kind} queued #${res.job_id}`);

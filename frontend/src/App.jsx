@@ -5,6 +5,7 @@ import { useBatchJobs } from "./hooks/useBatchJobs.js";
 import { useAssistedApply } from "./hooks/useAssistedApply.js";
 import { usePrepQueue } from "./hooks/usePrepQueue.js";
 import { shortPersona } from "./utils/persona.js";
+import { formatGateList } from "./utils/gates.js";
 import WorkspaceHeader from "./components/WorkspaceHeader.jsx";
 import Toolbar from "./components/Toolbar.jsx";
 import WorkflowBar from "./components/WorkflowBar.jsx";
@@ -39,6 +40,8 @@ export default function App() {
     location: "Remote, US",
     description: "",
   });
+  const [addBusy, setAddBusy] = useState(false);
+  const [addError, setAddError] = useState("");
 
   const workingLabel = shortPersona(ws.workingPersonaId);
 
@@ -90,7 +93,9 @@ export default function App() {
   };
 
   const submitAdd = async () => {
+    setAddError("");
     try {
+      setAddBusy(true);
       await client.createJob(addForm);
       setShowAdd(false);
       setAddForm({
@@ -102,7 +107,74 @@ export default function App() {
       });
       await ws.refresh();
     } catch (e) {
+      const detail = String(e.message || e);
+      setAddError(formatGateList([detail.replace(/^\d+:\s*/, "")], { company: addForm.company }) || detail);
+    } finally {
+      setAddBusy(false);
+    }
+  };
+
+  const fetchListedJd = async (job) => {
+    if (!job?.id || !ws.workingPersonaId) return;
+    try {
+      ws.setError("");
+      batch.setBusy(true);
+      const res = await client.manualFetch({
+        persona_id: ws.workingPersonaId,
+        job_id: job.id,
+        url: job.url,
+      });
+      const extra = { company: res.company || job.company, seq: job.seq_no };
+      if (res.blockers?.length) {
+        ws.setError(formatGateList(res.blockers, extra));
+      } else {
+        batch.setBatchProgress(
+          `Fetched JD for #${job.seq_no} ${res.company || job.company} (${(res.description || "").length} chars)`
+        );
+      }
+      await ws.refresh();
+    } catch (e) {
       ws.setError(String(e.message || e));
+    } finally {
+      batch.setBusy(false);
+    }
+  };
+
+  const fetchAddJd = async () => {
+    setAddError("");
+    const url = (addForm.url || "").trim();
+    if (!url) {
+      setAddError("Paste a job URL first.");
+      return;
+    }
+    try {
+      setAddBusy(true);
+      const res = await client.manualFetch({
+        persona_id: ws.workingPersonaId,
+        url,
+      });
+      const extra = { company: res.company, seq: res.job?.seq_no };
+      if (res.description || res.company) {
+        setAddForm((prev) => ({
+          ...prev,
+          company: res.company || prev.company,
+          title: res.title || prev.title,
+          url: res.url || prev.url,
+          location: res.location || prev.location,
+          description: res.description || prev.description,
+        }));
+      }
+      if (res.blockers?.length) {
+        setAddError(formatGateList(res.blockers, extra));
+        return;
+      }
+      if (res.warnings?.length) {
+        setAddError(formatGateList(res.warnings, extra));
+      }
+    } catch (e) {
+      setAddError(String(e.message || e));
+    } finally {
+      setAddBusy(false);
     }
   };
 
@@ -153,6 +225,11 @@ export default function App() {
         onRefresh={ws.refresh}
         onAddJob={() => setShowAdd(true)}
         onManualApply={() => openManual(null)}
+        onDiscover={() =>
+          runOrError(() =>
+            batch.startBg("discover", { persona_id: ws.workingPersonaId })
+          )
+        }
         onUpload={onUpload}
         onDeleteRange={async () => {
           const msg =
@@ -297,6 +374,7 @@ export default function App() {
           onToggleCheckAll={ws.toggleCheckAll}
           generatingIds={prep.generatingIds}
           onContinue={(job) => openManual(job)}
+          onFetchJd={fetchListedJd}
         />
         <div className="side-column">
           <JobDetail
@@ -331,15 +409,7 @@ export default function App() {
               ws.selected && apply.startAssistedOne(ws.selected, ws.workingPersonaId)
             }
             onOpenJd={() => ws.selected && window.open(ws.selected.url, "_blank")}
-            onDeepScan={async () => {
-              if (!ws.selected) return;
-              try {
-                await client.deepScanOne(ws.selected.id);
-                await ws.refresh();
-              } catch (e) {
-                ws.setError(String(e.message || e));
-              }
-            }}
+            onDeepScan={() => fetchListedJd(ws.selected)}
             onSkip={async () => {
               if (!ws.selected) return;
               try {
@@ -433,20 +503,28 @@ export default function App() {
         <div className="modal-backdrop" onClick={() => setShowAdd(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3 style={{ marginTop: 0 }}>Add job</h3>
+            {addError ? <div className="error-banner">{addError}</div> : null}
             {["company", "title", "url", "location"].map((k) => (
               <label key={k}>
                 {k}
                 <input
                   value={addForm[k]}
+                  disabled={addBusy}
                   onChange={(e) => setAddForm({ ...addForm, [k]: e.target.value })}
                 />
               </label>
             ))}
+            <div className="modal-actions">
+              <button type="button" className="primary" disabled={addBusy} onClick={fetchAddJd}>
+                {addBusy ? "Fetching…" : "Fetch JD"}
+              </button>
+            </div>
             <label>
               description (optional)
               <textarea
                 rows={5}
                 value={addForm.description}
+                disabled={addBusy}
                 onChange={(e) => setAddForm({ ...addForm, description: e.target.value })}
               />
             </label>
@@ -454,7 +532,7 @@ export default function App() {
               <button type="button" onClick={() => setShowAdd(false)}>
                 Cancel
               </button>
-              <button type="button" className="primary" onClick={submitAdd}>
+              <button type="button" className="primary" disabled={addBusy} onClick={submitAdd}>
                 Create
               </button>
             </div>

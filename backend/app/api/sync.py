@@ -24,8 +24,13 @@ class RangeBody(BaseModel):
 
 
 @router.post("/discover")
-async def discover_disabled():
-    raise HTTPException(410, detail="Board discovery disabled. Use manual JSON/CSV ingest.")
+async def sync_discover(body: RangeBody):
+    pid = body.persona_id or get_active_persona_id()
+    row = await bg_jobs.enqueue(
+        kind=BackgroundJobKind.DISCOVER,
+        persona_id=pid,
+    )
+    return {"job_id": row.id, "kind": row.kind, "status": row.status, "persona_id": pid}
 
 
 @router.post("/deep-scan")

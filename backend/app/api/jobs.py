@@ -330,10 +330,15 @@ async def create_job(body: JobCreate, db: AsyncSession = Depends(get_db)):
         skip_content_gates=True,
     )
     await db.commit()
+    if result.reason in {"company_already_applied", "company_blocked"}:
+        raise HTTPException(409, detail=result.reason)
+    if result.reason == "duplicate_url" and result.job:
+        job = await _get_job_with_packages(db, result.job.id)
+        return _job_dict(job or result.job)
     if not result.ok:
         raise HTTPException(400, detail=result.reason or "insert_failed")
-    await db.refresh(result.job)
-    return _job_dict(result.job)
+    job = await _get_job_with_packages(db, result.job.id)
+    return _job_dict(job or result.job)
 
 
 @router.post("/import")

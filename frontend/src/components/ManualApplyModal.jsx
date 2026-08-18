@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { client, logPoong } from "../api.js";
 import { shortPersona } from "../utils/persona.js";
+import { formatGateList, gateMessage } from "../utils/gates.js";
 
 const emptyForm = {
   company: "",
@@ -49,6 +50,7 @@ export default function ManualApplyModal({
   const [status, setStatus] = useState("");
   const [urlInferred, setUrlInferred] = useState(false);
   const [jobListed, setJobListed] = useState(false);
+  const [warnings, setWarnings] = useState([]);
   const answersPanelRef = useRef(null);
   const handledReadyKey = useRef("");
   const hydrateKey = `${open}:${openKey}:${workingPersonaId || ""}`;
@@ -71,6 +73,7 @@ export default function ManualApplyModal({
         setSavedQaFolder("");
         setStatus("");
         setJobListed(false);
+        setWarnings([]);
         return;
       }
 
@@ -244,9 +247,70 @@ export default function ManualApplyModal({
       await onCreated?.(saved);
       return saved;
     } catch (e) {
-      setError(String(e.message || e));
+      const detail = String(e.message || e);
+      if (detail.includes("company_already_applied")) {
+        setError(gateMessage("company_already_applied", { company: form.company }));
+      } else if (detail.includes("company_blocked")) {
+        setError(gateMessage("company_blocked", { company: form.company }));
+      } else {
+        setError(detail);
+      }
       logPoong("manual-prepare fail", e);
       return null;
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const fetchJd = async () => {
+    setError("");
+    const url = (form.url || job?.url || "").trim();
+    if (!url || url.includes("manual.poong.local")) {
+      setError("Paste a real job/apply URL, then Fetch JD.");
+      return;
+    }
+    setBusy("fetch");
+    setStatus("Fetching JD — HTTP first, then browser if the page is a login wall or too short.");
+    try {
+      const res = await client.manualFetch({
+        persona_id: activePersonaId,
+        url,
+        job_id: job?.id || undefined,
+      });
+      const extra = { company: res.company, seq: res.job?.seq_no };
+      if (res.description) {
+        setForm((prev) => ({
+          ...prev,
+          description: res.description || prev.description,
+          company: res.company || prev.company,
+          title: res.title || prev.title,
+          url: res.url || prev.url,
+          location: res.location || prev.location || "Remote, US",
+        }));
+        setUrlInferred(false);
+      }
+      if (res.job) {
+        setJob(res.job);
+        setJobListed(true);
+        await onCreated?.(res.job);
+      }
+      setWarnings(res.warnings || []);
+      if (res.blockers?.length) {
+        setError(formatGateList(res.blockers, extra));
+        return;
+      }
+      if (res.ok === false) {
+        setError(gateMessage(res.reason, extra) || res.reason || "Fetch failed");
+        return;
+      }
+      setStatus(
+        res.existing
+          ? `Loaded existing #${res.job?.seq_no || ""} ${res.company || ""} — ${formatGateList(res.warnings || [], extra) || "JD on file."}`
+          : `Fetched JD via ${res.fetch_via || "http"} (${(res.description || "").length} chars). Add to job list next, or Generate resume.`
+      );
+    } catch (e) {
+      setError(String(e.message || e));
+      logPoong("manual-fetch fail", e);
     } finally {
       setBusy("");
     }
@@ -407,9 +471,9 @@ export default function ManualApplyModal({
           </button>
         </div>
         <p className="muted">
-          1) Paste the full JD. 2) <strong>Add to job list</strong> only saves the job.
-          <strong> Generate resume</strong> runs in the background — close and start another job
-          anytime. 3) Come back here to generate answers from the saved JD + resume.
+          Paste a job URL and <strong>Fetch JD</strong> (HTTP, then browser), or paste the JD.
+          Duplicate URLs reopen the existing listing. Already-applied / blocked companies are
+          stopped. Then <strong>Generate resume</strong> in the background.
         </p>
 
         <div className="manual-flow-status" aria-label="Manual apply progress">
@@ -476,10 +540,41 @@ export default function ManualApplyModal({
         ) : null}
 
         {error ? <div className="error-banner">{error}</div> : null}
+        {warnings.length ? (
+          <div className="warning-banner">
+            {formatGateList(warnings, { company: form.company, seq: job?.seq_no })}
+          </div>
+        ) : null}
         {status ? (
           <div className="batch-progress" style={{ whiteSpace: "pre-wrap" }}>
             {status}
           </div>
+        ) : null}
+
+        <label>
+          Job / apply URL
+          <input
+            value={form.url}
+            disabled={formBusy}
+            onChange={(e) => {
+              setField("url", e.target.value);
+              setUrlInferred(false);
+            }}
+            placeholder="https://… paste the apply URL, then Fetch JD"
+          />
+        </label>
+        <div className="modal-actions">
+          <button
+            type="button"
+            className="primary"
+            disabled={formBusy || generating}
+            onClick={fetchJd}
+          >
+            {busy === "fetch" ? "Fetching JD…" : "Fetch JD"}
+          </button>
+        </div>
+        {urlInferred ? (
+          <p className="muted">No URL found in JD — placeholder set. Edit before Assisted apply.</p>
         ) : null}
 
         <label>
@@ -515,23 +610,7 @@ export default function ManualApplyModal({
         </div>
 
         <label>
-          Job / apply URL (auto after Add / Generate)
-          <input
-            value={form.url}
-            disabled={formBusy}
-            onChange={(e) => {
-              setField("url", e.target.value);
-              setUrlInferred(false);
-            }}
-            placeholder="Paste here or leave blank to extract from JD"
-          />
-        </label>
-        {urlInferred ? (
-          <p className="muted">No URL found in JD — placeholder set. Edit before Assisted apply.</p>
-        ) : null}
-
-        <label>
-          Location (auto after Add / Generate)
+          Location (auto after Fetch / Add / Generate)
           <input
             value={form.location}
             disabled={formBusy}

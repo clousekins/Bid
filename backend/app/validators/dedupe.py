@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 
 import yaml
 
@@ -38,3 +39,14 @@ def normalize_company(name: str) -> str:
     cleaned = _NON_ALNUM.sub(" ", cleaned)
     cleaned = _SPACE.sub(" ", cleaned).strip()
     return cleaned or raw.lower().strip()
+
+
+def canonicalize_url(url: str) -> str:
+    raw = (url or "").strip()
+    if not raw:
+        return ""
+    parts = urlsplit(raw)
+    scheme = (parts.scheme or "https").lower()
+    netloc = parts.netloc.lower()
+    path = (parts.path or "/").rstrip("/") or "/"
+    return urlunsplit((scheme, netloc, path, parts.query, ""))

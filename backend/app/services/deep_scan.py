@@ -8,13 +8,16 @@ from app.db.enums import JobStatus
 from app.db.models import Job
 from app.services.employer_resolve import apply_employer_to_job_fields, resolve_employer
 from app.services.folder_writer import job_folder_name, remove_job_folder, sync_job_folder
-from app.services.jd_fetch import fetch_jd_http
+from app.services.jd_fetch import FetchResult, fetch_jd_http
 from app.services.jd_fetch_browser import fetch_jd_browser
+from app.services.jd_extract import extract_job_fields_from_jd
 from app.services.pipeline import (
     _get_or_create_company,
     company_is_applied,
     company_is_blocked,
+    find_job_by_url,
 )
+from app.validators.dedupe import canonicalize_url, normalize_company
 from app.validators.remote_us import check_remote_us
 
 
@@ -24,6 +27,22 @@ SOLID_JD_CHARS = 400
 def has_solid_jd(job: Job) -> bool:
     desc = job.description or ""
     return bool(job.jd_fetched and len(desc) >= SOLID_JD_CHARS)
+
+
+async def fetch_description(url: str) -> tuple[FetchResult, str]:
+    """HTTP first, then headless browser. Same order as Deep-scan."""
+    result = await fetch_jd_http(url)
+    http_reason = result.reason if not result.ok else "ok"
+    if not result.ok:
+        browser = await fetch_jd_browser(url)
+        if browser.ok:
+            return browser, http_reason
+        return FetchResult(
+            ok=False,
+            text=browser.text or result.text,
+            reason=browser.reason or result.reason or "fetch_failed",
+        ), http_reason
+    return result, http_reason
 
 
 def _drop_stale_company_folder(job: Job, old_company: str, new_folder) -> None:
@@ -80,10 +99,7 @@ async def deep_scan_job(session: AsyncSession, job: Job, *, force: bool = False)
         }
 
     url = job.apply_url or job.url
-    result = await fetch_jd_http(url)
-    http_reason = result.reason if not result.ok else "ok"
-    if not result.ok:
-        result = await fetch_jd_browser(url)
+    result, http_reason = await fetch_description(url)
 
     if not result.ok or len(result.text) < 200:
         reason = result.reason or "fetch_failed"
@@ -229,3 +245,116 @@ async def deep_scan_range(
         results.append(await deep_scan_job(session, job))
         await session.commit()
     return {"cancelled": False, "results": results, "count": len(results)}
+
+
+async def preview_url_fetch(
+    session: AsyncSession,
+    *,
+    url: str,
+    persona_id: str,
+    job: Job | None = None,
+) -> dict:
+    """Fetch a JD without always inserting. Same HTTP→browser path as Deep-scan.
+
+    Returns extracted fields plus blockers (cannot add) and warnings (can continue).
+    """
+    url = (url or "").strip()
+    if not url or not url.lower().startswith(("http://", "https://")):
+        return {"ok": False, "reason": "url_required", "blockers": ["url_required"], "warnings": []}
+
+    existing = job or await find_job_by_url(session, url)
+    if existing:
+        explicit = job is not None
+        if explicit or not has_solid_jd(existing):
+            scan = await deep_scan_job(session, existing, force=True)
+        else:
+            scan = {"ok": True, "skipped": True, "reason": "already_has_jd"}
+        company = existing.company
+        normalized = existing.normalized_company or normalize_company(company)
+        blockers: list[str] = []
+        warnings: list[str] = ["duplicate_url"]
+        if scan.get("skipped"):
+            warnings.append("already_has_jd")
+        if await company_is_blocked(session, normalized):
+            blockers.append("company_blocked")
+        elif await company_is_applied(session, persona_id, normalized):
+            blockers.append("company_already_applied")
+        if existing.status in {JobStatus.REJECTED_ONSITE.value}:
+            warnings.append("hybrid_or_onsite")
+        if not scan.get("ok") and scan.get("reason") and scan.get("reason") not in blockers:
+            if scan.get("reason") in {"company_blocked", "company_already_applied"}:
+                blockers.append(scan["reason"])
+            elif scan.get("reason") not in {"already_has_jd"}:
+                warnings.append(str(scan["reason"]))
+        return {
+            "ok": not blockers and (scan.get("ok") or scan.get("skipped") or bool(existing.description)),
+            "reason": (blockers[0] if blockers else (scan.get("reason") or "duplicate_url")),
+            "existing": True,
+            "job_id": existing.id,
+            "company": existing.company,
+            "title": existing.title,
+            "url": existing.url,
+            "location": existing.location or "Remote, US",
+            "description": existing.description or "",
+            "staffing_firm": existing.staffing_firm,
+            "blockers": blockers,
+            "warnings": warnings,
+            "fetch_via": "existing_job",
+        }
+
+    result, http_reason = await fetch_description(url)
+    if not result.ok or len(result.text) < 200:
+        reason = result.reason or "fetch_failed"
+        return {
+            "ok": False,
+            "reason": reason,
+            "existing": False,
+            "description": result.text or "",
+            "url": url,
+            "blockers": [reason],
+            "warnings": [],
+            "fetch_via": f"http={http_reason}",
+        }
+
+    extracted = await extract_job_fields_from_jd(result.text)
+    company = (extracted.get("company") or "").strip() or "Unknown Company"
+    title = (extracted.get("title") or "").strip() or "Unknown Role"
+    location = (extracted.get("location") or "").strip() or "Remote, US"
+    resolved = await resolve_employer(
+        listing_company=company,
+        title=title,
+        url=url,
+        jd=result.text,
+    )
+    if resolved.company:
+        company = resolved.company
+    staffing_firm = resolved.source_name or None
+    normalized = normalize_company(company)
+    blockers = []
+    warnings = []
+    if http_reason not in {"ok", ""}:
+        warnings.append(f"http_{http_reason}")
+    if staffing_firm and staffing_firm != company:
+        warnings.append("staffing_firm_resolved")
+    if await company_is_blocked(session, normalized):
+        blockers.append("company_blocked")
+    elif await company_is_applied(session, persona_id, normalized):
+        blockers.append("company_already_applied")
+    gate = check_remote_us(location, result.text)
+    if not gate.ok:
+        warnings.append(gate.reason)
+    return {
+        "ok": not blockers,
+        "reason": blockers[0] if blockers else "",
+        "existing": False,
+        "company": company,
+        "title": title,
+        "url": url,
+        "location": location,
+        "description": result.text,
+        "staffing_firm": staffing_firm,
+        "canonical_url": canonicalize_url(url),
+        "blockers": blockers,
+        "warnings": warnings,
+        "fetch_via": "browser" if http_reason != "ok" else "http",
+    }

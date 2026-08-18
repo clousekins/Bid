@@ -39,6 +39,7 @@ class PackageStatus(str, Enum):
 class BackgroundJobKind(str, Enum):
     DEEP_SCAN = "deep_scan"
     TAILOR = "tailor"
+    DISCOVER = "discover"
 
 
 class BackgroundJobStatus(str, Enum):

@@ -1213,6 +1213,15 @@ button.danger {
   min-height: 1.2rem;
 }
 
+.warning-banner {
+  background: color-mix(in srgb, var(--warn) 16%, #fff);
+  border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--shell-border));
+  color: #854d0e;
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+}
+
 .jobs-pagination {
   display: flex;
   flex-wrap: wrap;

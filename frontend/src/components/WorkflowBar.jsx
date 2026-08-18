@@ -13,6 +13,7 @@ export default function WorkflowBar({
   onAddJob,
   onManualApply,
   onUpload,
+  onDiscover,
   onDeleteRange,
   onRenumber,
   checkedCount,
@@ -62,6 +63,9 @@ export default function WorkflowBar({
             <button type="button" className="primary" onClick={onManualApply}>
               Manual apply
             </button>
+            <button type="button" className="primary" disabled={busy} onClick={onDiscover}>
+              Fetch new jobs
+            </button>
             <button type="button" onClick={() => fileRef.current?.click()}>
               Upload JSON/CSV
             </button>
@@ -83,7 +87,7 @@ export default function WorkflowBar({
           <span className="workflow-group-label">Prep</span>
           <div className="workflow-group-actions">
             <button type="button" className="primary" disabled={busy} onClick={onDeepScan}>
-              Deep-scan range
+              Fetch JDs (range)
             </button>
             <button
               type="button"
@@ -91,7 +95,7 @@ export default function WorkflowBar({
               disabled={!hasSelection || busy}
               onClick={onDeepScanSelected}
             >
-              Deep-scan selected
+              Fetch selected
             </button>
           </div>
         </div>
