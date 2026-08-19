@@ -23,12 +23,11 @@ ADAPTERS: dict[str, AdapterFn] = {
 }
 
 
-async def discover_all(enabled_only: bool = True) -> list[RawListing]:
+async def discover_feeds(enabled_only: bool = True) -> list[RawListing]:
     cfg = load_job_sites()
     sites = cfg.get("sites") or []
     listings: list[RawListing] = []
     tasks: list[tuple[str, Awaitable[list[RawListing]]]] = []
-
     ats_adapters = {"greenhouse", "lever", "ashby", "indeed", "glassdoor", "hn_whoishiring"}
 
     for site in sites:
@@ -50,6 +49,25 @@ async def discover_all(enabled_only: bool = True) -> list[RawListing]:
             continue
         listings.extend(result)
         logger.info("%s: %d listings", name, len(result))
+    return listings
+
+
+async def fetch_ats_board(source: str, token: str) -> list[RawListing]:
+    source = (source or "").strip().lower()
+    token = (token or "").strip()
+    if source == "greenhouse":
+        return await fetchers.fetch_greenhouse_board(token)
+    if source == "lever":
+        return await fetchers.fetch_lever_board(token)
+    if source == "ashby":
+        return await fetchers.fetch_ashby_board(token)
+    return []
+
+
+async def discover_all(enabled_only: bool = True) -> list[RawListing]:
+    listings = await discover_feeds(enabled_only=enabled_only)
+    cfg = load_job_sites()
+    sites = cfg.get("sites") or []
 
     async def _pull_token_boards(
         site_adapter: str,
@@ -73,5 +91,4 @@ async def discover_all(enabled_only: bool = True) -> list[RawListing]:
     )
     await _pull_token_boards("lever", "lever_boards", fetchers.fetch_lever_board, "Lever")
     await _pull_token_boards("ashby", "ashby_boards", fetchers.fetch_ashby_board, "Ashby")
-
     return listings

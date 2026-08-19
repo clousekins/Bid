@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { personaLabel } from "../utils/persona.js";
 import { packageStatusLabel, pipelineLabel } from "../utils/statusLabels.js";
+import ResumePreview from "./ResumePreview.jsx";
 
 function EditableField({
   label,
@@ -254,6 +255,12 @@ export default function JobDetail({
         <button type="button" className="primary" onClick={onGenerate}>
           Generate for {workingLabel}
         </button>
+        <ResumePreview
+          jobId={job.id}
+          personaId={workingPersonaId}
+          packages={packages}
+          generating={generating}
+        />
         <button type="button" onClick={onAssistedApply}>
           Assisted apply
         </button>

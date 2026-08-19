@@ -177,13 +177,24 @@ ashby_boards:
 discovery:
   posted_within_days: 14
   max_jobs: 50
+  boards_per_run: 30
   queries:
     - AI Engineer
     - Machine Learning Engineer
     - LLM Engineer
     - Software Engineer
+    - Frontend Engineer
+    - Front End Engineer
+    - Frontend Developer
+    - Backend Engineer
+    - Backend Developer
+    - Full Stack Engineer
+    - Full-Stack Engineer
+    - Full Stack Developer
+    - React Engineer
+    - React Developer
+    - Node Engineer
+    - TypeScript Engineer
     - Data Engineer
     - DevOps Engineer
     - Platform Engineer
-    - Backend Engineer
-    - Full Stack Engineer

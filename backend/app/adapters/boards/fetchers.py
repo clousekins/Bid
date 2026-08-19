@@ -265,10 +265,7 @@ async def fetch_weworkremotely() -> list[RawListing]:
 
 async def fetch_greenhouse_board(board_token: str) -> list[RawListing]:
     url = f"https://boards-api.greenhouse.io/v1/boards/{board_token}/jobs?content=true"
-    try:
-        data = await fetch_json(url)
-    except Exception:
-        return []
+    data = await fetch_json(url)
     jobs = data.get("jobs") if isinstance(data, dict) else None
     out: list[RawListing] = []
     company_fallback = board_token.replace("-", " ").title()
@@ -302,10 +299,7 @@ async def fetch_greenhouse_board(board_token: str) -> list[RawListing]:
 
 async def fetch_lever_board(company_slug: str) -> list[RawListing]:
     url = f"https://api.lever.co/v0/postings/{company_slug}?mode=json"
-    try:
-        data = await fetch_json(url)
-    except Exception:
-        return []
+    data = await fetch_json(url)
     rows = data if isinstance(data, list) else []
     out: list[RawListing] = []
     company = company_slug.replace("-", " ").title()
@@ -347,10 +341,7 @@ async def fetch_lever_board(company_slug: str) -> list[RawListing]:
 
 async def fetch_ashby_board(board_name: str) -> list[RawListing]:
     url = f"https://api.ashbyhq.com/posting-api/job-board/{board_name}?includeCompensation=true"
-    try:
-        data = await fetch_json(url)
-    except Exception:
-        return []
+    data = await fetch_json(url)
     jobs = data.get("jobs") if isinstance(data, dict) else None
     out: list[RawListing] = []
     company = board_name.replace("-", " ").title()

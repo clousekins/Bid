@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import selectinload
@@ -15,6 +16,7 @@ from app.db.enums import JobStatus, PackageStatus, can_transition
 from app.db.models import Application, Job, JobPackage, utcnow
 from app.db.session import get_db
 from app.services.apply import mark_job_applied, stop_apply_for_job
+from app.services.artifacts import KINDS, folder_is_allowed, resolve_artifacts, resolve_kind
 from app.services.apply_session import apply_sessions
 from app.services.deep_scan import deep_scan_job
 from app.services.folder_writer import (
@@ -303,6 +305,8 @@ async def job_stats(db: AsyncSession = Depends(get_db)):
     ).all()
     by_status = {s: c for s, c in rows}
     total = sum(by_status.values())
+    max_seq = int((await db.execute(select(func.max(Job.seq_no)))).scalar() or 0)
+    min_seq = int((await db.execute(select(func.min(Job.seq_no)))).scalar() or 0)
     pkg_rows = (
         await db.execute(
             select(JobPackage.persona_id, JobPackage.status, func.count()).group_by(
@@ -318,7 +322,20 @@ async def job_stats(db: AsyncSession = Depends(get_db)):
         statuses = by_profile.setdefault(pid, {})
         packaged = sum(statuses.values())
         statuses["need_resume"] = max(0, total - packaged)
-    return {"total": total, "by_status": by_status, "by_profile": by_profile}
+    from app.services.ats_catalog import catalog_stats, seed_ats_catalog
+
+    added = await seed_ats_catalog(db)
+    ats = await catalog_stats(db)
+    if added:
+        await db.commit()
+    return {
+        "total": total,
+        "max_seq": max_seq,
+        "min_seq": min_seq or (1 if total else 0),
+        "by_status": by_status,
+        "by_profile": by_profile,
+        "ats": ats,
+    }
 
 
 @router.post("")
@@ -529,6 +546,79 @@ async def get_job_qa(
         "questions": questions,
         "answers": answers,
     }
+
+
+def _package_folder(job: Job, persona_id: str | None) -> tuple[JobPackage | None, Path | None]:
+    pkgs = list(job.packages or [])
+    pkg = None
+    if persona_id:
+        pkg = next((p for p in pkgs if p.persona_id == persona_id), None)
+    if pkg is None:
+        pkg = next((p for p in pkgs if p.folder_path), None)
+    folder = Path(pkg.folder_path) if pkg and pkg.folder_path else None
+    if folder is None and job.folder_path:
+        folder = Path(job.folder_path)
+    return pkg, folder
+
+
+@router.get("/{job_id}/artifacts")
+async def list_job_artifacts(
+    job_id: int,
+    persona_id: str | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+):
+    """List generated resume/cover files for in-app preview (no folder browsing)."""
+    job = await _get_job_with_packages(db, job_id)
+    if not job:
+        raise HTTPException(404, detail="not_found")
+    pkg, folder = _package_folder(job, persona_id)
+    if folder is not None and not folder_is_allowed(folder):
+        folder = None
+    artifacts = resolve_artifacts(folder)
+    files = {
+        kind: {
+            "name": art.name,
+            "size": art.size,
+            "mtime": int(art.mtime),
+        }
+        for kind, art in artifacts.items()
+    }
+    return {
+        "ok": True,
+        "job_id": job.id,
+        "persona_id": pkg.persona_id if pkg else persona_id,
+        "folder": str(folder) if folder else None,
+        "available": sorted(files.keys()),
+        "files": files,
+    }
+
+
+@router.get("/{job_id}/artifacts/{kind}")
+async def get_job_artifact(
+    job_id: int,
+    kind: str,
+    persona_id: str | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+):
+    """Serve a generated resume/cover file inline so the UI can preview it."""
+    if kind not in KINDS:
+        raise HTTPException(404, detail="unknown_artifact")
+    job = await _get_job_with_packages(db, job_id)
+    if not job:
+        raise HTTPException(404, detail="not_found")
+    _pkg, folder = _package_folder(job, persona_id)
+    try:
+        art = resolve_kind(folder, kind)
+    except KeyError:
+        raise HTTPException(404, detail="unknown_artifact") from None
+    except FileNotFoundError:
+        raise HTTPException(404, detail="artifact_missing") from None
+    return FileResponse(
+        path=art.path,
+        media_type=art.media_type,
+        filename=art.name,
+        content_disposition_type="inline",
+    )
 
 
 def _rename_job_folders(job: Job, old_company: str, new_company: str) -> None:

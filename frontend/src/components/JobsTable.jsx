@@ -7,6 +7,7 @@ import {
   packageStatusLabel,
   pipelineLabel,
 } from "../utils/statusLabels.js";
+import ResumePreview from "./ResumePreview.jsx";
 
 export default function JobsTable({
   jobs,
@@ -191,6 +192,17 @@ export default function JobsTable({
                       >
                         Fetch
                       </button>
+                    ) : null}
+                    {["resume_ready", "applying", "applied"].includes(myStatus) ? (
+                      <span onClick={(e) => e.stopPropagation()}>
+                        <ResumePreview
+                          jobId={j.id}
+                          personaId={workingPersonaId}
+                          packages={pkgs}
+                          generating={generating}
+                          labels={{ resume: "Resume", cover: "Cover" }}
+                        />
+                      </span>
                     ) : null}
                     {onContinue ? (
                       <button

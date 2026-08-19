@@ -1,10 +1,13 @@
 import { useRef } from "react";
+import { commitSeqRange } from "../utils/seqRange.js";
 
 export default function WorkflowBar({
   seqFrom,
   seqTo,
+  seqMax = 0,
   setSeqFrom,
   setSeqTo,
+  ats,
   onDeepScan,
   onTailor,
   onAssistedApply,
@@ -27,6 +30,18 @@ export default function WorkflowBar({
 }) {
   const fileRef = useRef(null);
   const hasSelection = checkedCount > 0;
+  const maxSeq = Math.max(0, Number(seqMax) || 0);
+
+  const applyRange = (fromRaw, toRaw) => {
+    if (!maxSeq) {
+      setSeqFrom(1);
+      setSeqTo(1);
+      return;
+    }
+    const next = commitSeqRange(fromRaw, toRaw, maxSeq);
+    setSeqFrom(next.from);
+    setSeqTo(next.to);
+  };
 
   return (
     <div className="panel workflow-bar shell-panel">
@@ -37,8 +52,20 @@ export default function WorkflowBar({
             Seq
             <input
               type="number"
+              min={1}
+              max={maxSeq || 1}
+              step={1}
+              inputMode="numeric"
               value={seqFrom}
-              onChange={(e) => setSeqFrom(Number(e.target.value))}
+              onChange={(e) => setSeqFrom(e.target.value === "" ? "" : Number(e.target.value))}
+              onBlur={(e) => applyRange(e.target.value, seqTo)}
+              onWheel={(e) => e.currentTarget.blur()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  applyRange(e.currentTarget.value, seqTo);
+                }
+              }}
             />
           </label>
           <span className="muted">–</span>
@@ -46,10 +73,41 @@ export default function WorkflowBar({
             <span className="sr-only">to</span>
             <input
               type="number"
+              min={1}
+              max={maxSeq || 1}
+              step={1}
+              inputMode="numeric"
               value={seqTo}
-              onChange={(e) => setSeqTo(Number(e.target.value))}
+              onChange={(e) => setSeqTo(e.target.value === "" ? "" : Number(e.target.value))}
+              onBlur={(e) => applyRange(seqFrom, e.target.value)}
+              onWheel={(e) => e.currentTarget.blur()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  applyRange(seqFrom, e.currentTarget.value);
+                }
+              }}
             />
           </label>
+          <span className="seq-max muted">{maxSeq ? `of ${maxSeq}` : "no jobs"}</span>
+          <button
+            type="button"
+            className="seq-chip"
+            disabled={!maxSeq}
+            onClick={() => applyRange(1, maxSeq)}
+            title="Use the full job list"
+          >
+            All
+          </button>
+          <button
+            type="button"
+            className="seq-chip"
+            disabled={!maxSeq}
+            onClick={() => applyRange(Math.max(1, maxSeq - 49), maxSeq)}
+            title="Last 50 jobs"
+          >
+            Last 50
+          </button>
         </div>
       </div>
 
@@ -66,6 +124,12 @@ export default function WorkflowBar({
             <button type="button" className="primary" disabled={busy} onClick={onDiscover}>
               Fetch new jobs
             </button>
+            {ats ? (
+              <span className="ats-catalog-hint muted" title="Career boards we have already searched. Next Fetch new jobs skips these and tries companies not in this list.">
+                Companies {ats.checked}/{ats.total} searched
+                {ats.pending ? ` · ${ats.pending} waiting` : ""}
+              </span>
+            ) : null}
             <button type="button" onClick={() => fileRef.current?.click()}>
               Upload JSON/CSV
             </button>

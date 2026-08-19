@@ -10,6 +10,7 @@ from app.db.enums import BackgroundJobKind, JobStatus, PackageStatus
 from app.db.models import Job, JobPackage
 from app.db.session import get_db
 from app.services import bg_jobs
+from app.services.ats_catalog import catalog_stats, seed_ats_catalog
 from app.services.persona import get_active_persona_id
 
 router = APIRouter(prefix="/api/sync", tags=["sync"])
@@ -21,6 +22,15 @@ class RangeBody(BaseModel):
     seq_to: int | None = 50
     limit: int = 50
     job_ids: list[int] | None = None
+
+
+@router.get("/ats-catalog")
+async def ats_catalog(db: AsyncSession = Depends(get_db)):
+    added = await seed_ats_catalog(db)
+    stats = await catalog_stats(db)
+    if added:
+        await db.commit()
+    return stats
 
 
 @router.post("/discover")

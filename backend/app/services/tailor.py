@@ -152,11 +152,22 @@ async def _chat(system: str, user: str, *, attempts: int = 6) -> str:
 
 
 def _resume_user_message(persona, job: Job) -> str:
-    gt = ground_truth_payload(persona)
+    gt = ground_truth_payload(persona, for_resume=True)
     jd = (job.description or "")[:20000]
+    from app.services.resume_header import resume_contact_line, resume_location
+
+    loc = resume_location(persona.identity)
+    contact = resume_contact_line(persona.identity)
     return (
-        "FIXED CANDIDATE GROUND TRUTH (immutable employers/titles/dates/education/contact):\n"
+        "FIXED CANDIDATE GROUND TRUTH (immutable employers/titles/dates/education):\n"
         f"{json.dumps(gt, indent=2, ensure_ascii=False)}\n\n"
+        "LOCKED RESUME HEADER — copy this contact block exactly. "
+        "Only the professional title line may change to match the JD. "
+        "Do not add street address, ZIP, citizenship, or work-authorization lines.\n"
+        f"{persona.display_name}\n"
+        f"{persona.default_professional_title}\n"
+        f"{contact}\n"
+        f"Resume location is {loc} only.\n\n"
         "TARGET JOB:\n"
         f"Company: {job.company}\n"
         f"Title: {job.title}\n"
@@ -189,6 +200,8 @@ def _cover_letter_system() -> str:
     return (
         "You write truthful professional cover letters grounded only in the provided "
         "candidate ground truth and job description. Output plain text only, 300–450 words. "
+        "Sign with name, Pflugerville, TX, email, and phone only — no street address, "
+        "ZIP, citizenship, or work-authorization wording unless the JD asks. "
         "Do not invent employers, metrics, or degrees. No markdown headings."
     )
 
@@ -251,7 +264,10 @@ def _load_persona_css(persona) -> str:
 
 
 async def generate_resume_markdown(persona, job: Job) -> str:
-    return await _chat(persona.system_prompt, _resume_user_message(persona, job))
+    from app.services.resume_header import enforce_resume_header
+
+    raw = await _chat(persona.system_prompt, _resume_user_message(persona, job))
+    return enforce_resume_header(raw, persona)
 
 
 async def generate_html_bundle(persona, job: Job) -> tuple[str, str]:

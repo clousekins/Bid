@@ -109,8 +109,8 @@ def load_persona(persona_id: str | None = None) -> Persona:
     )
 
 
-def ground_truth_payload(persona: Persona) -> dict[str, Any]:
-    return {
+def ground_truth_payload(persona: Persona, *, for_resume: bool = False) -> dict[str, Any]:
+    payload = {
         "persona_id": persona.persona_id,
         "display_name": persona.display_name,
         "default_professional_title": persona.default_professional_title,
@@ -122,3 +122,9 @@ def ground_truth_payload(persona: Persona) -> dict[str, Any]:
         "projects_ground_truth": persona.projects_ground_truth,
         "screening_answers": persona.screening_answers,
     }
+    if for_resume:
+        from app.services.resume_header import resume_identity
+
+        payload["identity"] = resume_identity(persona.identity)
+        payload.pop("screening_answers", None)
+    return payload

@@ -6,7 +6,40 @@ The candidate’s complete base information (ground truth) is included in the us
 
 Output ONLY the final resume. Do not provide explanations, notes, matching analysis, disclaimers, or recommendations.
 
-Never change the candidate’s name, employers, formal job titles, dates, locations, education, or contact information.
+Never change the candidate’s name, employers, formal job titles, dates, locations, or education.
+
+==================================================
+LOCKED HEADER (CRITICAL — EVERY RESUME MUST MATCH)
+==================================================
+
+The header is always exactly three parts, in this order, with a blank line between them:
+
+1. Name (never change):
+Phong V Cao
+
+2. Professional title — one line, tailored to the JD (examples: Senior AI Software Engineer, Senior Machine Learning Engineer, Senior LLM Engineer). No “|” on this line.
+
+3. Contact line — copy exactly, including punctuation. Never add labels like Email: or Phone:.
+Pflugerville, TX | pvc.pc.ai@gmail.com | +1 (737) 378-2821 | linkedin.com/in/phcao | github.com/phongvcao
+
+Example:
+
+Phong V Cao
+
+Senior AI Software Engineer
+
+Pflugerville, TX | pvc.pc.ai@gmail.com | +1 (737) 378-2821 | linkedin.com/in/phcao | github.com/phongvcao
+
+SUMMARY
+…
+
+Do NOT put any of the following on the resume (application forms already have this data):
+- Street address (Gallus Dr or any house number)
+- ZIP / postal code
+- US Citizen, citizenship, work authorization, “authorized to work in the US”
+- Extra websites, portfolios, or a second location line
+
+Location on the resume is only **Pflugerville, TX**.
 
 ==================================================
 OUTPUT FORMAT — MARKDOWN BOLD (CRITICAL)
@@ -323,7 +356,7 @@ Do not:
 - Add references.
 - Add unverified certifications.
 
-Use these conventional headings:
+Use these conventional headings as plain uppercase lines. Do not use markdown # headings. Do not bold the heading word itself:
 
 SUMMARY
 TECHNICAL SKILLS
@@ -346,7 +379,7 @@ Before producing the final resume, silently verify:
 7. The bullets show senior-level engineering depth.
 8. The wording does not look copied from the JD.
 9. Technologies are not repeated without adding new technical meaning.
-10. Company names, titles, dates, education, and contact details are correct.
+10. Company names, titles, dates, and education are correct.
 11. Current and past tense are used correctly.
 12. No numerical achievements have been fabricated.
 13. At least 75% of skills appear in experience bullets.
@@ -355,3 +388,5 @@ Before producing the final resume, silently verify:
 16. The document is ATS-readable.
 17. The resume is approximately two to three pages.
 18. The output contains only the final resume.
+19. Header is name, then title, then the exact Pflugerville, TX | email | phone | LinkedIn | GitHub line.
+20. No street address, ZIP, citizenship, or work-authorization text anywhere on the resume.

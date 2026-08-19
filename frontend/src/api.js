@@ -70,6 +70,11 @@ export const client = {
   getJob: (id) => api(`/api/jobs/${id}`),
   getJobQa: (id, persona_id) =>
     api(`/api/jobs/${id}/qa?${new URLSearchParams({ persona_id })}`),
+  listArtifacts: (id, persona_id) => {
+    const q = new URLSearchParams();
+    if (persona_id) q.set("persona_id", persona_id);
+    return api(`/api/jobs/${id}/artifacts?${q}`);
+  },
   deleteJob: (id) => api(`/api/jobs/${id}`, { method: "DELETE" }),
   deleteJobsRange: (body) =>
     api("/api/jobs/delete-range", { method: "POST", json: body }),
@@ -129,6 +134,21 @@ export const client = {
     api("/api/settings/personas/activate", { method: "POST", json: { persona_id } }),
   rejected: () => api("/api/rejected"),
 };
+
+export function getAuthToken() {
+  return getToken();
+}
+
+export function artifactUrl(jobId, kind, personaId, extra = {}) {
+  const q = new URLSearchParams();
+  if (personaId) q.set("persona_id", personaId);
+  const token = getToken();
+  if (token) q.set("token", token);
+  Object.entries(extra).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== "") q.set(k, String(v));
+  });
+  return `/api/jobs/${jobId}/artifacts/${kind}?${q}`;
+}
 
 export function logPoong(...args) {
   console.log("[POONG]", ...args);

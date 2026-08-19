@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { client, logPoong } from "../api.js";
 import { shortPersona } from "../utils/persona.js";
 import { formatGateList, gateMessage } from "../utils/gates.js";
+import ResumePreview from "./ResumePreview.jsx";
 
 const emptyForm = {
   company: "",
@@ -669,6 +670,17 @@ export default function ManualApplyModal({
               </>
             )}
           </p>
+        ) : null}
+
+        {job && (resumeReady || generating) ? (
+          <div className="modal-actions">
+            <ResumePreview
+              jobId={job.id}
+              personaId={activePersonaId}
+              packages={job.packages || []}
+              generating={generating}
+            />
+          </div>
         ) : null}
 
         <label>

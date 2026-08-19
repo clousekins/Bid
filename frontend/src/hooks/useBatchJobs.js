@@ -26,6 +26,8 @@ export function useBatchJobs(refresh) {
             (p.skipped != null ? ` skipped=${p.skipped}` : ` fail=${fails}`) +
             (p.rejected != null ? ` gated=${p.rejected}` : "") +
             (p.more_available ? " more=1" : "") +
+            (p.ats_this_run != null ? ` companies=${p.ats_this_run}` : "") +
+            (p.ats_pending != null ? ` waiting=${p.ats_pending}` : "") +
             (p.concurrency ? ` concurrency=${p.concurrency}` : "") +
             (p.generate_as ? ` as=${p.generate_as}` : "") +
             (job.error ? ` ${job.error}` : "") +

@@ -60,6 +60,14 @@ def _linkify_contact(text: str) -> str:
         return f'<a href="mailto:{esc}">{esc}</a>'
     if text.lower().startswith("http"):
         return f'<a href="{esc}">{esc}</a>'
+    if "linkedin.com/" in text.lower() or "github.com/" in text.lower():
+        href = "https://" + text.lstrip("/")
+        href_esc = (
+            href.replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+        )
+        return f'<a href="{href_esc}">{esc}</a>'
     return esc
 
 
@@ -152,7 +160,11 @@ def polish_flat_resume_html(html: str, *, display_name: str = "") -> str:
                 if _section_key(t):
                     break
                 if _looks_like_contact(t) or (len(t) < 70 and not t.isupper()):
-                    contacts.append(_linkify_contact(t))
+                    pieces = [p.strip() for p in re.split(r"\s*[|·•]\s*", t) if p.strip()]
+                    if len(pieces) > 1:
+                        contacts.extend(_linkify_contact(p) for p in pieces)
+                    else:
+                        contacts.append(_linkify_contact(t))
                     i += 1
                     continue
                 break

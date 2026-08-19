@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { client, logPoong } from "./api.js";
+import { commitSeqRange } from "./utils/seqRange.js";
 import { useJobsWorkspace } from "./hooks/useJobsWorkspace.js";
 import { useBatchJobs } from "./hooks/useBatchJobs.js";
 import { useAssistedApply } from "./hooks/useAssistedApply.js";
@@ -44,6 +45,30 @@ export default function App() {
   const [addError, setAddError] = useState("");
 
   const workingLabel = shortPersona(ws.workingPersonaId);
+  const seqMax = Number(ws.stats?.max_seq || ws.stats?.total || 0);
+
+  useEffect(() => {
+    if (!seqMax) return;
+    setSeqFrom((from) => {
+      if (from === "") return from;
+      const n = Number(from);
+      if (!Number.isFinite(n) || n < 1) return 1;
+      return Math.min(Math.trunc(n), seqMax);
+    });
+    setSeqTo((to) => {
+      if (to === "") return to;
+      const n = Number(to);
+      if (!Number.isFinite(n) || n < 1) return seqMax;
+      return Math.min(Math.trunc(n), seqMax);
+    });
+  }, [seqMax]);
+
+  const committedRange = () => {
+    const next = commitSeqRange(seqFrom, seqTo, seqMax || 1);
+    setSeqFrom(next.from);
+    setSeqTo(next.to);
+    return next;
+  };
 
   const openManual = (job = null) => {
     setManualJob(job);
@@ -202,22 +227,29 @@ export default function App() {
       <WorkflowBar
         seqFrom={seqFrom}
         seqTo={seqTo}
+        seqMax={seqMax}
+        ats={ws.stats?.ats}
         setSeqFrom={setSeqFrom}
         setSeqTo={setSeqTo}
         workingLabel={workingLabel}
-        onDeepScan={() =>
-          runOrError(() => batch.startBg("deep_scan", { seq_from: seqFrom, seq_to: seqTo }))
-        }
-        onTailor={() =>
-          runOrError(() =>
+        onDeepScan={() => {
+          const { from, to } = committedRange();
+          return runOrError(() => batch.startBg("deep_scan", { seq_from: from, seq_to: to }));
+        }}
+        onTailor={() => {
+          const { from, to } = committedRange();
+          return runOrError(() =>
             batch.startBg("tailor", {
-              seq_from: seqFrom,
-              seq_to: seqTo,
+              seq_from: from,
+              seq_to: to,
               persona_id: ws.workingPersonaId,
             })
-          )
-        }
-        onAssistedApply={() => apply.assistedApplyRange(seqFrom, seqTo)}
+          );
+        }}
+        onAssistedApply={() => {
+          const { from, to } = committedRange();
+          return apply.assistedApplyRange(from, to);
+        }}
         onStopBatch={async () => {
           apply.stopApplyQueue();
           await batch.stopBatch();
@@ -232,15 +264,16 @@ export default function App() {
         }
         onUpload={onUpload}
         onDeleteRange={async () => {
+          const { from, to } = committedRange();
           const msg =
-            `Permanently delete all jobs with seq ${seqFrom}–${seqTo}?\n` +
+            `Permanently delete all jobs with seq ${from}–${to}?\n` +
             "Removes DB rows and all persona resume folders, then renumbers remaining jobs to 1…N.";
           if (!window.confirm(msg)) return;
           try {
             batch.setBusy(true);
             const res = await client.deleteJobsRange({
-              seq_from: seqFrom,
-              seq_to: seqTo,
+              seq_from: from,
+              seq_to: to,
             });
             logPoong("delete-range", res);
             const rn = res.renumber || {};
@@ -248,12 +281,15 @@ export default function App() {
               `Deleted ${res.deleted} job(s), removed ${res.folders_removed ?? 0} folder(s); ` +
                 `renumbered to 1–${rn.seq_max ?? "?"} (${rn.folders_renamed ?? 0} folders renamed)`
             );
-            if (rn.seq_max != null) setSeqTo(rn.seq_max || 1);
+            if (rn.seq_max != null) {
+              setSeqFrom(1);
+              setSeqTo(rn.seq_max || 1);
+            }
             ws.clearSelection();
             if (
               ws.selected &&
-              ws.selected.seq_no >= seqFrom &&
-              ws.selected.seq_no <= seqTo
+              ws.selected.seq_no >= from &&
+              ws.selected.seq_no <= to
             ) {
               ws.clearSelected();
             }

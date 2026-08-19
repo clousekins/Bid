@@ -6,7 +6,10 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from app.adapters.base import RawListing
-from app.adapters.boards import discover_all
+from app.adapters.boards import discover_feeds, fetch_ats_board
+from app.db.models import AtsBoard
+from app.db.session import get_session_factory
+from app.services.ats_catalog import catalog_stats, mark_board, next_unchecked_boards, seed_ats_catalog
 from app.services.config_loader import load_job_sites
 from app.validators.dedupe import normalize_company
 
@@ -17,8 +20,21 @@ DEFAULT_QUERIES = (
     "Machine Learning Engineer",
     "LLM Engineer",
     "Software Engineer",
+    "Frontend Engineer",
+    "Front End Engineer",
+    "Frontend Developer",
+    "Backend Engineer",
+    "Backend Developer",
+    "Full Stack Engineer",
+    "Full-Stack Engineer",
+    "Full Stack Developer",
     "Data Engineer",
-    "DevOps",
+    "DevOps Engineer",
+    "Platform Engineer",
+    "React Engineer",
+    "React Developer",
+    "Node.js Engineer",
+    "TypeScript Engineer",
 )
 
 
@@ -42,6 +58,7 @@ def load_discovery_settings() -> dict[str, Any]:
     return {
         "posted_within_days": int(disc.get("posted_within_days") or 14),
         "insert_limit": max(1, insert_limit),
+        "boards_per_run": max(5, int(disc.get("boards_per_run") or 30)),
         "queries": [str(q).strip() for q in queries if str(q).strip()],
         "us_remote_strict": bool(settings.get("us_remote_strict", True)),
         "sites_enabled": enabled_feeds,
@@ -192,13 +209,61 @@ def _filter_listings(
 async def collect_new_listings() -> tuple[list[dict[str, Any]], dict[str, Any]]:
     cfg = load_discovery_settings()
     cutoff = datetime.now(timezone.utc) - timedelta(days=cfg["posted_within_days"])
+    factory = get_session_factory()
+
+    async with factory() as session:
+        seeded = await seed_ats_catalog(session)
+        await session.commit()
+        boards = await next_unchecked_boards(session, limit=cfg["boards_per_run"])
+        ats_meta = await catalog_stats(session)
 
     log.info(
-        "discover: fetching boards (sites=%s, tokens=%s)",
-        cfg["sites_enabled"],
-        cfg["board_tokens"],
+        "discover: feeds + %s unsearched ATS boards (seeded=%s pending=%s)",
+        len(boards),
+        seeded,
+        ats_meta.get("pending"),
     )
-    raw = await discover_all(enabled_only=True)
+    raw = await discover_feeds(enabled_only=True)
+    ats_this_run: list[dict[str, Any]] = []
+    async with factory() as session:
+        for bid in [b.id for b in boards]:
+            row = await session.get(AtsBoard, bid)
+            if not row:
+                continue
+            try:
+                listings = await fetch_ats_board(row.source, row.token)
+                await mark_board(
+                    session,
+                    row,
+                    jobs_found=len(listings),
+                    company_name=listings[0].company_name if listings else row.token,
+                )
+                raw.extend(listings)
+                ats_this_run.append(
+                    {
+                        "source": row.source,
+                        "token": row.token,
+                        "company": row.company_name,
+                        "jobs_found": len(listings),
+                        "status": row.status,
+                    }
+                )
+                log.info("ATS %s/%s: %s jobs", row.source, row.token, len(listings))
+            except Exception as exc:  # noqa: BLE001
+                await mark_board(session, row, jobs_found=0, error=str(exc)[:400])
+                ats_this_run.append(
+                    {
+                        "source": row.source,
+                        "token": row.token,
+                        "jobs_found": 0,
+                        "status": "failed",
+                        "error": str(exc)[:200],
+                    }
+                )
+                log.warning("ATS %s/%s failed: %s", row.source, row.token, exc)
+        await session.commit()
+        ats_meta = await catalog_stats(session)
+
     filtered, by_source = _filter_listings(
         raw,
         cutoff=cutoff,
@@ -220,12 +285,20 @@ async def collect_new_listings() -> tuple[list[dict[str, Any]], dict[str, Any]]:
         "insert_limit": insert_limit,
         "sites_enabled": cfg["sites_enabled"],
         "board_tokens": cfg["board_tokens"],
+        "ats_this_run": len(ats_this_run),
+        "ats_pending": ats_meta.get("pending"),
+        "ats_checked": ats_meta.get("checked"),
+        "ats_total": ats_meta.get("total"),
+        "ats_with_jobs": ats_meta.get("with_jobs"),
+        "ats_boards": ats_this_run[:40],
     }
     log.info(
-        "discover: raw=%s filtered=%s companies=%s candidates=%s",
+        "discover: raw=%s filtered=%s companies=%s candidates=%s ats=%s/%s pending",
         len(raw),
         len(filtered),
         len(diversified),
         len(candidates),
+        ats_meta.get("checked"),
+        ats_meta.get("total"),
     )
     return [listing_to_dict(x) for x in candidates], meta

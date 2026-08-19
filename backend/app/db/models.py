@@ -125,6 +125,23 @@ class RejectedJob(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class AtsBoard(Base):
+    """Career-page token we have searched (or will search) on Greenhouse/Lever/Ashby."""
+
+    __tablename__ = "ats_boards"
+    __table_args__ = (UniqueConstraint("source", "token", name="uq_ats_source_token"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    source: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    token: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    company_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    status: Mapped[str] = mapped_column(String(32), default="pending", nullable=False, index=True)
+    jobs_found: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    error: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    last_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class ProcessedListing(Base):
     __tablename__ = "processed_listings"
 
