@@ -98,6 +98,20 @@ export const client = {
     api(`/api/jobs/${id}/tailor`, { method: "POST", json: body }),
   deepScanRange: (body) => api("/api/sync/deep-scan", { method: "POST", json: body }),
   discoverJobs: (body = {}) => api("/api/sync/discover", { method: "POST", json: body }),
+  discoverFreshJobs: (body = {}) =>
+    api("/api/sync/discover-fresh", { method: "POST", json: body }),
+  discoverCompanies: (body = {}) =>
+    api("/api/sync/discover-companies", { method: "POST", json: body }),
+  discoverSite: (body) => api("/api/sync/discover-site", { method: "POST", json: body }),
+  fetchSites: () => api("/api/sync/fetch-sites"),
+  atsCatalog: () => api("/api/sync/ats-catalog"),
+  listAtsBoards: (params = {}) => {
+    const q = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== "") q.set(k, v);
+    });
+    return api(`/api/sync/ats-catalog/boards?${q}`);
+  },
   tailorRange: (body) => api("/api/sync/tailor", { method: "POST", json: body }),
   deepScanIds: (job_ids) =>
     api("/api/sync/deep-scan", { method: "POST", json: { job_ids } }),

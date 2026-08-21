@@ -68,6 +68,19 @@ def test_remote_us_does_not_match_english_us_pronoun():
     assert not r.ok
 
 
+def test_remote_us_bare_remote_passes_without_us_in_jd():
+    r = check_remote_us("Remote", "Senior software engineer building backend APIs.")
+    assert r.ok
+    r2 = check_remote_us("Fully remote", "")
+    assert r2.ok
+
+
+def test_remote_us_bare_remote_rejects_non_us_in_jd():
+    r = check_remote_us("Remote", "Fully remote role based in Spain.")
+    assert not r.ok
+    assert r.reason == "not_us"
+
+
 def test_seniority_reject_junior():
     r = check_seniority("Junior Software Engineer")
     assert not r.ok

@@ -1,17 +1,33 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import random
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Awaitable, Callable
 
 from app.adapters.base import RawListing
-from app.adapters.boards import discover_feeds, fetch_ats_board
+from app.adapters.boards import ADAPTERS, discover_feeds, fetch_ats_board
 from app.db.models import AtsBoard
 from app.db.session import get_session_factory
-from app.services.ats_catalog import catalog_stats, mark_board, next_unchecked_boards, seed_ats_catalog
+from app.services.ats_catalog import (
+    boards_for_source,
+    catalog_stats,
+    mark_board,
+    next_unchecked_boards,
+    seed_ats_catalog,
+)
 from app.services.config_loader import load_job_sites
+from app.services.fetch_sites import MAX_JOBS_CAP, resolve_site, resolve_window
+from app.services.employer_resolve import (
+    is_job_board_or_aggregator,
+    is_staffing_firm,
+    resolve_employer,
+)
 from app.validators.dedupe import normalize_company
+from app.validators.it_domain import check_it_domain
+from app.validators.remote_us import check_remote_us
+from app.validators.seniority import check_seniority
 
 log = logging.getLogger("poong.discover")
 
@@ -38,7 +54,12 @@ DEFAULT_QUERIES = (
 )
 
 
-def load_discovery_settings() -> dict[str, Any]:
+def load_discovery_settings(
+    *,
+    mode: str = "standard",
+    window: str | None = None,
+    max_jobs: int | None = None,
+) -> dict[str, Any]:
     data = load_job_sites()
     settings = data.get("settings") or {}
     disc = data.get("discovery") or {}
@@ -55,14 +76,43 @@ def load_discovery_settings() -> dict[str, Any]:
         or settings.get("batch_insert_limit")
         or 50
     )
+    posted_within_days = int(disc.get("posted_within_days") or 14)
+    boards_per_run = max(5, int(disc.get("boards_per_run") or 30))
+    require_posted_at = False
+    mode_norm = (mode or "standard").strip().lower()
+    if mode_norm in {"fresh", "discover_fresh", "24h"}:
+        mode_norm = "fresh"
+        posted_within_days = int(disc.get("fresh_posted_within_days") or 1)
+        boards_per_run = max(
+            boards_per_run,
+            int(disc.get("fresh_boards_per_run") or max(boards_per_run, 60)),
+        )
+        insert_limit = max(insert_limit, int(disc.get("fresh_max_jobs") or insert_limit))
+        require_posted_at = True
+    else:
+        mode_norm = "standard"
+
+    if window:
+        win = resolve_window(window)
+        posted_within_days = int(win["days"])
+        require_posted_at = bool(win["require_posted_at"])
+        mode_norm = f"site_{win['id']}"
+
+    if max_jobs is not None:
+        insert_limit = max(1, min(MAX_JOBS_CAP, int(max_jobs)))
+    else:
+        insert_limit = max(1, min(MAX_JOBS_CAP, insert_limit))
+
     return {
-        "posted_within_days": int(disc.get("posted_within_days") or 14),
-        "insert_limit": max(1, insert_limit),
-        "boards_per_run": max(5, int(disc.get("boards_per_run") or 30)),
+        "mode": mode_norm,
+        "posted_within_days": posted_within_days,
+        "insert_limit": insert_limit,
+        "boards_per_run": boards_per_run,
         "queries": [str(q).strip() for q in queries if str(q).strip()],
         "us_remote_strict": bool(settings.get("us_remote_strict", True)),
         "sites_enabled": enabled_feeds,
         "board_tokens": board_tokens,
+        "require_posted_at": require_posted_at,
     }
 
 
@@ -87,31 +137,69 @@ def _parse_dt(value: Any) -> datetime | None:
         return None
 
 
-def _recent(dt: datetime | None, cutoff: datetime) -> bool:
+def _recent(dt: datetime | None, cutoff: datetime, *, require_posted_at: bool = False) -> bool:
     if dt is None:
-        return True
+        return not require_posted_at
     return dt >= cutoff
 
 
-def _looks_us_remote(listing: RawListing) -> bool:
-    location = listing.location_raw or ""
-    description = (listing.description or "")[:1200]
-    blob = f"{location} {description} {listing.job_title}".lower()
-    if listing.is_remote_flag_from_board is False:
-        if "remote" not in blob:
-            return False
-    if any(x in blob for x in ("onsite", "on-site", "hybrid", "in office", "in-office")):
-        if "remote" not in blob:
-            return False
-    if any(x in blob for x in ("europe only", "uk only", "india only", "emea only", "canada only")):
-        return False
-    if any(x in blob for x in ("united states", "usa", ", us", "u.s.", "us only", "us-only")):
-        return True
-    if "remote" in blob and "worldwide" not in blob and "anywhere" not in blob:
-        return True
-    if "worldwide" in blob or "anywhere" in blob:
-        return True
-    return bool(listing.is_remote_flag_from_board) or "remote" in blob or not location.strip()
+def listing_to_dict(listing: RawListing) -> dict[str, Any]:
+    url = (listing.job_url or listing.canonical_url or "").strip()
+    return {
+        "company": listing.company_name.strip(),
+        "title": listing.job_title.strip(),
+        "url": url,
+        "location": (listing.location_raw or "Remote").strip(),
+        "description": (listing.description or "").strip() or None,
+        "source": listing.source,
+        "external_id": listing.external_id,
+        "staffing_firm": listing.staffing_firm,
+    }
+
+
+async def enrich_listing_employer(listing: dict[str, Any]) -> dict[str, Any]:
+    """Resolve real client company from JD when listing company is a board/staffing name."""
+    company = str(listing.get("company") or "").strip()
+    desc = str(listing.get("description") or "")
+    url = str(listing.get("url") or "")
+    if not company:
+        return listing
+    if not (is_job_board_or_aggregator(company) or is_staffing_firm(company)):
+        # Still try light heuristic when JD has Client: X
+        if "client" not in desc.lower() and "hiring company" not in desc.lower():
+            return listing
+    resolved = await resolve_employer(
+        listing_company=company,
+        title=str(listing.get("title") or ""),
+        url=url,
+        jd=desc[:8000],
+    )
+    if not resolved.changed:
+        return listing
+    out = dict(listing)
+    out["company"] = resolved.company
+    if resolved.source_name and not out.get("staffing_firm"):
+        out["staffing_firm"] = resolved.source_name
+    elif is_job_board_or_aggregator(company) or is_staffing_firm(company):
+        out["staffing_firm"] = out.get("staffing_firm") or company
+    return out
+
+
+def _passes_prefilter(listing: RawListing) -> tuple[bool, str]:
+    """Same remote/seniority/IT gates as insert pipeline — skip doomed rows early."""
+    location = (listing.location_raw or "Remote").strip()
+    description = listing.description or ""
+    title = listing.job_title or ""
+    remote = check_remote_us(location, description)
+    if not remote.ok:
+        return False, remote.reason
+    seniority = check_seniority(title)
+    if not seniority.ok:
+        return False, seniority.reason
+    it = check_it_domain(title, description[:400] if description else None)
+    if not it.ok:
+        return False, it.reason
+    return True, ""
 
 
 def _matches_query(listing: RawListing, queries: list[str]) -> bool:
@@ -161,53 +249,55 @@ def diversify_by_company(listings: list[RawListing]) -> list[RawListing]:
     return out
 
 
-def listing_to_dict(listing: RawListing) -> dict[str, Any]:
-    url = (listing.job_url or listing.canonical_url or "").strip()
-    return {
-        "company": listing.company_name.strip(),
-        "title": listing.job_title.strip(),
-        "url": url,
-        "location": (listing.location_raw or "Remote").strip(),
-        "description": (listing.description or "").strip() or None,
-        "source": listing.source,
-        "external_id": listing.external_id,
-        "staffing_firm": listing.staffing_firm,
-    }
-
-
 def _filter_listings(
     listings: list[RawListing],
     *,
     cutoff: datetime,
     queries: list[str],
     us_remote_strict: bool,
-) -> tuple[list[RawListing], dict[str, int]]:
+    require_posted_at: bool = False,
+) -> tuple[list[RawListing], dict[str, int], dict[str, int]]:
     by_source: dict[str, int] = {}
+    drop_reasons: dict[str, int] = {}
     seen_url: set[str] = set()
     filtered: list[RawListing] = []
+
+    def _drop(reason: str) -> None:
+        drop_reasons[reason] = drop_reasons.get(reason, 0) + 1
 
     for listing in listings:
         url = (listing.canonical_url or listing.job_url or "").strip().lower().rstrip("/")
         if not url or not listing.company_name.strip() or not listing.job_title.strip():
+            _drop("missing_fields")
             continue
         if url in seen_url:
+            _drop("duplicate_url")
             continue
         posted = _parse_dt(listing.posted_at)
-        if not _recent(posted, cutoff):
+        if not _recent(posted, cutoff, require_posted_at=require_posted_at):
+            _drop("too_old" if posted is not None else "missing_posted_at")
             continue
         if not _matches_query(listing, queries):
+            _drop("query_mismatch")
             continue
-        if us_remote_strict and not _looks_us_remote(listing):
-            continue
+        if us_remote_strict:
+            ok, reason = _passes_prefilter(listing)
+            if not ok:
+                _drop(reason or "prefilter")
+                continue
         seen_url.add(url)
         filtered.append(listing)
         by_source[listing.source] = by_source.get(listing.source, 0) + 1
 
-    return filtered, by_source
+    return filtered, by_source, drop_reasons
 
 
-async def collect_new_listings() -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    cfg = load_discovery_settings()
+async def collect_new_listings(
+    *,
+    mode: str = "standard",
+    on_progress: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    cfg = load_discovery_settings(mode=mode)
     cutoff = datetime.now(timezone.utc) - timedelta(days=cfg["posted_within_days"])
     factory = get_session_factory()
 
@@ -218,87 +308,402 @@ async def collect_new_listings() -> tuple[list[dict[str, Any]], dict[str, Any]]:
         ats_meta = await catalog_stats(session)
 
     log.info(
-        "discover: feeds + %s unsearched ATS boards (seeded=%s pending=%s)",
+        "discover[%s]: feeds + %s unsearched ATS boards (seeded=%s pending=%s days=%s)",
+        cfg["mode"],
         len(boards),
         seeded,
         ats_meta.get("pending"),
+        cfg["posted_within_days"],
     )
+    if on_progress:
+        await on_progress(
+            {
+                "phase": "feeds",
+                "mode": cfg["mode"],
+                "boards_total": len(boards),
+                "boards_done": 0,
+                "done": 0,
+                "total": max(1, len(boards)),
+            }
+        )
     raw = await discover_feeds(enabled_only=True)
     ats_this_run: list[dict[str, Any]] = []
-    async with factory() as session:
-        for bid in [b.id for b in boards]:
-            row = await session.get(AtsBoard, bid)
-            if not row:
-                continue
-            try:
-                listings = await fetch_ats_board(row.source, row.token)
-                await mark_board(
-                    session,
-                    row,
-                    jobs_found=len(listings),
-                    company_name=listings[0].company_name if listings else row.token,
-                )
-                raw.extend(listings)
-                ats_this_run.append(
-                    {
+    board_ids = [b.id for b in boards]
+    sem = asyncio.Semaphore(8)
+    lock = asyncio.Lock()
+    boards_done = 0
+
+    async def _one_board(bid: int) -> tuple[list[RawListing], dict[str, Any]]:
+        nonlocal boards_done
+        async with sem:
+            async with factory() as session:
+                row = await session.get(AtsBoard, bid)
+                if not row:
+                    return [], {}
+                try:
+                    await asyncio.sleep(0.05)  # soft rate pacing
+                    async with asyncio.timeout(25):
+                        listings = await fetch_ats_board(row.source, row.token)
+                    company_name = row.token
+                    if listings:
+                        company_name = listings[0].company_name or row.token
+                    elif row.source == "greenhouse" and row.company_name:
+                        company_name = row.company_name
+                    await mark_board(
+                        session,
+                        row,
+                        jobs_found=len(listings),
+                        company_name=company_name,
+                    )
+                    await session.commit()
+                    meta = {
                         "source": row.source,
                         "token": row.token,
                         "company": row.company_name,
                         "jobs_found": len(listings),
                         "status": row.status,
                     }
-                )
-                log.info("ATS %s/%s: %s jobs", row.source, row.token, len(listings))
-            except Exception as exc:  # noqa: BLE001
-                await mark_board(session, row, jobs_found=0, error=str(exc)[:400])
-                ats_this_run.append(
-                    {
+                    log.info("ATS %s/%s: %s jobs", row.source, row.token, len(listings))
+                    return listings, meta
+                except Exception as exc:  # noqa: BLE001
+                    err = str(exc)[:400]
+                    if isinstance(exc, TimeoutError):
+                        err = f"timeout fetching {row.source}/{row.token}"
+                    await mark_board(session, row, jobs_found=0, error=err)
+                    await session.commit()
+                    meta = {
                         "source": row.source,
                         "token": row.token,
                         "jobs_found": 0,
-                        "status": "failed",
-                        "error": str(exc)[:200],
+                        "status": row.status,
+                        "error": err[:200],
                     }
-                )
-                log.warning("ATS %s/%s failed: %s", row.source, row.token, exc)
-        await session.commit()
+                    log.warning("ATS %s/%s failed: %s", row.source, row.token, exc)
+                    return [], meta
+                finally:
+                    async with lock:
+                        boards_done += 1
+                        done_n = boards_done
+                    if on_progress:
+                        await on_progress(
+                            {
+                                "phase": "ats_fetch",
+                                "mode": cfg["mode"],
+                                "boards_done": done_n,
+                                "boards_total": len(board_ids),
+                                "done": done_n,
+                                "total": max(1, len(board_ids)),
+                            }
+                        )
+
+    board_results = await asyncio.gather(*(_one_board(bid) for bid in board_ids))
+    for listings, meta in board_results:
+        if listings:
+            raw.extend(listings)
+        if meta:
+            ats_this_run.append(meta)
+
+    async with factory() as session:
         ats_meta = await catalog_stats(session)
 
-    filtered, by_source = _filter_listings(
+    filtered, by_source, drop_reasons = _filter_listings(
         raw,
         cutoff=cutoff,
         queries=cfg["queries"],
         us_remote_strict=cfg["us_remote_strict"],
+        require_posted_at=cfg["require_posted_at"],
     )
     diversified = diversify_by_company(filtered)
     insert_limit = cfg["insert_limit"]
     candidates = diversified[: insert_limit * 3]
 
+    out: list[dict[str, Any]] = []
+    employer_resolved = 0
+    for listing in candidates:
+        row = listing_to_dict(listing)
+        before = row.get("company")
+        row = await enrich_listing_employer(row)
+        if row.get("company") != before:
+            employer_resolved += 1
+        out.append(row)
+
     meta = {
+        "mode": cfg["mode"],
         "posted_within_days": cfg["posted_within_days"],
         "queries": cfg["queries"],
         "discovered_raw": len(raw),
         "after_filters": len(filtered),
+        "prefilter_drops": drop_reasons,
         "unique_companies": len(diversified),
         "by_source": by_source,
-        "candidates": len(candidates),
+        "candidates": len(out),
         "insert_limit": insert_limit,
         "sites_enabled": cfg["sites_enabled"],
         "board_tokens": cfg["board_tokens"],
+        "employer_resolved": employer_resolved,
         "ats_this_run": len(ats_this_run),
         "ats_pending": ats_meta.get("pending"),
         "ats_checked": ats_meta.get("checked"),
         "ats_total": ats_meta.get("total"),
         "ats_with_jobs": ats_meta.get("with_jobs"),
         "ats_boards": ats_this_run[:40],
+        "boards_done": len(board_ids),
+        "boards_total": len(board_ids),
     }
     log.info(
-        "discover: raw=%s filtered=%s companies=%s candidates=%s ats=%s/%s pending",
+        "discover[%s]: raw=%s filtered=%s companies=%s candidates=%s resolved=%s ats=%s/%s",
+        cfg["mode"],
         len(raw),
         len(filtered),
         len(diversified),
-        len(candidates),
+        len(out),
+        employer_resolved,
         ats_meta.get("checked"),
         ats_meta.get("total"),
     )
-    return [listing_to_dict(x) for x in candidates], meta
+    return out, meta
+
+
+async def _fetch_boards(
+    board_ids: list[int],
+    *,
+    cfg: dict[str, Any],
+    on_progress: Callable[[dict[str, Any]], Awaitable[None]] | None,
+) -> tuple[list[RawListing], list[dict[str, Any]]]:
+    factory = get_session_factory()
+    raw: list[RawListing] = []
+    ats_this_run: list[dict[str, Any]] = []
+    sem = asyncio.Semaphore(8)
+    lock = asyncio.Lock()
+    boards_done = 0
+
+    async def _one_board(bid: int) -> tuple[list[RawListing], dict[str, Any]]:
+        nonlocal boards_done
+        async with sem:
+            async with factory() as session:
+                row = await session.get(AtsBoard, bid)
+                if not row:
+                    return [], {}
+                try:
+                    await asyncio.sleep(0.05)
+                    async with asyncio.timeout(25):
+                        listings = await fetch_ats_board(row.source, row.token)
+                    company_name = row.token
+                    if listings:
+                        company_name = listings[0].company_name or row.token
+                    elif row.source == "greenhouse" and row.company_name:
+                        company_name = row.company_name
+                    await mark_board(
+                        session,
+                        row,
+                        jobs_found=len(listings),
+                        company_name=company_name,
+                    )
+                    await session.commit()
+                    meta = {
+                        "source": row.source,
+                        "token": row.token,
+                        "company": row.company_name,
+                        "jobs_found": len(listings),
+                        "status": row.status,
+                    }
+                    return listings, meta
+                except Exception as exc:  # noqa: BLE001
+                    err = str(exc)[:400]
+                    if isinstance(exc, TimeoutError):
+                        err = f"timeout fetching {row.source}/{row.token}"
+                    await mark_board(session, row, jobs_found=0, error=err)
+                    await session.commit()
+                    return [], {
+                        "source": row.source,
+                        "token": row.token,
+                        "jobs_found": 0,
+                        "status": "failed",
+                        "error": err[:200],
+                    }
+                finally:
+                    async with lock:
+                        boards_done += 1
+                        done_n = boards_done
+                    if on_progress:
+                        await on_progress(
+                            {
+                                "phase": "ats_fetch",
+                                "mode": cfg["mode"],
+                                "boards_done": done_n,
+                                "boards_total": len(board_ids),
+                                "done": done_n,
+                                "total": max(1, len(board_ids)),
+                            }
+                        )
+
+    if not board_ids:
+        return raw, ats_this_run
+    for listings, meta in await asyncio.gather(*(_one_board(bid) for bid in board_ids)):
+        if listings:
+            raw.extend(listings)
+        if meta:
+            ats_this_run.append(meta)
+    return raw, ats_this_run
+
+
+async def collect_site_listings(
+    *,
+    site: str,
+    window: str = "7d",
+    max_jobs: int = 100,
+    on_progress: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Fetch from one site/feed or one ATS family, capped and time-filtered."""
+    site_meta = resolve_site(site)
+    if not site_meta:
+        raise ValueError(f"unknown_site:{site}")
+    cfg = load_discovery_settings(
+        mode="standard",
+        window=window,
+        max_jobs=max_jobs,
+    )
+    cfg["site"] = site_meta["id"]
+    cfg["site_label"] = site_meta["label"]
+    cfg["site_kind"] = site_meta["kind"]
+    # Site fetches try more company boards so one run is useful
+    cfg["boards_per_run"] = max(cfg["boards_per_run"], 50 if site_meta["kind"].startswith("ats") else 0)
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=cfg["posted_within_days"])
+    factory = get_session_factory()
+    raw: list[RawListing] = []
+    ats_this_run: list[dict[str, Any]] = []
+    board_ids: list[int] = []
+
+    if on_progress:
+        await on_progress(
+            {
+                "phase": "start",
+                "site": site_meta["id"],
+                "window": window,
+                "mode": cfg["mode"],
+                "done": 0,
+                "total": 1,
+            }
+        )
+
+    kind = site_meta["kind"]
+    if kind == "feed":
+        fn = ADAPTERS.get(site_meta["id"])
+        if not fn:
+            raise ValueError(f"no_adapter:{site_meta['id']}")
+        if on_progress:
+            await on_progress({"phase": "feed", "site": site_meta["id"]})
+        try:
+            async with asyncio.timeout(60):
+                raw = list(await fn())
+        except Exception as exc:  # noqa: BLE001
+            log.warning("site feed %s failed: %s", site_meta["id"], exc)
+            raw = []
+    else:
+        async with factory() as session:
+            await seed_ats_catalog(session, demote_missing=False)
+            await session.commit()
+            if kind == "ats":
+                boards = await boards_for_source(
+                    session, source=site_meta["id"], limit=cfg["boards_per_run"]
+                )
+                # Also include never-checked of this source via rotation helper
+                if len(boards) < cfg["boards_per_run"]:
+                    more = await next_unchecked_boards(
+                        session,
+                        limit=cfg["boards_per_run"] - len(boards),
+                        source=site_meta["id"],
+                    )
+                    seen = {b.id for b in boards}
+                    boards.extend([b for b in more if b.id not in seen])
+            else:
+                boards = await next_unchecked_boards(
+                    session, limit=cfg["boards_per_run"]
+                )
+            board_ids = [b.id for b in boards]
+        if on_progress:
+            await on_progress(
+                {
+                    "phase": "ats_fetch",
+                    "site": site_meta["id"],
+                    "boards_total": len(board_ids),
+                    "boards_done": 0,
+                    "done": 0,
+                    "total": max(1, len(board_ids)),
+                }
+            )
+        raw, ats_this_run = await _fetch_boards(
+            board_ids, cfg=cfg, on_progress=on_progress
+        )
+
+    async with factory() as session:
+        ats_meta = await catalog_stats(session)
+
+    # Feeds often lack reliable posted_at — for 24h window keep require flag;
+    # for all/7d allow missing dates.
+    filtered, by_source, drop_reasons = _filter_listings(
+        raw,
+        cutoff=cutoff,
+        queries=cfg["queries"],
+        us_remote_strict=cfg["us_remote_strict"],
+        require_posted_at=cfg["require_posted_at"] and kind != "feed",
+    )
+    # For 24h feed fetches, still prefer recent when dates exist but don't drop all
+    if kind == "feed" and window == "24h":
+        with_dates = [x for x in filtered if _parse_dt(x.posted_at) is not None]
+        if with_dates:
+            recent = [
+                x
+                for x in with_dates
+                if (_parse_dt(x.posted_at) or datetime.min.replace(tzinfo=timezone.utc))
+                >= cutoff
+            ]
+            if recent:
+                filtered = recent
+
+    diversified = diversify_by_company(filtered)
+    insert_limit = cfg["insert_limit"]
+    candidates = diversified[: insert_limit * 3]
+
+    out: list[dict[str, Any]] = []
+    employer_resolved = 0
+    for listing in candidates:
+        row = listing_to_dict(listing)
+        before = row.get("company")
+        row = await enrich_listing_employer(row)
+        if row.get("company") != before:
+            employer_resolved += 1
+        out.append(row)
+
+    meta = {
+        "mode": cfg["mode"],
+        "site": site_meta["id"],
+        "site_label": site_meta["label"],
+        "window": window,
+        "posted_within_days": cfg["posted_within_days"],
+        "discovered_raw": len(raw),
+        "after_filters": len(filtered),
+        "prefilter_drops": drop_reasons,
+        "unique_companies": len(diversified),
+        "by_source": by_source,
+        "candidates": len(out),
+        "insert_limit": insert_limit,
+        "employer_resolved": employer_resolved,
+        "ats_this_run": len(ats_this_run),
+        "ats_pending": ats_meta.get("pending"),
+        "ats_checked": ats_meta.get("checked"),
+        "ats_total": ats_meta.get("total"),
+        "boards_done": len(board_ids),
+        "boards_total": len(board_ids),
+        "ats_boards": ats_this_run[:40],
+    }
+    log.info(
+        "discover[site=%s window=%s]: raw=%s filtered=%s candidates=%s",
+        site_meta["id"],
+        window,
+        len(raw),
+        len(filtered),
+        len(out),
+    )
+    return out[:insert_limit], meta

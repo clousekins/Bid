@@ -20,6 +20,7 @@ ADAPTERS: dict[str, AdapterFn] = {
     "himalayas": fetchers.fetch_himalayas,
     "weworkremotely": fetchers.fetch_weworkremotely,
     "themuse": fetchers.fetch_themuse,
+    "hn_whoishiring": fetchers.fetch_hn_whoishiring,
 }
 
 
@@ -28,7 +29,16 @@ async def discover_feeds(enabled_only: bool = True) -> list[RawListing]:
     sites = cfg.get("sites") or []
     listings: list[RawListing] = []
     tasks: list[tuple[str, Awaitable[list[RawListing]]]] = []
-    ats_adapters = {"greenhouse", "lever", "ashby", "indeed", "glassdoor", "hn_whoishiring"}
+    ats_adapters = {
+        "greenhouse",
+        "lever",
+        "ashby",
+        "workable",
+        "indeed",
+        "glassdoor",
+        "dice",
+        "wellfound",
+    }
 
     for site in sites:
         if enabled_only and not site.get("enabled", False):
@@ -61,6 +71,8 @@ async def fetch_ats_board(source: str, token: str) -> list[RawListing]:
         return await fetchers.fetch_lever_board(token)
     if source == "ashby":
         return await fetchers.fetch_ashby_board(token)
+    if source == "workable":
+        return await fetchers.fetch_workable_board(token)
     return []
 
 

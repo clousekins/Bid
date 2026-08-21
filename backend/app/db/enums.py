@@ -40,6 +40,9 @@ class BackgroundJobKind(str, Enum):
     DEEP_SCAN = "deep_scan"
     TAILOR = "tailor"
     DISCOVER = "discover"
+    DISCOVER_COMPANIES = "discover_companies"
+    DISCOVER_FRESH = "discover_fresh"
+    DISCOVER_SITE = "discover_site"
 
 
 class BackgroundJobStatus(str, Enum):

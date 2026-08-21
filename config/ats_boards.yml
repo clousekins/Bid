@@ -1,7 +1,6 @@
-# Extra US company career-page tokens (Greenhouse / Lever / Ashby).
-# Fetch new jobs only checks boards that are still pending in the DB,
-# then records each search so the next run moves on to new companies.
-# Add tokens here anytime — they are inserted on next startup / fetch.
+# Curated US tech company ATS board tokens.
+# Prefer real employer slugs with live public boards. Discover companies
+# grows this list over time; junk tokens waste fetch slots as 404/missing.
 
 greenhouse:
   - cloudflare
@@ -9,11 +8,6 @@ greenhouse:
   - gitlab
   - hashicorp
   - datadog
-  - vercel
-  - notion
-  - figma
-  - discord
-  - ramp
   - airbnb
   - dropbox
   - twilio
@@ -21,7 +15,6 @@ greenhouse:
   - mongodb
   - elastic
   - snowflakecomputing
-  - reddit
   - zapier
   - asana
   - calendly
@@ -42,13 +35,6 @@ greenhouse:
   - lyft
   - uber
   - shopify
-  - dribbble
-  - medium
-  - khanacademy
-  - coursera
-  - duolingo
-  - pluralsight
-  - latch
   - databricks
   - confluent
   - cockroachlabs
@@ -59,7 +45,6 @@ greenhouse:
   - grafana
   - pagerduty
   - launchdarkly
-  - twilio
   - intercom
   - zendesk
   - klaviyo
@@ -68,486 +53,220 @@ greenhouse:
   - salesloft
   - rippling
   - deel
-  - remotecom
   - justworks
   - lattice
   - cultureamp
-  - 15five
   - greenhouse
   - gem
-  - gem-com
-  - wellfound
-  - angellist
-  - ycombinator
-  - anduril
-  - scaleai
-  - scale
-  - wandb
-  - weightsandbiases
-  - anyscale
-  - huggingface
-  - cohere
-  - pinecone
-  - togetherai
-  - fireworks-ai
-  - replicate
-  - modal
-  - langchain
-  - clickhouse
-  - timescale
-  - influxdata
-  - planetscale
-  - neon
-  - supabase
-  - prisma
-  - algolia
-  - typesense
-  - affirm
+  - coursera
+  - duolingo
+  - khanacademy
+  - pluralsight
+  - latch
+  - brex
+  - plaid
   - chime
   - sofi
-  - plaid
-  - brex
   - mercury
-  - marqeta
   - toast
-  - clover
-  - adyen
-  - klarna
-  - afterpay
+  - block
   - nerdwallet
-  - creditkarma
-  - intuit
-  - turbotax
-  - mailchimp
-  - constantcontact
-  - surveymonkey
-  - typeform
-  - calendly
-  - loom
-  - miro
-  - lucid
-  - lucidchart
-  - canva
-  - figma
-  - adobe
-  - webflow
-  - squarespace
-  - wix
-  - godaddy
-  - namecheap
-  - digitalocean
-  - linode
-  - heroku
-  - render
-  - flyio
-  - fastly
-  - akamai
-  - cloudflare
-  - okta
-  - pingidentity
-  - 1password
-  - bitwarden
-  - lastpass
-  - crowdstrike
-  - sentinelone
-  - rapid7
-  - tenable
-  - zscaler
-  - paloaltonetworks
-  - fortinet
-  - splunk
-  - newrelic
-  - dynatrace
-  - datadog
-  - elastic
-  - confluent
-  - kafka
-  - redis
-  - redislabs
-  - mongodb
-  - neo4j
-  - cockroachlabs
-  - snowflakecomputing
-  - databricks
-  - thoughtspot
-  - looker
-  - tableau
-  - sigma
-  - hex
-  - mode
-  - preset
-  - dbtlabs
-  - census
-  - hightouch
-  - rudderstack
-  - segment
-  - mixpanel
-  - amplitude
-  - heap
-  - fullstory
-  - logrocket
-  - hotjar
-  - crazyegg
-  - optimizely
-  - vwo
-  - abtasty
-  - launchdarkly
-  - split
-  - statsig
-  - growthbook
-  - posthog
-  - plausible
-  - fathom
-  - stripe
-  - square
-  - paypal
-  - braintree
-  - shopify
-  - bigcommerce
-  - woocommerce
-  - magento
-  - salesforce
-  - servicenow
-  - workday
-  - oracle
-  - sap
-  - ibm
-  - cisco
-  - juniper
-  - arista
+  - reddit
+  - discord
+  - twitch
   - nvidia
   - amd
   - intel
-  - qualcomm
-  - arm
-  - tesla
-  - rivian
-  - lucidmotors
-  - cruise
-  - waymo
-  - zoox
-  - aurora
-  - nuro
-  - samsara
-  - motive
-  - keeptruckin
-  - uber
-  - lyft
-  - doorDash
-  - instacart
-  - gopuff
-  - postmates
-  - grubhub
-  - doordash
-  - airbnb
-  - booking
-  - expedia
-  - tripadvisor
-  - kayak
-  - hopper
-  - netflix
-  - hulu
-  - disney
-  - paramount
-  - warnerbros
-  - spotify
-  - soundcloud
-  - pandora
-  - twitch
-  - discord
-  - slack
-  - zoom
-  - webex
-  - teams
-  - notion
-  - coda
-  - evernote
-  - dropbox
-  - box
-  - google
-  - meta
-  - facebook
-  - instagram
-  - whatsapp
-  - twitter
-  - x
-  - reddit
-  - pinterest
-  - snap
-  - snapchat
-  - tiktok
-  - bytedance
-  - linkedin
-  - github
-  - gitlab
-  - bitbucket
-  - atlassian
-  - jira
-  - confluence
-  - trello
-  - asana
-  - monday
-  - clickup
-  - basecamp
-  - linear
-  - height
-  - shortcut
-  - pivotal
-  - circleci
-  - travisci
-  - buildkite
-  - jenkins
-  - harness
-  - spacelift
-  - terraform
-  - hashicorp
-  - pulumi
-  - ansible
-  - chef
-  - puppet
-  - docker
-  - kubernetes
-  - rancher
-  - suse
-  - redhat
-  - canonical
-  - ubuntu
-  - debian
-  - vercel
-  - netlify
-  - cloudflare
-  - fastly
-  - bunny
-  - stackpath
-  - maxcdn
-  - keycdn
-  - imgix
-  - cloudinary
-  - mux
-  - twilio
-  - sendgrid
-  - mailgun
-  - postmark
-  - customerio
-  - braze
-  - iterable
-  - klaviyo
-  - drip
-  - convertkit
-  - beehiiv
-  - substack
-  - ghost
-  - wordpress
-  - automattic
-  - wpengine
-  - pantheon
-  - acquia
-  - contentful
-  - sanity
-  - strapi
-  - prismic
-  - storyblok
-  - builder
-  - webflow
-  - framer
-  - readme
-  - gitbook
-  - notion
-  - slite
-  - coda
-  - airtable
-  - smartsheet
-  - mondaydotcom
-  - clickup
-  - wrike
-  - teamwork
-  - proofhub
-  - harvest
-  - toggl
-  - clockify
-  - rescuetime
-  - calendly
-  - calcom
-  - acuity
-  - simplybook
-  - mindbody
-  - classpass
-  - peloton
-  - strava
-  - whoop
-  - oura
-  - fitbit
-  - garmin
-  - apple
-  - microsoft
-  - amazon
-  - aws
-  - gcp
-  - azure
-
-lever:
-  - mattermost
-  - activecampaign
-  - buildkite
-  - netlify
+  - cisco
+  - okta
+  - crowdstrike
+  - zscaler
   - palantir
-  - rockbot
-  - rethinkdb
-  - lucidchart
-  - eventbrite
-  - gravitational
-  - sourcegraph
-  - sentry
-  - figma
-  - notion
-  - ramp
-  - vercel
+  - anduril
+  - scaleai
+  - huggingface
+  - coreweave
+  - digitalocean
+  - heroku
+  - netlify
+  - buildkite
+  - circleci
   - retool
   - honeycomb
   - watershed
-  - planar
-  - wealthfront
-  - betterment
-  - sofi
-  - affirm
-  - nerdwallet
-  - creditkarma
-  - robinhood
-  - coinbase
-  - kraken
-  - gemini
-  - circle
-  - chainalysis
-  - fireblocks
-  - alchemy
-  - infura
-  - opensea
-  - blur
-  - rarible
-  - dribbble
-  - behance
-  - adobe
-  - canva
-  - figma
-  - invision
-  - marvel
-  - protoio
-  - principle
-  - framer
-  - webflow
-  - bubble
-  - adalo
-  - glide
-  - stacker
-  - softr
-  - zapier
-  - make
-  - n8n
-  - tray
-  - workato
-  - boomi
-  - mulesoft
-  - snaplogic
-  - informatica
-  - talend
-  - fivetran
-  - airbyte
-  - stitch
-  - segment
-  - rudderstack
-  - mparticle
-  - amplitude
-  - mixpanel
-  - heap
-  - fullstory
-  - logrocket
-  - hotjar
-  - crazyegg
-  - mouseflow
-  - luckycart
-  - dynamic-yield
-  - evergage
+  - posthog
+  - clerk
+  - temporal
+  - clickhouse
+  - hex
+  - mode
+  - metabase
+  - pinecone
+  - weaviate
+  - replicate
+  - modal
+  - anyscale
+  - elevenlabs
+  - runwayml
+  - mistral
+  - cohere
+  - together
+  - fireworks
+  - 1password
+  - bitwarden
+  - braze
+  - iterable
+  - customerio
+  - resend
+  - front
+  - apolloio
+  - clearbit
   - salesforce
-  - hubspot
-  - marketo
-  - pardot
-  - eloqua
-  - act-on
-  - mailchimp
-  - constantcontact
-  - campaignmonitor
-  - klaviyo
-  - omnisend
-  - drip
-  - convertkit
+  - github
+  - sourcegraph
+  - newrelic
+  - dynatrace
+  - splunk
+  - betterstack
+  - checkly
+  - incidentio
+  - rootly
+  - firehydrant
+  - harness
+  - pulumi
+  - fastly
+  - cloudinary
+  - mux
+  - getstream
+  - ably
+  - pubnub
+  - appwrite
+  - convex
+  - prisma
+  - hasura
+  - upstash
+  - redpanda
+  - dagster
+  - prefect
+  - astronomer
+  - appsmith
+  - webflow
+  - framer
+  - replit
+  - codesandbox
+  - roblox
+  - epicgames
+  - unity
+  - riotgames
+  - netflix
+  - disney
+  - patreon
+  - substack
+  - medium
   - beehiiv
   - ghost
-  - wordpress
-  - medium
-  - substack
-  - revue
-  - buttlond
-  - patreon
-  - kofi
-  - buymeacoffee
-  - gumroad
-  - lemonsqueezy
-  - paddle
-  - chargebee
-  - recurly
-  - zuora
-  - stripe
-  - braintree
+  - squarespace
+  - bigcommerce
+  - etsy
+  - whatnot
+  - stockx
+  - nike
+  - adidas
+  - lululemon
+  - warbyparker
+  - affirm
+  - klarna
   - adyen
   - checkout
-  - worldpay
-  - firstdata
-  - fiserv
-  - jackhenry
-  - q2
-  - ncr
-  - fis
-  - ssctech
-  - broadridge
-  - dtcc
-  - ice
-  - cme
-  - nasdaq
-  - nyse
+  - column
+  - tipalti
+  - melio
+  - expensify
+  - navan
+  - travelperk
+  - grubhub
+  - gopuff
+  - cruise
+  - waymo
+  - rivian
+  - lucid
+  - grab
+  - bytedance
+  - rakuten
+  - mercari
+  - sony
+  - nintendo
   - bloomberg
   - reuters
   - factset
-  - spglobal
-  - moodys
-  - fitch
-  - morningstar
-  - seekingalpha
-  - yahoo
-  - google
-  - microsoft
-  - amazon
-  - meta
-  - apple
-  - netflix
-  - disney
-  - warner
-  - paramount
-  - nbc
-  - cbs
-  - fox
-  - sony
-  - nintendo
-  - sega
-  - ea
-  - activision
-  - ubisoft
-  - take2
-  - riotgames
-  - epicgames
-  - valve
-  - steam
-  - unity
-  - roblox
+  - blackrock
+  - vanguard
+  - fidelity
+  - schwab
+  - kraken
+  - gemini
+  - spacex
+  - figure
+  - snorkel
+  - labelbox
+
+lever:
+  - netlify
+  - buildkite
+  - mattermost
+  - lucidchart
+  - eventbrite
+  - rockbot
+  - palantir
+  - anduril
+  - scaleai
+  - twilio
+  - dropbox
+  - reddit
+  - spotify
+  - shopify
+  - github
+  - gitlab
+  - hashicorp
+  - elastic
+  - mongodb
+  - datadog
+  - cloudflare
+  - stripe
+  - hubspot
+  - zendesk
+  - intercom
+  - asana
+  - atlassian
+  - canva
+  - figma
+  - notion
+  - airtable
+  - zapier
+  - calendly
+  - gusto
+  - rippling
+  - brex
+  - plaid
+  - coinbase
+  - robinhood
+  - doordash
+  - uber
+  - lyft
+  - airbnb
+  - nvidia
+  - amd
+  - cisco
+  - okta
+  - crowdstrike
+  - paloaltonetworks
+  - zscaler
+  - salesforce
+  - adobe
+  - intuit
+  - paypal
+  - bloomberg
+  - reuters
 
 ashby:
   - linear
@@ -559,10 +278,8 @@ ashby:
   - retool
   - honeycomb
   - watershed
-  - planar
   - cursor
   - perplexity
-  - groq
   - together
   - fireworks
   - mistral
@@ -571,58 +288,49 @@ ashby:
   - replicate
   - modal
   - anyscale
-  - wandb
-  - langchain
-  - llamaindex
   - pinecone
   - weaviate
-  - qdrant
-  - chroma
-  - zilliz
-  - milvus
-  - elasticsearch
-  - opensearch
-  - typesense
-  - meilisearch
-  - algolia
-  - swell
   - clerk
   - workos
   - stytch
-  - descope
-  - fusionauth
-  - auth0
-  - okta
-  - superhuman
-  - hey
-  - spark
   - front
-  - missive
-  - help-scout
-  - zendesk
-  - freshdesk
-  - intercom
-  - crisp
-  - tawk
-  - livechat
-  - drift
-  - qualified
-  - sixthsense
-  - 6sense
-  - demandbase
-  - termius
-  - warp
-  - iterm
-  - fig
-  - copilot
-  - github
-  - gitlab
+  - posthog
+  - hex
+  - metabase
+  - dagster
+  - prefect
+  - temporal
+  - clickhouse
+  - neon
+  - planetscale
+  - supabase
+  - convex
+  - prisma
+  - hasura
+  - upstash
+  - resend
+  - customerio
+  - braze
+  - iterable
+  - gong
+  - apolloio
+  - clearbit
+  - incidentio
+  - rootly
+  - checkly
+  - betterstack
   - sourcegraph
-  - cursor
-  - replit
-  - codesandbox
-  - stackblitz
-  - gitpod
-  - coder
-  - jetbrains
-  - sublime
+  - sentry
+  - launchdarkly
+  - pagerduty
+  - rippling
+  - deel
+  - lattice
+  - cultureamp
+  - gem
+  - greenhouse
+  - ashby
+
+workable:
+  - striim
+  - ait-global

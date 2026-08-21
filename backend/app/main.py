@@ -89,6 +89,7 @@ def create_app() -> FastAPI:
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
         await init_db()
+        await bg_jobs.heal_stuck_jobs(older_than_minutes=1)
         bg_jobs.ensure_worker()
         yield
 

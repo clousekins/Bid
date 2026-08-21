@@ -322,12 +322,10 @@ async def job_stats(db: AsyncSession = Depends(get_db)):
         statuses = by_profile.setdefault(pid, {})
         packaged = sum(statuses.values())
         statuses["need_resume"] = max(0, total - packaged)
-    from app.services.ats_catalog import catalog_stats, seed_ats_catalog
+    from app.services.ats_catalog import catalog_stats
 
-    added = await seed_ats_catalog(db)
+    # Do not seed here — every UI poll would write and fight bg workers on SQLite.
     ats = await catalog_stats(db)
-    if added:
-        await db.commit()
     return {
         "total": total,
         "max_seq": max_seq,

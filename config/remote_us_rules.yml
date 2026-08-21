@@ -1,7 +1,8 @@
 mode: us_remote_strict
 
-# Location / remote_restricted_to are authoritative.
-# Non-US countries in those fields fail even if the JD mentions the US.
+# Location / remote_restricted_to are authoritative for named countries.
+# Bare "Remote" with no non-US geo passes (US-focused job sources).
+# Explicit worldwide/EMEA/APAC without a US signal still fails.
 
 pass_signals:
   remote:

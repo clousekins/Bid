@@ -14,6 +14,7 @@ import JobsTable from "./components/JobsTable.jsx";
 import JobDetail from "./components/JobDetail.jsx";
 import ApplyConsole from "./components/ApplyConsole.jsx";
 import ManualApplyModal from "./components/ManualApplyModal.jsx";
+import CompanyCatalogModal from "./components/CompanyCatalogModal.jsx";
 import PrepDock from "./components/PrepDock.jsx";
 
 export default function App() {
@@ -32,6 +33,7 @@ export default function App() {
   const [seqTo, setSeqTo] = useState(20);
   const [showAdd, setShowAdd] = useState(false);
   const [showManualApply, setShowManualApply] = useState(false);
+  const [showCompanyCatalog, setShowCompanyCatalog] = useState(false);
   const [manualJob, setManualJob] = useState(null);
   const [manualOpenKey, setManualOpenKey] = useState(0);
   const [addForm, setAddForm] = useState({
@@ -89,6 +91,46 @@ export default function App() {
       ws.setError(String(e.message || e));
     }
   };
+
+  const markSelectedApplied = async () => {
+    if (!ws.selected || !ws.workingPersonaId) {
+      ws.setError("Select a job and working persona first (Ctrl+M marks applied).");
+      return;
+    }
+    try {
+      ws.setError("");
+      if (apply.applySession?.job_id === ws.selected.id) {
+        await apply.clearApplySession(true);
+      } else {
+        if (apply.applyPollRef.current) clearInterval(apply.applyPollRef.current);
+        apply.setApplySession(null);
+      }
+      await client.patchStatus(ws.selected.id, "applied", {
+        persona_id: ws.workingPersonaId,
+      });
+      batch.setBatchProgress(
+        `Marked applied as ${ws.workingPersonaId} for #${ws.selected.seq_no}`
+      );
+      await ws.refresh();
+    } catch (e) {
+      ws.setError(String(e.message || e));
+    }
+  };
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.key !== "m" && e.key !== "M") return;
+      const tag = (e.target?.tagName || "").toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select" || e.target?.isContentEditable) {
+        return;
+      }
+      e.preventDefault();
+      markSelectedApplied();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [ws.selected?.id, ws.workingPersonaId]);
 
   const onUpload = async (file) => {
     try {
@@ -260,6 +302,27 @@ export default function App() {
         onDiscover={() =>
           runOrError(() =>
             batch.startBg("discover", { persona_id: ws.workingPersonaId })
+          )
+        }
+        onDiscoverFresh={() =>
+          runOrError(() =>
+            batch.startBg("discover_fresh", { persona_id: ws.workingPersonaId })
+          )
+        }
+        onDiscoverCompanies={() =>
+          runOrError(() =>
+            batch.startBg("discover_companies", { persona_id: ws.workingPersonaId })
+          )
+        }
+        onOpenCompanyCatalog={() => setShowCompanyCatalog(true)}
+        onFetchSite={({ site, window, max_jobs }) =>
+          runOrError(() =>
+            batch.startBg("discover_site", {
+              persona_id: ws.workingPersonaId,
+              site,
+              window,
+              max_jobs,
+            })
           )
         }
         onUpload={onUpload}
@@ -458,28 +521,7 @@ export default function App() {
                 ws.setError(String(e.message || e));
               }
             }}
-            onMarkApplied={() => {
-              if (!ws.selected || !ws.workingPersonaId) return;
-              (async () => {
-                try {
-                  if (apply.applySession?.job_id === ws.selected.id) {
-                    await apply.clearApplySession(true);
-                  } else {
-                    if (apply.applyPollRef.current) clearInterval(apply.applyPollRef.current);
-                    apply.setApplySession(null);
-                  }
-                  await client.patchStatus(ws.selected.id, "applied", {
-                    persona_id: ws.workingPersonaId,
-                  });
-                  batch.setBatchProgress(
-                    `Marked applied as ${ws.workingPersonaId} for #${ws.selected.seq_no}`
-                  );
-                  await ws.refresh();
-                } catch (e) {
-                  ws.setError(String(e.message || e));
-                }
-              })();
-            }}
+            onMarkApplied={markSelectedApplied}
             onBlock={async () => {
               if (!ws.selected) return;
               await client.blockCompany(ws.selected.id);
@@ -601,6 +643,12 @@ export default function App() {
           }
           await apply.startAssistedOne(full, ws.workingPersonaId);
         }}
+      />
+
+      <CompanyCatalogModal
+        open={showCompanyCatalog}
+        onClose={() => setShowCompanyCatalog(false)}
+        summary={ws.stats?.ats}
       />
     </div>
   );

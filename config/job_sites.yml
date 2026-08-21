@@ -80,12 +80,19 @@ sites:
     base_url: https://api.ashbyhq.com
     notes: Job-board names from ashby_boards
 
+  - id: workable_ats
+    name: Workable ATS
+    enabled: true
+    adapter: workable
+    base_url: https://apply.workable.com
+    notes: Public widget/jobs JSON; tokens from Discover companies
+
   - id: hn_whoishiring
     name: HN Who is Hiring
-    enabled: false
+    enabled: true
     adapter: hn_whoishiring
     base_url: https://news.ycombinator.com
-    notes: Optional — enable later
+    notes: Monthly Ask HN thread via Algolia (real company names)
 
   - id: indeed
     name: Indeed
@@ -100,6 +107,20 @@ sites:
     adapter: glassdoor
     base_url: https://www.glassdoor.com
     notes: Deferred
+
+  - id: dice
+    name: Dice
+    enabled: false
+    adapter: dice
+    base_url: https://www.dice.com
+    notes: No public API; deferred
+
+  - id: wellfound
+    name: Wellfound
+    enabled: false
+    adapter: wellfound
+    base_url: https://wellfound.com
+    notes: No public API; deferred
 
 # Greenhouse company career boards
 greenhouse_boards:
@@ -178,6 +199,9 @@ discovery:
   posted_within_days: 14
   max_jobs: 50
   boards_per_run: 30
+  fresh_posted_within_days: 1
+  fresh_boards_per_run: 80
+  fresh_max_jobs: 50
   queries:
     - AI Engineer
     - Machine Learning Engineer

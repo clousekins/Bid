@@ -10,7 +10,8 @@ from app.db.enums import BackgroundJobKind, JobStatus, PackageStatus
 from app.db.models import Job, JobPackage
 from app.db.session import get_db
 from app.services import bg_jobs
-from app.services.ats_catalog import catalog_stats, seed_ats_catalog
+from app.services.ats_catalog import catalog_stats, list_boards, seed_ats_catalog
+from app.services.fetch_sites import MAX_JOBS_CAP, list_fetch_sites, resolve_site, resolve_window
 from app.services.persona import get_active_persona_id
 
 router = APIRouter(prefix="/api/sync", tags=["sync"])
@@ -24,8 +25,16 @@ class RangeBody(BaseModel):
     job_ids: list[int] | None = None
 
 
+class DiscoverSiteBody(BaseModel):
+    persona_id: str | None = None
+    site: str
+    window: str = "7d"  # 24h | 7d | all
+    max_jobs: int = 100
+
+
 @router.get("/ats-catalog")
 async def ats_catalog(db: AsyncSession = Depends(get_db)):
+    # Seed only when explicitly opening catalog endpoints, not on every UI poll.
     added = await seed_ats_catalog(db)
     stats = await catalog_stats(db)
     if added:
@@ -33,11 +42,89 @@ async def ats_catalog(db: AsyncSession = Depends(get_db)):
     return stats
 
 
+@router.get("/ats-catalog/boards")
+async def ats_catalog_boards(
+    status: str | None = None,
+    source: str | None = None,
+    q: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
+    db: AsyncSession = Depends(get_db),
+):
+    """Full company/ATS board list (searched + waiting)."""
+    return await list_boards(
+        db,
+        status=status,
+        source=source,
+        q=q,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@router.get("/fetch-sites")
+async def fetch_sites_catalog():
+    """Sites + time windows available for site-scoped Fetch."""
+    return list_fetch_sites()
+
+
 @router.post("/discover")
 async def sync_discover(body: RangeBody):
     pid = body.persona_id or get_active_persona_id()
     row = await bg_jobs.enqueue(
         kind=BackgroundJobKind.DISCOVER,
+        persona_id=pid,
+    )
+    return {"job_id": row.id, "kind": row.kind, "status": row.status, "persona_id": pid}
+
+
+@router.post("/discover-fresh")
+async def sync_discover_fresh(body: RangeBody):
+    """Deep fetch jobs posted within ~24 hours from feeds + ATS boards."""
+    pid = body.persona_id or get_active_persona_id()
+    row = await bg_jobs.enqueue(
+        kind=BackgroundJobKind.DISCOVER_FRESH,
+        persona_id=pid,
+    )
+    return {"job_id": row.id, "kind": row.kind, "status": row.status, "persona_id": pid}
+
+
+@router.post("/discover-site")
+async def sync_discover_site(body: DiscoverSiteBody):
+    """Fetch from one site/feed or ATS family with a time window (max 100)."""
+    site = resolve_site(body.site)
+    if not site:
+        raise HTTPException(400, detail=f"unknown site: {body.site}")
+    win = resolve_window(body.window)
+    max_jobs = max(1, min(MAX_JOBS_CAP, int(body.max_jobs or MAX_JOBS_CAP)))
+    pid = body.persona_id or get_active_persona_id()
+    row = await bg_jobs.enqueue(
+        kind=BackgroundJobKind.DISCOVER_SITE,
+        persona_id=pid,
+        options={
+            "site": site["id"],
+            "window": win["id"],
+            "max_jobs": max_jobs,
+            "site_label": site["label"],
+        },
+    )
+    return {
+        "job_id": row.id,
+        "kind": row.kind,
+        "status": row.status,
+        "persona_id": pid,
+        "site": site["id"],
+        "window": win["id"],
+        "max_jobs": max_jobs,
+    }
+
+
+@router.post("/discover-companies")
+async def sync_discover_companies(body: RangeBody):
+    """Google/SerpAPI search for real company ATS boards; add new ones to the catalog."""
+    pid = body.persona_id or get_active_persona_id()
+    row = await bg_jobs.enqueue(
+        kind=BackgroundJobKind.DISCOVER_COMPANIES,
         persona_id=pid,
     )
     return {"job_id": row.id, "kind": row.kind, "status": row.status, "persona_id": pid}

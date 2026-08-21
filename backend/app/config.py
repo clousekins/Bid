@@ -53,6 +53,11 @@ class Settings(BaseSettings):
     applied_sheets_webhook_url: str = ""
     google_service_account_json: str = ""
 
+    # Company discovery (Google Custom Search or SerpAPI)
+    google_cse_api_key: str = ""
+    google_cse_cx: str = ""
+    serpapi_key: str = ""
+
     @property
     def root_dir(self) -> Path:
         return ROOT_DIR

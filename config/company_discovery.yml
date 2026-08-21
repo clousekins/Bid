@@ -1,0 +1,309 @@
+# Company discovery — finds real employer ATS career pages.
+# Providers (in order): Google CSE / SerpAPI / OpenAI web search, then ATS slug probe fallback.
+# Slug probing needs no API key (industry best practice for Greenhouse/Lever/Ashby).
+
+max_boards_per_run: 500
+max_queries_per_run: 24
+openai_queries_per_run: 6
+openai_fail_fast: 2
+results_per_page: 10
+max_pages_per_query: 5
+probe_concurrency: 12
+probe_limit: 400
+
+# Curated ATS slug candidates. Probing skips tokens already in the catalog.
+# Keep this list to real employer board tokens (not product/library names).
+probe_slugs:
+  - stripe
+  - cloudflare
+  - datadog
+  - figma
+  - notion
+  - linear
+  - vercel
+  - ramp
+  - gitlab
+  - hashicorp
+  - snowflake
+  - mongodb
+  - elastic
+  - hubspot
+  - twilio
+  - dropbox
+  - airbnb
+  - doordash
+  - coinbase
+  - robinhood
+  - pinterest
+  - spotify
+  - square
+  - shopify
+  - zoom
+  - slack
+  - atlassian
+  - asana
+  - monday
+  - canva
+  - miro
+  - airtable
+  - plaid
+  - brex
+  - rippling
+  - gusto
+  - calendly
+  - zapier
+  - segment
+  - mixpanel
+  - amplitude
+  - sentry
+  - databricks
+  - openai
+  - anthropic
+  - huggingface
+  - scaleai
+  - anduril
+  - palantir
+  - crowdstrike
+  - okta
+  - auth0
+  - digitalocean
+  - heroku
+  - netlify
+  - buildkite
+  - circleci
+  - grafana
+  - confluent
+  - redislabs
+  - cockroachlabs
+  - planetscale
+  - neon
+  - supabase
+  - retool
+  - honeycomb
+  - watershed
+  - posthog
+  - clerk
+  - launchdarkly
+  - pagerduty
+  - temporal
+  - clickhouse
+  - fivetran
+  - airbyte
+  - hex
+  - mode
+  - metabase
+  - pinecone
+  - weaviate
+  - replicate
+  - modal
+  - anyscale
+  - coreweave
+  - lambdalabs
+  - runpod
+  - elevenlabs
+  - runwayml
+  - perplexity
+  - mistral
+  - cohere
+  - together
+  - fireworks
+  - xai
+  - deepmind
+  - nvidia
+  - amd
+  - intel
+  - arm
+  - cisco
+  - arista
+  - paloaltonetworks
+  - zscaler
+  - sentinelone
+  - 1password
+  - bitwarden
+  - duo
+  - resend
+  - customerio
+  - braze
+  - iterable
+  - klaviyo
+  - intercom
+  - zendesk
+  - front
+  - gong
+  - outreach
+  - salesloft
+  - apolloio
+  - clearbit
+  - demandbase
+  - salesforce
+  - github
+  - sourcegraph
+  - newrelic
+  - dynatrace
+  - splunk
+  - sumologic
+  - betterstack
+  - checkly
+  - incidentio
+  - rootly
+  - firehydrant
+  - harness
+  - codefresh
+  - octopusdeploy
+  - pulumi
+  - crossplane
+  - fastly
+  - akamai
+  - cloudinary
+  - mux
+  - livekit
+  - agora
+  - getstream
+  - ably
+  - pubnub
+  - appwrite
+  - convex
+  - prisma
+  - hasura
+  - upstash
+  - firebolt
+  - materialize
+  - risingwave
+  - redpanda
+  - meltano
+  - dagster
+  - prefect
+  - astronomer
+  - sst
+  - appsmith
+  - tooljet
+  - bubble
+  - webflow
+  - framer
+  - replit
+  - codesandbox
+  - cursor
+  - windsurf
+  - tabnine
+  - discord
+  - reddit
+  - snap
+  - twitch
+  - roblox
+  - epicgames
+  - unity
+  - riotgames
+  - netflix
+  - disney
+  - hulu
+  - paramount
+  - soundcloud
+  - patreon
+  - substack
+  - medium
+  - beehiiv
+  - ghost
+  - squarespace
+  - wix
+  - bigcommerce
+  - etsy
+  - whatnot
+  - stockx
+  - nike
+  - adidas
+  - lululemon
+  - allbirds
+  - warbyparker
+  - toast
+  - clover
+  - block
+  - affirm
+  - afterpay
+  - klarna
+  - adyen
+  - checkout
+  - mercury
+  - column
+  - unit
+  - increase
+  - tipalti
+  - melio
+  - expensify
+  - navan
+  - travelperk
+  - uber
+  - lyft
+  - grubhub
+  - instacart
+  - gopuff
+  - cruise
+  - waymo
+  - tesla
+  - rivian
+  - lucid
+  - bird
+  - lime
+  - grab
+  - gojek
+  - careem
+  - bytedance
+  - shein
+  - temu
+  - rakuten
+  - mercari
+  - softbank
+  - sony
+  - nintendo
+  - microsoft
+  - google
+  - meta
+  - amazon
+  - apple
+  - oracle
+  - ibm
+  - sap
+  - adobe
+  - intuit
+  - paypal
+  - visa
+  - mastercard
+  - capitalone
+  - jpmorgan
+  - goldmansachs
+  - morganstanley
+  - bloomberg
+  - reuters
+  - factset
+  - blackrock
+  - vanguard
+  - fidelity
+  - schwab
+  - kraken
+  - gemini
+  - binance
+  - spacex
+  - figure
+  - cognition
+  - snorkel
+  - labelbox
+  - surgeai
+  - physicalintelligence
+
+# SEO-ordered search prompts (used when a search provider is healthy)
+search_queries:
+  - 'site:boards.greenhouse.io "software engineer" remote "united states"'
+  - 'site:boards.greenhouse.io "frontend engineer" remote US'
+  - 'site:boards.greenhouse.io "backend engineer" remote US'
+  - 'site:boards.greenhouse.io "full stack" remote US'
+  - 'site:boards.greenhouse.io "machine learning" remote US'
+  - 'site:jobs.lever.co "software engineer" remote united states'
+  - 'site:jobs.lever.co "frontend" remote US'
+  - 'site:jobs.lever.co "backend" remote US'
+  - 'site:jobs.ashbyhq.com "software engineer" remote US'
+  - 'site:jobs.ashbyhq.com "AI engineer" remote'
+  - 'site:boards.greenhouse.io "platform engineer" remote'
+  - 'site:boards.greenhouse.io "devops" remote US'
+  - 'site:jobs.lever.co "data engineer" remote'
+  - 'site:jobs.ashbyhq.com "full stack" remote'
+  - 'site:boards.greenhouse.io "react" remote engineer'
+  - 'site:boards.greenhouse.io startup "software engineer" remote US'

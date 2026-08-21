@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncGenerator
 
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
@@ -13,16 +14,33 @@ _engine = None
 _session_factory: async_sessionmaker[AsyncSession] | None = None
 
 
+def _configure_sqlite(dbapi_conn, _connection_record) -> None:
+    """WAL + busy timeout: needed when bg workers and API share one SQLite file."""
+    cursor = dbapi_conn.cursor()
+    try:
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA busy_timeout=30000")
+        cursor.execute("PRAGMA synchronous=NORMAL")
+    finally:
+        cursor.close()
+
+
 def get_engine():
     global _engine, _session_factory
     if _engine is None:
         settings = get_settings()
+        connect_args: dict = {"check_same_thread": False}
+        if "sqlite" in settings.sqlalchemy_url:
+            # aiosqlite: seconds to wait on lock instead of raising immediately
+            connect_args["timeout"] = 30.0
         _engine = create_async_engine(
             settings.sqlalchemy_url,
             echo=False,
-            connect_args={"check_same_thread": False},
+            connect_args=connect_args,
             poolclass=NullPool,
         )
+        if "sqlite" in settings.sqlalchemy_url:
+            event.listen(_engine.sync_engine, "connect", _configure_sqlite)
         _session_factory = async_sessionmaker(_engine, expire_on_commit=False)
     return _engine
 
@@ -134,7 +152,7 @@ async def init_db() -> None:
         await _heal_datetime_failed_packages(session)
         from app.services.ats_catalog import seed_ats_catalog
 
-        await seed_ats_catalog(session)
+        await seed_ats_catalog(session, demote_missing=True)
         await session.commit()
 
 

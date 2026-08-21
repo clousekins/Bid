@@ -50,6 +50,8 @@ JOB_BOARD_NAMES = {
     "remote.co",
     "justremote",
     "eu remote jobs",
+    "hacker news",
+    "hn who is hiring",
 }
 
 # Staffing / recruiting firms — real client is usually in the JD

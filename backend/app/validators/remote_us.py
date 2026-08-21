@@ -67,7 +67,9 @@ US_STATE_NAME_RE = re.compile(
     r"district\s+of\s+columbia|washington\s*,?\s*d\.?c\.?"
     r")\b",
     re.I,
-)# Case-sensitive state/DC abbreviations (avoid matching English "in", "or", "me")
+)
+
+# Case-sensitive state/DC abbreviations (avoid matching English "in", "or", "me")
 US_STATE_ABBR_RE = re.compile(
     r"(?<![A-Za-z])("
     r"AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|"
@@ -100,6 +102,14 @@ NON_US_ONLY_RE = re.compile(
     r"\b(canada only|uk only|europe only|eu only|india only|apac only|"
     r"emea only|latam only|brazil only|spain only|mexico only)\b",
     re.I,
+)
+WORLDWIDE_RE = re.compile(
+    r"\b(worldwide|global|anywhere|emea|apac|latam|international\s+only)\b",
+    re.I,
+)
+VAGUE_REMOTE_LOC_RE = re.compile(
+    r"(?i)^\s*(remote|fully\s+remote|100%\s+remote|remote\s+only|"
+    r"work\s+from\s+home|wfh|distributed|n/?a|-)?\s*$"
 )
 
 
@@ -166,13 +176,19 @@ def check_remote_us(
     if place_has_us:
         return GateResult(ok=True)
 
-    place_vague = (not place_blob) or bool(
-        re.fullmatch(
-            r"(?i)\s*(remote|worldwide|global|anywhere|distributed|n/?a|-)?\s*",
-            loc,
-        )
-    )
-    if place_vague and _has_us_signal(desc) and not _has_non_us_geo(desc[:500]):
+    place_vague = (not place_blob) or bool(VAGUE_REMOTE_LOC_RE.fullmatch(loc))
+    if place_vague and _has_us_signal(desc) and not _has_non_us_geo(desc[:800]):
+        return GateResult(ok=True)
+
+    # Bare "Remote" with no non-US geo: treat as US-eligible (US-focused boards).
+    # Still reject explicit worldwide/EMEA/APAC listings without a US signal.
+    if place_vague and REMOTE_RE.search(signal_blob or loc):
+        if place_blob and _has_non_us_geo(place_blob):
+            return GateResult(ok=False, reason="not_us")
+        if _has_non_us_geo(desc[:800]):
+            return GateResult(ok=False, reason="not_us")
+        if WORLDWIDE_RE.search(desc[:800]) and not _has_us_signal(desc[:800]):
+            return GateResult(ok=False, reason="not_us")
         return GateResult(ok=True)
 
     return GateResult(ok=False, reason="not_us")

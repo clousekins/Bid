@@ -1,0 +1,90 @@
+import { useEffect, useState } from "react";
+import { client, logPoong } from "../api.js";
+
+const FALLBACK_SITES = [
+  { id: "greenhouse", label: "Greenhouse", kind: "ats" },
+  { id: "ashby", label: "Ashby", kind: "ats" },
+  { id: "lever", label: "Lever", kind: "ats" },
+  { id: "workable", label: "Workable", kind: "ats" },
+  { id: "companies", label: "All company ATS", kind: "ats_all" },
+  { id: "remoteok", label: "Remote OK", kind: "feed" },
+  { id: "remotive", label: "Remotive", kind: "feed" },
+  { id: "hn_whoishiring", label: "HN Who is Hiring", kind: "feed" },
+];
+
+const FALLBACK_WINDOWS = [
+  { id: "24h", label: "24h" },
+  { id: "7d", label: "7 days" },
+  { id: "all", label: "All time" },
+];
+
+export default function SiteFetchPanel({ busy, onFetchSite }) {
+  const [sites, setSites] = useState(FALLBACK_SITES);
+  const [windows, setWindows] = useState(FALLBACK_WINDOWS);
+  const [notes, setNotes] = useState("");
+  const [selected, setSelected] = useState("greenhouse");
+  const [maxJobs] = useState(100);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await client.fetchSites();
+        if (cancelled) return;
+        if (Array.isArray(res?.sites) && res.sites.length) setSites(res.sites);
+        if (Array.isArray(res?.windows) && res.windows.length) setWindows(res.windows);
+        if (res?.notes) setNotes(res.notes);
+      } catch (e) {
+        logPoong("fetch-sites catalog fail", e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const site = sites.find((s) => s.id === selected) || sites[0];
+
+  return (
+    <div className="site-fetch-panel">
+      <div className="site-fetch-head">
+        <span className="workflow-group-label">Fetch by site</span>
+        <span className="muted site-fetch-cap">max {maxJobs} jobs</span>
+      </div>
+      <p className="muted site-fetch-blurb">
+        Pick a board/feed, then choose a time window. Company ATS uses your catalog; public feeds
+        pull from that site only.
+      </p>
+      <div className="site-fetch-sites">
+        {sites.map((s) => (
+          <button
+            key={s.id}
+            type="button"
+            className={selected === s.id ? "seq-chip active" : "seq-chip"}
+            title={s.blurb || s.label}
+            disabled={busy}
+            onClick={() => setSelected(s.id)}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+      {site?.blurb ? <p className="muted site-fetch-selected">{site.blurb}</p> : null}
+      <div className="site-fetch-windows">
+        {windows.map((w) => (
+          <button
+            key={w.id}
+            type="button"
+            className="primary"
+            disabled={busy || !selected}
+            onClick={() => onFetchSite?.({ site: selected, window: w.id, max_jobs: maxJobs })}
+            title={`Fetch up to ${maxJobs} jobs from ${site?.label || selected} (${w.label})`}
+          >
+            {site?.label || selected} · {w.label}
+          </button>
+        ))}
+      </div>
+      {notes ? <p className="muted site-fetch-notes">{notes}</p> : null}
+    </div>
+  );
+}

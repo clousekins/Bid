@@ -16,6 +16,8 @@ class PersonaActivate(BaseModel):
 
 @router.get("")
 async def get_settings_api():
+    from app.services.company_discovery import search_provider_status
+
     s = get_settings()
     return {
         "openai_model": s.openai_model,
@@ -27,6 +29,7 @@ async def get_settings_api():
         "apply_allow_launch_chromium": s.apply_allow_launch_chromium,
         "active_persona": get_active_persona_id(),
         "access_token_enabled": bool(s.access_token),
+        "company_discovery": search_provider_status(),
     }
 
 

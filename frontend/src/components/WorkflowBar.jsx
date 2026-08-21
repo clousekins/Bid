@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import { commitSeqRange } from "../utils/seqRange.js";
+import SiteFetchPanel from "./SiteFetchPanel.jsx";
 
 export default function WorkflowBar({
   seqFrom,
@@ -17,6 +18,10 @@ export default function WorkflowBar({
   onManualApply,
   onUpload,
   onDiscover,
+  onDiscoverFresh,
+  onDiscoverCompanies,
+  onOpenCompanyCatalog,
+  onFetchSite,
   onDeleteRange,
   onRenumber,
   checkedCount,
@@ -124,11 +129,33 @@ export default function WorkflowBar({
             <button type="button" className="primary" disabled={busy} onClick={onDiscover}>
               Fetch new jobs
             </button>
+            <button
+              type="button"
+              className="primary"
+              disabled={busy}
+              onClick={onDiscoverFresh}
+              title="Only jobs posted within about 24 hours from feeds + company career pages"
+            >
+              Fetch fresh (24h)
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={onDiscoverCompanies}
+              title="Finds real US company ATS boards (OpenAI/search when available, else public Greenhouse/Lever/Ashby/Workable slug probing)"
+            >
+              Discover companies
+            </button>
             {ats ? (
-              <span className="ats-catalog-hint muted" title="Career boards we have already searched. Next Fetch new jobs skips these and tries companies not in this list.">
+              <button
+                type="button"
+                className="ats-catalog-hint linkish"
+                onClick={onOpenCompanyCatalog}
+                title="Open the full list of company ATS boards we have searched or still plan to search"
+              >
                 Companies {ats.checked}/{ats.total} searched
                 {ats.pending ? ` · ${ats.pending} waiting` : ""}
-              </span>
+              </button>
             ) : null}
             <button type="button" onClick={() => fileRef.current?.click()}>
               Upload JSON/CSV
@@ -145,6 +172,7 @@ export default function WorkflowBar({
               }}
             />
           </div>
+          <SiteFetchPanel busy={busy} onFetchSite={onFetchSite} />
         </div>
 
         <div className="workflow-group">
