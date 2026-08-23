@@ -8,12 +8,12 @@ export default function PrepDock({ items, workingPersonaId, onOpen, onDismiss })
   const failed = items.filter((row) => row.status === "failed");
 
   return (
-    <section className="prep-dock" aria-label="Background resume work">
+    <section className="prep-dock" aria-label="Background resume generation">
       <div className="prep-dock-head">
         <div>
           <h2>In flight</h2>
-          <p className="prep-dock-copy">
-            Resumes generate in the background. Close Manual apply anytime — click a card to continue.
+          <p className="prep-dock-copy muted">
+            Background resume generation — click a card to continue in Manual apply.
           </p>
         </div>
         <div className="prep-dock-counts">

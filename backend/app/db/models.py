@@ -62,6 +62,7 @@ class Job(Base):
     folder_path: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     persona_id: Mapped[str] = mapped_column(String(128), default="phong_v_cao", nullable=False)
     staffing_firm: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    domains: Mapped[str | None] = mapped_column(String(64), nullable=True)
     jd_fetched: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

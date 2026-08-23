@@ -16,6 +16,8 @@ export function useJobsWorkspace() {
   const [pageSize, setPageSize] = useState(50);
   const [jobsTotal, setJobsTotal] = useState(0);
   const [jobsPages, setJobsPages] = useState(1);
+  const [sort, setSort] = useState("seq");
+  const [sortDir, setSortDir] = useState("asc");
   const [checkedIds, setCheckedIds] = useState(() => new Set());
   const [personas, setPersonas] = useState([]);
   const selectedIdRef = useRef(null);
@@ -24,7 +26,7 @@ export function useJobsWorkspace() {
 
   const refresh = useCallback(async () => {
     try {
-      const params = { page, page_size: pageSize };
+      const params = { page, page_size: pageSize, sort, sort_dir: sortDir };
       if (statusFilter) params.status = statusFilter;
       if (workingPersonaId) params.profile = workingPersonaId;
       if (workingPersonaId && profileStatusFilter) {
@@ -59,7 +61,7 @@ export function useJobsWorkspace() {
       setError(String(e.message || e));
       logPoong("refresh error", e);
     }
-  }, [statusFilter, workingPersonaId, profileStatusFilter, searchQuery, page, pageSize]);
+  }, [statusFilter, workingPersonaId, profileStatusFilter, searchQuery, page, pageSize, sort, sortDir]);
 
   useEffect(() => {
     const timer = setTimeout(() => setSearchQuery(searchText.trim()), 250);
@@ -68,7 +70,7 @@ export function useJobsWorkspace() {
 
   useEffect(() => {
     setPage(1);
-  }, [statusFilter, workingPersonaId, profileStatusFilter, searchQuery, pageSize]);
+  }, [statusFilter, workingPersonaId, profileStatusFilter, searchQuery, pageSize, sort, sortDir]);
 
   useEffect(() => {
     refresh();
@@ -177,6 +179,18 @@ export function useJobsWorkspace() {
     });
   };
 
+  const setSortKey = (key) => {
+    setPage(1);
+    setSort((prev) => {
+      if (prev === key) {
+        setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+        return prev;
+      }
+      setSortDir(key === "seq" ? "asc" : "asc");
+      return key;
+    });
+  };
+
   return {
     jobs,
     stats,
@@ -198,6 +212,9 @@ export function useJobsWorkspace() {
     setPageSize,
     jobsTotal,
     jobsPages,
+    sort,
+    sortDir,
+    setSortKey,
     checkedIds,
     personas,
     refresh,

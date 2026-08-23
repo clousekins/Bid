@@ -19,6 +19,12 @@ from app.services.ats_catalog import (
 )
 from app.services.config_loader import load_job_sites
 from app.services.fetch_sites import MAX_JOBS_CAP, resolve_site, resolve_window
+from app.services.job_domains import (
+    classify_domains,
+    domains_storage,
+    matches_allowed,
+    normalize_domain_ids,
+)
 from app.services.employer_resolve import (
     is_job_board_or_aggregator,
     is_staffing_firm,
@@ -145,6 +151,7 @@ def _recent(dt: datetime | None, cutoff: datetime, *, require_posted_at: bool = 
 
 def listing_to_dict(listing: RawListing) -> dict[str, Any]:
     url = (listing.job_url or listing.canonical_url or "").strip()
+    domain_ids = classify_domains(listing.job_title, listing.description)
     return {
         "company": listing.company_name.strip(),
         "title": listing.job_title.strip(),
@@ -154,6 +161,8 @@ def listing_to_dict(listing: RawListing) -> dict[str, Any]:
         "source": listing.source,
         "external_id": listing.external_id,
         "staffing_firm": listing.staffing_firm,
+        "domains": domains_storage(domain_ids),
+        "domain_ids": domain_ids,
     }
 
 
@@ -256,11 +265,13 @@ def _filter_listings(
     queries: list[str],
     us_remote_strict: bool,
     require_posted_at: bool = False,
+    allowed_domains: list[str] | None = None,
 ) -> tuple[list[RawListing], dict[str, int], dict[str, int]]:
     by_source: dict[str, int] = {}
     drop_reasons: dict[str, int] = {}
     seen_url: set[str] = set()
     filtered: list[RawListing] = []
+    allowed = normalize_domain_ids(allowed_domains) if allowed_domains else []
 
     def _drop(reason: str) -> None:
         drop_reasons[reason] = drop_reasons.get(reason, 0) + 1
@@ -285,6 +296,11 @@ def _filter_listings(
             if not ok:
                 _drop(reason or "prefilter")
                 continue
+        if allowed:
+            domain_ids = classify_domains(listing.job_title, listing.description)
+            if not matches_allowed(domain_ids, allowed):
+                _drop("domain_mismatch")
+                continue
         seen_url.add(url)
         filtered.append(listing)
         by_source[listing.source] = by_source.get(listing.source, 0) + 1
@@ -295,9 +311,12 @@ def _filter_listings(
 async def collect_new_listings(
     *,
     mode: str = "standard",
+    domains: list[str] | None = None,
     on_progress: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     cfg = load_discovery_settings(mode=mode)
+    allowed_domains = normalize_domain_ids(domains)
+    cfg["domains"] = allowed_domains
     cutoff = datetime.now(timezone.utc) - timedelta(days=cfg["posted_within_days"])
     factory = get_session_factory()
 
@@ -308,18 +327,20 @@ async def collect_new_listings(
         ats_meta = await catalog_stats(session)
 
     log.info(
-        "discover[%s]: feeds + %s unsearched ATS boards (seeded=%s pending=%s days=%s)",
+        "discover[%s]: feeds + %s unsearched ATS boards (seeded=%s pending=%s days=%s domains=%s)",
         cfg["mode"],
         len(boards),
         seeded,
         ats_meta.get("pending"),
         cfg["posted_within_days"],
+        allowed_domains or "all",
     )
     if on_progress:
         await on_progress(
             {
                 "phase": "feeds",
                 "mode": cfg["mode"],
+                "domains": allowed_domains,
                 "boards_total": len(boards),
                 "boards_done": 0,
                 "done": 0,
@@ -412,6 +433,7 @@ async def collect_new_listings(
         queries=cfg["queries"],
         us_remote_strict=cfg["us_remote_strict"],
         require_posted_at=cfg["require_posted_at"],
+        allowed_domains=allowed_domains or None,
     )
     diversified = diversify_by_company(filtered)
     insert_limit = cfg["insert_limit"]
@@ -429,6 +451,7 @@ async def collect_new_listings(
 
     meta = {
         "mode": cfg["mode"],
+        "domains": allowed_domains,
         "posted_within_days": cfg["posted_within_days"],
         "queries": cfg["queries"],
         "discovered_raw": len(raw),
@@ -552,6 +575,7 @@ async def collect_site_listings(
     site: str,
     window: str = "7d",
     max_jobs: int = 100,
+    domains: list[str] | None = None,
     on_progress: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Fetch from one site/feed or one ATS family, capped and time-filtered."""
@@ -566,6 +590,8 @@ async def collect_site_listings(
     cfg["site"] = site_meta["id"]
     cfg["site_label"] = site_meta["label"]
     cfg["site_kind"] = site_meta["kind"]
+    allowed_domains = normalize_domain_ids(domains)
+    cfg["domains"] = allowed_domains
     # Site fetches try more company boards so one run is useful
     cfg["boards_per_run"] = max(cfg["boards_per_run"], 50 if site_meta["kind"].startswith("ats") else 0)
 
@@ -581,6 +607,7 @@ async def collect_site_listings(
                 "phase": "start",
                 "site": site_meta["id"],
                 "window": window,
+                "domains": allowed_domains,
                 "mode": cfg["mode"],
                 "done": 0,
                 "total": 1,
@@ -648,6 +675,7 @@ async def collect_site_listings(
         queries=cfg["queries"],
         us_remote_strict=cfg["us_remote_strict"],
         require_posted_at=cfg["require_posted_at"] and kind != "feed",
+        allowed_domains=allowed_domains or None,
     )
     # For 24h feed fetches, still prefer recent when dates exist but don't drop all
     if kind == "feed" and window == "24h":
@@ -681,6 +709,7 @@ async def collect_site_listings(
         "site": site_meta["id"],
         "site_label": site_meta["label"],
         "window": window,
+        "domains": allowed_domains,
         "posted_within_days": cfg["posted_within_days"],
         "discovered_raw": len(raw),
         "after_filters": len(filtered),

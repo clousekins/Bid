@@ -266,6 +266,12 @@ async def process_listing(
     company_row = await _get_or_create_company(session, company, normalized)
     seq = await _next_seq(session)
 
+    domains = listing.get("domains")
+    if not domains:
+        from app.services.job_domains import classify_domains, domains_storage
+
+        domains = domains_storage(classify_domains(title, description))
+
     job = Job(
         seq_no=seq,
         company=company,
@@ -281,6 +287,7 @@ async def process_listing(
         status=status,
         persona_id=pid,
         staffing_firm=(listing.get("staffing_firm") or None),
+        domains=domains if isinstance(domains, str) else None,
         jd_fetched=has_solid_jd,
         notes=notes,
     )

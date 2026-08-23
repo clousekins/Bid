@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import DomainFetchModal from "./DomainFetchModal.jsx";
 import { client, logPoong } from "../api.js";
 
 const FALLBACK_SITES = [
@@ -24,6 +25,7 @@ export default function SiteFetchPanel({ busy, onFetchSite }) {
   const [notes, setNotes] = useState("");
   const [selected, setSelected] = useState("greenhouse");
   const [maxJobs] = useState(100);
+  const [pendingWindow, setPendingWindow] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -44,6 +46,7 @@ export default function SiteFetchPanel({ busy, onFetchSite }) {
   }, []);
 
   const site = sites.find((s) => s.id === selected) || sites[0];
+  const windowMeta = windows.find((w) => w.id === pendingWindow);
 
   return (
     <div className="site-fetch-panel">
@@ -52,8 +55,8 @@ export default function SiteFetchPanel({ busy, onFetchSite }) {
         <span className="muted site-fetch-cap">max {maxJobs} jobs</span>
       </div>
       <p className="muted site-fetch-blurb">
-        Pick a board/feed, then choose a time window. Company ATS uses your catalog; public feeds
-        pull from that site only.
+        Pick a board/feed, then a time window. Next you choose domains (AI, DE, FS, SF, …) so
+        only matching titles are kept.
       </p>
       <div className="site-fetch-sites">
         {sites.map((s) => (
@@ -77,14 +80,32 @@ export default function SiteFetchPanel({ busy, onFetchSite }) {
             type="button"
             className="primary"
             disabled={busy || !selected}
-            onClick={() => onFetchSite?.({ site: selected, window: w.id, max_jobs: maxJobs })}
-            title={`Fetch up to ${maxJobs} jobs from ${site?.label || selected} (${w.label})`}
+            onClick={() => setPendingWindow(w.id)}
+            title={`Choose domains, then fetch up to ${maxJobs} from ${site?.label || selected} (${w.label})`}
           >
             {site?.label || selected} · {w.label}
           </button>
         ))}
       </div>
       {notes ? <p className="muted site-fetch-notes">{notes}</p> : null}
+      <DomainFetchModal
+        open={Boolean(pendingWindow)}
+        title="Fetch by site — domains"
+        subtitle={`Fetching ${site?.label || selected} · ${windowMeta?.label || pendingWindow || ""}. Only matching domains are kept.`}
+        busy={busy}
+        onClose={() => setPendingWindow(null)}
+        onConfirm={(domains) => {
+          const win = pendingWindow;
+          setPendingWindow(null);
+          if (!win) return;
+          onFetchSite?.({
+            site: selected,
+            window: win,
+            max_jobs: maxJobs,
+            domains,
+          });
+        }}
+      />
     </div>
   );
 }

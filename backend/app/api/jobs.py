@@ -161,6 +161,11 @@ def _job_dict(job: Job, *, profile: str | None = None) -> dict[str, Any]:
     packages = [_package_dict(p) for p in getattr(job, "packages", None) or []]
     packages.sort(key=lambda p: p.get("persona_id") or "")
     my_package = next((p for p in packages if p["persona_id"] == profile), None)
+    domains = getattr(job, "domains", None)
+    if not domains and job.title:
+        from app.services.job_domains import classify_domains, domains_storage
+
+        domains = domains_storage(classify_domains(job.title, job.description))
     return {
         "id": job.id,
         "seq_no": job.seq_no,
@@ -176,6 +181,7 @@ def _job_dict(job: Job, *, profile: str | None = None) -> dict[str, Any]:
         "folder_path": job.folder_path,
         "persona_id": job.persona_id,
         "staffing_firm": job.staffing_firm,
+        "domains": domains,
         "jd_fetched": job.jd_fetched,
         "notes": (my_package or {}).get("notes") or job.notes,
         "packages": packages,
@@ -201,6 +207,8 @@ async def list_jobs(
     persona_id: str | None = None,
     profile: str | None = None,
     profile_status: str | None = None,
+    sort: str | None = Query(None, description="seq|domains|company|title|status"),
+    sort_dir: str | None = Query("asc", description="asc|desc"),
     db: AsyncSession = Depends(get_db),
 ):
     """List jobs with pagination. No hard cap on total rows — page through all matches."""
@@ -276,11 +284,27 @@ async def list_jobs(
     pages = max(1, (total + size - 1) // size) if total else 1
     current_page = (start // size) + 1 if size else 1
 
-    stmt = (
-        select(Job)
-        .options(selectinload(Job.packages))
-        .order_by(Job.seq_no.asc(), Job.id.desc())
-    )
+    sort_key = (sort or "seq").strip().lower()
+    descending = (sort_dir or "asc").strip().lower() == "desc"
+    order_cols = {
+        "seq": Job.seq_no,
+        "domains": Job.domains,
+        "company": Job.company,
+        "title": Job.title,
+        "status": Job.status,
+    }
+    primary = order_cols.get(sort_key, Job.seq_no)
+    primary_order = primary.desc() if descending else primary.asc()
+    # Keep null/empty domains at the end when sorting by Dom
+    if sort_key == "domains":
+        from sqlalchemy import case
+
+        nulls_last = case((Job.domains.is_(None), 1), (Job.domains == "", 1), else_=0)
+        order_by = (nulls_last.asc(), primary_order, Job.id.desc())
+    else:
+        order_by = (primary_order, Job.id.desc())
+
+    stmt = select(Job).options(selectinload(Job.packages)).order_by(*order_by)
     if filters:
         stmt = stmt.where(*filters)
     stmt = stmt.offset(start).limit(size)
@@ -293,6 +317,8 @@ async def list_jobs(
         "pages": pages,
         "offset": start,
         "has_more": start + len(rows) < total,
+        "sort": sort_key,
+        "sort_dir": "desc" if descending else "asc",
     }
 
 

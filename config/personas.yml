@@ -30,3 +30,9 @@ options:
   persona_file: persona_identity/long_nguyen.yml
   prompt_file: persona_identity/long_nguyen.prompt.md
   enabled: true
+- id: albert_liu
+  option_number: 6
+  label: Albert Liu
+  persona_file: persona_identity/albert_liu.yml
+  prompt_file: persona_identity/albert_liu.prompt.md
+  enabled: true

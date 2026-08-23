@@ -631,9 +631,9 @@ button.danger {
 
 .workflow-seq input[type="number"] {
   width: 4.5rem;
-  background: #fff;
-  border: 1px solid var(--shell-border);
-  color: var(--shell-text);
+  background: var(--surface-0, var(--shell-elev));
+  border: 1px solid var(--line, var(--shell-border));
+  color: var(--text, var(--shell-text));
   border-radius: 6px;
   padding: 0.35rem 0.45rem;
 }
@@ -644,13 +644,29 @@ button.danger {
 }
 
 .seq-chip {
-  font-size: 0.75rem;
-  padding: 0.22rem 0.5rem;
+  font-size: 0.8rem;
+  padding: 0.35rem 0.75rem;
   border-radius: 999px;
-  border: 1px solid var(--shell-border);
-  background: #fff;
-  color: var(--shell-text);
+  border: 1px solid var(--line, var(--shell-border));
+  background: var(--surface-2, var(--shell-elev));
+  color: var(--text, var(--shell-text));
   cursor: pointer;
+  white-space: nowrap;
+  line-height: 1.25;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.seq-chip:hover:not(:disabled) {
+  background: var(--surface-3, color-mix(in srgb, var(--shell-text) 10%, var(--shell-elev)));
+  border-color: color-mix(in srgb, var(--profile-accent) 40%, var(--line, var(--shell-border)));
+  color: var(--text, var(--shell-text));
+}
+
+.seq-chip.active {
+  border-color: var(--profile-accent);
+  background: color-mix(in srgb, var(--profile-accent) 18%, var(--surface-2, var(--shell-elev)));
+  color: var(--text, var(--shell-text));
+  font-weight: 600;
 }
 
 .seq-chip:disabled {
@@ -681,8 +697,7 @@ button.ats-catalog-hint.linkish:hover {
 }
 
 .company-catalog-modal {
-  width: min(1180px, 98vw);
-  max-height: min(90vh, 940px);
+  max-height: min(92vh, 960px);
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
@@ -724,8 +739,8 @@ button.ats-catalog-hint.linkish:hover {
 }
 
 .company-catalog-tabs .seq-chip.active {
-  border-color: var(--shell-text);
-  color: var(--shell-text);
+  border-color: var(--profile-accent);
+  color: var(--text, var(--shell-text));
   font-weight: 600;
 }
 
@@ -757,20 +772,20 @@ button.ats-catalog-hint.linkish:hover {
   overflow-y: auto;
   border: 1px solid var(--shell-border);
   border-radius: 8px;
-  min-height: 12rem;
-  max-height: min(54vh, 560px);
+  min-height: 14rem;
+  max-height: min(58vh, 620px);
 }
 
 .company-catalog-table {
   width: 100%;
   table-layout: fixed;
   border-collapse: collapse;
-  font-size: 0.85rem;
+  font-size: 0.88rem;
 }
 
 .company-catalog-table th,
 .company-catalog-table td {
-  padding: 0.4rem 0.5rem;
+  padding: 0.45rem 0.65rem;
   border-bottom: 1px solid var(--shell-border);
   text-align: left;
   vertical-align: middle;
@@ -781,43 +796,48 @@ button.ats-catalog-hint.linkish:hover {
 
 .company-catalog-table th:nth-child(1),
 .company-catalog-table td:nth-child(1) {
-  width: 22%;
+  width: 24%;
 }
 
 .company-catalog-table th:nth-child(2),
 .company-catalog-table td:nth-child(2) {
-  width: 12%;
+  width: 10%;
 }
 
 .company-catalog-table th:nth-child(3),
 .company-catalog-table td:nth-child(3) {
-  width: 18%;
+  width: 22%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.82rem;
 }
 
 .company-catalog-table th:nth-child(4),
 .company-catalog-table td:nth-child(4) {
-  width: 14%;
+  width: 12%;
 }
 
 .company-catalog-table th:nth-child(5),
 .company-catalog-table td:nth-child(5) {
   width: 8%;
+  text-align: right;
 }
 
 .company-catalog-table th:nth-child(6),
 .company-catalog-table td:nth-child(6) {
-  width: 26%;
+  width: 24%;
+  white-space: nowrap;
 }
 
 .company-catalog-table th {
   position: sticky;
   top: 0;
-  background: var(--shell-elev);
-  font-size: 0.72rem;
+  background: var(--surface-2, var(--shell-elev));
+  font-size: 0.74rem;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--shell-muted);
+  letter-spacing: 0.04em;
+  color: var(--text-muted, var(--shell-muted));
   z-index: 1;
+  white-space: nowrap;
 }
 
 .company-catalog-table .mono {
@@ -826,11 +846,13 @@ button.ats-catalog-hint.linkish:hover {
 }
 
 .company-catalog-table td a {
-  display: inline-block;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  vertical-align: bottom;
+  color: var(--profile-accent);
+  text-decoration: none;
+}
+
+.company-catalog-table td a:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .ats-status {
@@ -875,12 +897,12 @@ button.ats-catalog-hint.linkish:hover {
 .site-fetch-panel {
   grid-column: 1 / -1;
   margin-top: 0.35rem;
-  padding: 0.55rem 0.6rem;
+  padding: 0.65rem 0.75rem;
   border-radius: 8px;
-  border: 1px solid var(--shell-border);
-  background: color-mix(in srgb, var(--shell-elev) 88%, #e8eef5);
+  border: 1px solid var(--line, var(--shell-border));
+  background: var(--surface-0, color-mix(in srgb, var(--shell-elev) 88%, #e8eef5));
   display: grid;
-  gap: 0.45rem;
+  gap: 0.55rem;
 }
 
 .site-fetch-head {
@@ -906,7 +928,12 @@ button.ats-catalog-hint.linkish:hover {
 .site-fetch-windows {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
+  gap: 0.45rem;
+}
+
+.site-fetch-sites .seq-chip {
+  font-size: 0.82rem;
+  padding: 0.4rem 0.85rem;
 }
 
 .site-fetch-windows .primary {
@@ -993,6 +1020,25 @@ button.ats-catalog-hint.linkish:hover {
   letter-spacing: 0.04em;
 }
 
+.th-sort {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  font-size: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  padding: 0;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.th-sort:hover,
+.th-sort.active {
+  color: var(--text);
+}
+
 .jobs-table th,
 .jobs-table td {
   text-align: left;
@@ -1008,16 +1054,115 @@ button.ats-catalog-hint.linkish:hover {
   width: 3.2rem;
 }
 .col-company {
-  width: 24%;
+  width: 22%;
 }
 .col-title {
-  width: 42%;
+  width: 36%;
+}
+.col-domain {
+  width: 5.75rem;
 }
 .col-my-status {
   width: 9.5rem;
 }
 .col-others {
   width: 7.5rem;
+}
+
+.cell-domain {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+  overflow: hidden;
+}
+
+.domain-pills {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.2rem;
+  max-width: 100%;
+}
+
+.domain-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 1.65rem;
+  padding: 0.08rem 0.32rem;
+  border-radius: 4px;
+  border: 1px solid color-mix(in srgb, var(--profile-accent) 35%, var(--shell-border));
+  background: color-mix(in srgb, var(--profile-accent) 10%, var(--shell-elev));
+  color: var(--shell-text);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.domain-pill-more {
+  min-width: 1.45rem;
+  border-color: color-mix(in srgb, var(--profile-accent) 55%, var(--shell-border));
+  background: color-mix(in srgb, var(--profile-accent) 22%, var(--shell-elev));
+  color: var(--profile-accent);
+  cursor: help;
+}
+
+.domain-fetch-modal {
+  width: min(760px, 96vw);
+  max-height: min(88vh, 720px);
+  overflow: auto;
+}
+
+.domain-fetch-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.35rem;
+}
+
+.domain-fetch-head h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.domain-fetch-blurb {
+  margin: 0 0 0.65rem;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.domain-fetch-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.55rem;
+}
+
+.domain-fetch-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.85rem;
+}
+
+.domain-fetch-chips .seq-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+
+.domain-fetch-chips .domain-code {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 0.78rem;
+}
+
+.domain-fetch-chips .domain-label {
+  font-size: 0.78rem;
+  opacity: 0.9;
 }
 
 .cell-check {
@@ -1404,6 +1549,17 @@ button.ats-catalog-hint.linkish:hover {
   width: min(480px, 92vw);
 }
 
+/* Wide modals — must come after `.modal` so width is not capped at 480px */
+.modal.company-catalog-modal {
+  width: min(75vw, 1280px);
+  max-width: 75vw;
+  padding: 1.15rem 1.35rem;
+}
+
+.modal.domain-fetch-modal {
+  width: min(760px, 96vw);
+}
+
 .modal label {
   display: block;
   margin: 0.5rem 0 0.2rem;
@@ -1415,9 +1571,9 @@ button.ats-catalog-hint.linkish:hover {
 .modal textarea,
 .modal select {
   width: 100%;
-  background: #fff;
-  border: 1px solid var(--shell-border);
-  color: var(--shell-text);
+  background: var(--surface-0, var(--shell-elev));
+  border: 1px solid var(--line, var(--shell-border));
+  color: var(--text, var(--shell-text));
   border-radius: 6px;
   padding: 0.45rem;
 }

@@ -12,6 +12,7 @@ from app.db.session import get_db
 from app.services import bg_jobs
 from app.services.ats_catalog import catalog_stats, list_boards, seed_ats_catalog
 from app.services.fetch_sites import MAX_JOBS_CAP, list_fetch_sites, resolve_site, resolve_window
+from app.services.job_domains import list_job_domains, normalize_domain_ids
 from app.services.persona import get_active_persona_id
 
 router = APIRouter(prefix="/api/sync", tags=["sync"])
@@ -23,6 +24,7 @@ class RangeBody(BaseModel):
     seq_to: int | None = 50
     limit: int = 50
     job_ids: list[int] | None = None
+    domains: list[str] | None = None  # e.g. ["de","ai","sf"] — filter discover/fresh
 
 
 class DiscoverSiteBody(BaseModel):
@@ -30,6 +32,7 @@ class DiscoverSiteBody(BaseModel):
     site: str
     window: str = "7d"  # 24h | 7d | all
     max_jobs: int = 100
+    domains: list[str] | None = None  # e.g. ["de","ai","sf"]
 
 
 @router.get("/ats-catalog")
@@ -64,29 +67,47 @@ async def ats_catalog_boards(
 
 @router.get("/fetch-sites")
 async def fetch_sites_catalog():
-    """Sites + time windows available for site-scoped Fetch."""
-    return list_fetch_sites()
+    """Sites + time windows + tech domains available for site-scoped Fetch."""
+    catalog = list_fetch_sites()
+    catalog["domains"] = list_job_domains()
+    return catalog
 
 
 @router.post("/discover")
 async def sync_discover(body: RangeBody):
     pid = body.persona_id or get_active_persona_id()
+    domains = normalize_domain_ids(body.domains)
     row = await bg_jobs.enqueue(
         kind=BackgroundJobKind.DISCOVER,
         persona_id=pid,
+        options={"domains": domains} if domains else None,
     )
-    return {"job_id": row.id, "kind": row.kind, "status": row.status, "persona_id": pid}
+    return {
+        "job_id": row.id,
+        "kind": row.kind,
+        "status": row.status,
+        "persona_id": pid,
+        "domains": domains,
+    }
 
 
 @router.post("/discover-fresh")
 async def sync_discover_fresh(body: RangeBody):
     """Deep fetch jobs posted within ~24 hours from feeds + ATS boards."""
     pid = body.persona_id or get_active_persona_id()
+    domains = normalize_domain_ids(body.domains)
     row = await bg_jobs.enqueue(
         kind=BackgroundJobKind.DISCOVER_FRESH,
         persona_id=pid,
+        options={"domains": domains} if domains else None,
     )
-    return {"job_id": row.id, "kind": row.kind, "status": row.status, "persona_id": pid}
+    return {
+        "job_id": row.id,
+        "kind": row.kind,
+        "status": row.status,
+        "persona_id": pid,
+        "domains": domains,
+    }
 
 
 @router.post("/discover-site")
@@ -97,6 +118,7 @@ async def sync_discover_site(body: DiscoverSiteBody):
         raise HTTPException(400, detail=f"unknown site: {body.site}")
     win = resolve_window(body.window)
     max_jobs = max(1, min(MAX_JOBS_CAP, int(body.max_jobs or MAX_JOBS_CAP)))
+    domains = normalize_domain_ids(body.domains)
     pid = body.persona_id or get_active_persona_id()
     row = await bg_jobs.enqueue(
         kind=BackgroundJobKind.DISCOVER_SITE,
@@ -106,6 +128,7 @@ async def sync_discover_site(body: DiscoverSiteBody):
             "window": win["id"],
             "max_jobs": max_jobs,
             "site_label": site["label"],
+            "domains": domains,
         },
     )
     return {
@@ -116,6 +139,7 @@ async def sync_discover_site(body: DiscoverSiteBody):
         "site": site["id"],
         "window": win["id"],
         "max_jobs": max_jobs,
+        "domains": domains,
     }
 
 

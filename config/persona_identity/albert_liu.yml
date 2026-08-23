@@ -1,0 +1,72 @@
+persona_id: albert_liu
+display_name: Albert Liu
+default_professional_title: Senior Salesforce Developer
+total_experience: "7+ years"
+
+identity:
+  legal_name: Albert Liu
+  email: alliu0118@gmail.com
+  phone: "484-291-8738"
+  location_city: Howard
+  location_state: MD
+  location_zip: "21042"
+  location_country: US
+  linkedin_url: https://www.linkedin.com/in/albert-liu1
+  work_authorization: "Authorized to work in the US"
+
+screening_answers:
+  - question: "Are you authorized to work in the United States?"
+    answer: "Yes"
+  - question: "Do you now or will you in the future require sponsorship?"
+    answer: "No"
+  - question: "Are you willing to work remotely in the United States?"
+    answer: "Yes"
+  - question: "How many years of experience do you have?"
+    answer: "7"
+  - question: "Current Employer"
+    answer: "Dextara Datamatics"
+  - question: "Current Job Title"
+    answer: "Salesforce Developer"
+  - question: "Were you referred for this position?"
+    answer: "No"
+
+tailor:
+  mode: html_resume_bundle
+  prompt_file: albert_liu.prompt.md
+  css_file: albert_liu.css
+  experience_ground_truth:
+    - company: Dextara Datamatics
+      title: Salesforce Developer
+      location: Westerville, Ohio
+      start: "Apr 2023"
+      end: Present
+      bullets: 7
+      focus: Salesforce PDO/ISV, managed packages, CPQ and Billing, quote-to-cash, Apex/LWC product engineering, Health Cloud or Manufacturing Cloud when JD fits
+      allowed_tech: Apex, LWC, Salesforce CPQ, Revenue Cloud, Flows, REST APIs, Salesforce DX, Experience Cloud, plus JD-aligned Salesforce products
+    - company: Revolution Group, Inc.
+      title: Salesforce Developer
+      location: Westerville, Ohio
+      start: "Apr 2022"
+      end: "Apr 2023"
+      bullets: 5
+      focus: Managed IT and cybersecurity Service Cloud, help desk SLA, client portals, ERP/NetSuite or MuleSoft integrations when JD fits, operational dashboards
+      allowed_tech: Service Cloud, Apex, LWC, Flows, Experience Cloud, REST APIs, Gearset, MuleSoft when JD prefers, plus JD-aligned support stack
+    - company: Capgemini
+      title: Salesforce Consultant
+      location: Washington DC-Baltimore Area
+      start: "Feb 2019"
+      end: "Apr 2022"
+      bullets: 6
+      focus: Enterprise Salesforce consulting (~60% stakeholder/requirements, ~40% technical), CRM modernization, Service/Sales Cloud guidance, data migration support
+      allowed_tech: Sales Cloud, Service Cloud, Experience Cloud, Flows, SOQL, Apex/LWC review, integrations requirements, reports and dashboards
+  education_ground_truth:
+    - degree: Bachelor of Science, Computer Science
+      school: University of Maryland, College Park
+      year: "2014 – 2018"
+  certifications_ground_truth:
+    - name: Salesforce Certified Platform Developer II
+    - name: Salesforce Certified Platform Developer I
+    - name: Salesforce Certified Service Cloud Consultant
+    - name: Salesforce Certified Platform App Builder
+    - name: Salesforce Certified Administrator
+    - name: Trailhead Ranger

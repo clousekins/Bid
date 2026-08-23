@@ -8,6 +8,48 @@ import {
   pipelineLabel,
 } from "../utils/statusLabels.js";
 import ResumePreview from "./ResumePreview.jsx";
+import JobsEmptyState from "./JobsEmptyState.jsx";
+
+const DOMAIN_SHOW_MAX = 2;
+
+function parseDomainCodes(domains) {
+  return (domains || "")
+    .split(/[,;]+/)
+    .map((c) => c.trim())
+    .filter(Boolean);
+}
+
+function DomainCell({ domains }) {
+  const codes = parseDomainCodes(domains);
+  if (!codes.length) {
+    return (
+      <td className="cell-domain">
+        <span className="muted">—</span>
+      </td>
+    );
+  }
+
+  const visible = codes.slice(0, DOMAIN_SHOW_MAX);
+  const extra = codes.length - visible.length;
+  const label = codes.join(", ");
+
+  return (
+    <td className="cell-domain" title={label} aria-label={`Domains: ${label}`}>
+      <span className="domain-pills">
+        {visible.map((code) => (
+          <span key={code} className="domain-pill">
+            {code}
+          </span>
+        ))}
+        {extra > 0 ? (
+          <span className="domain-pill domain-pill-more" title={codes.slice(DOMAIN_SHOW_MAX).join(", ")}>
+            +{extra}
+          </span>
+        ) : null}
+      </span>
+    </td>
+  );
+}
 
 export default function JobsTable({
   jobs,
@@ -23,11 +65,15 @@ export default function JobsTable({
   pages = 1,
   pageSize = 50,
   total = 0,
+  sort = "seq",
+  sortDir = "asc",
+  onSort,
   onPageChange,
   onPageSizeChange,
   generatingIds,
   onContinue,
   onFetchJd,
+  onEmptyFetch,
 }) {
   const visibleIds = jobs.map((j) => j.id);
   const checkedVisible = visibleIds.filter((id) => checkedIds.has(id));
@@ -37,6 +83,31 @@ export default function JobsTable({
     checkedVisible.length > 0 && checkedVisible.length < visibleIds.length;
   const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const to = Math.min(page * pageSize, total);
+
+  const sortMark = (key) => {
+    if (sort !== key) return "";
+    return sortDir === "desc" ? " ↓" : " ↑";
+  };
+
+  const SortTh = ({ col, children, title, className }) => (
+    <th className={className} title={title}>
+      {onSort ? (
+        <button
+          type="button"
+          className={`th-sort ${sort === col ? "active" : ""}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onSort(col);
+          }}
+        >
+          {children}
+          {sortMark(col)}
+        </button>
+      ) : (
+        children
+      )}
+    </th>
+  );
 
   return (
     <div className="panel jobs-panel work-panel">
@@ -79,6 +150,10 @@ export default function JobsTable({
           ) : null}
         </span>
       </div>
+      {!jobs.length && total === 0 ? (
+        <JobsEmptyState onFetch={onEmptyFetch} />
+      ) : (
+      <>
       <div className="jobs-scroll">
         <table className="jobs-table">
           <colgroup>
@@ -86,6 +161,7 @@ export default function JobsTable({
             <col className="col-seq" />
             <col className="col-company" />
             <col className="col-title" />
+            <col className="col-domain" />
             <col className="col-my-status" />
             <col className="col-others" />
           </colgroup>
@@ -103,9 +179,18 @@ export default function JobsTable({
                   onClick={(e) => e.stopPropagation()}
                 />
               </th>
-              <th>#</th>
-              <th>Company</th>
-              <th>Title</th>
+              <SortTh col="seq" title="Sort by seq">
+                #
+              </SortTh>
+              <SortTh col="company" title="Sort by company">
+                Company
+              </SortTh>
+              <SortTh col="title" title="Sort by title">
+                Title
+              </SortTh>
+              <SortTh col="domains" title="Sort by domain codes (AI, DE, FS, SF, …)">
+                Dom
+              </SortTh>
               <th>Status</th>
               <th>Others</th>
             </tr>
@@ -166,6 +251,7 @@ export default function JobsTable({
                   <td className="cell-ellipsis" title={j.title}>
                     {j.title}
                   </td>
+                  <DomainCell domains={j.domains} />
                   <td className="cell-status">
                     <span className={`pill package-status status-strong ${myStatus}`}>
                       {packageStatusLabel(myStatus)}
@@ -240,8 +326,8 @@ export default function JobsTable({
             })}
             {!jobs.length && (
               <tr>
-                <td colSpan={6} className="empty-row">
-                  No jobs yet. Upload JSON/CSV or add a job.
+                <td colSpan={7} className="empty-row">
+                  No jobs match your filters. Try Ingest → Fetch new jobs.
                 </td>
               </tr>
             )}
@@ -291,6 +377,8 @@ export default function JobsTable({
           </button>
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 }

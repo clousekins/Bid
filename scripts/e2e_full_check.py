@@ -105,8 +105,28 @@ def main() -> None:
     ok = api("/api/sync/ats-catalog/boards?limit=5&status=ok&q=stripe")
     print("search_stripe", ok.get("total"), (ok.get("boards") or [])[:2])
 
+    print("=== 3b. personas + fetch domains ===")
+    plist = api("/api/settings/personas")
+    persona_ids = [p.get("id") for p in (plist.get("personas") or []) if isinstance(p, dict)]
+    print("persona_ids", persona_ids, "active", plist.get("active"))
+    if "albert_liu" not in persona_ids:
+        raise SystemExit("albert_liu persona missing from settings/personas")
+    sites = api("/api/sync/fetch-sites")
+    domain_ids = [d.get("id") for d in (sites.get("domains") or [])]
+    print(
+        "fetch_sites",
+        {
+            "sites": len(sites.get("sites") or []),
+            "windows": [w.get("id") for w in (sites.get("windows") or [])],
+            "domains": domain_ids,
+        },
+    )
+    for need in ("ai", "de", "da", "ds", "fs", "sf"):
+        if need not in domain_ids:
+            raise SystemExit(f"missing domain in fetch-sites: {need}")
+
     print("=== 4. cancel any stuck discover_* jobs ===")
-    for jid in range(120, 80, -1):
+    for jid in range(200, 80, -1):
         try:
             bg = api(f"/api/jobs-bg/{jid}")
             if bg.get("status") in {"queued", "running"} and "discover" in str(bg.get("kind") or ""):
@@ -163,7 +183,45 @@ def main() -> None:
         },
     )
 
-    print("=== 7. catalog after run ===")
+    print("=== 7. discover-site remoteok + domains DE/AI/SF ===")
+    site_job = api(
+        "/api/sync/discover-site",
+        "POST",
+        {
+            "persona_id": "albert_liu",
+            "site": "remoteok",
+            "window": "7d",
+            "max_jobs": 40,
+            "domains": ["de", "ai", "sf"],
+        },
+    )
+    print("enqueued", site_job)
+    sres = poll_bg(site_job["job_id"], label="site", max_polls=80)
+    if sres["status"] != "completed":
+        raise SystemExit(f"discover_site ended as {sres['status']}: {sres.get('error')}")
+    sp = sres["progress"] or {}
+    print(
+        "site_result",
+        {
+            "status": sres["status"],
+            "domains": sp.get("domains") or site_job.get("domains"),
+            "raw": sp.get("discovered_raw"),
+            "filtered": sp.get("after_filters"),
+            "inserted": sp.get("inserted"),
+            "drops": (sp.get("prefilter_drops") or {}).get("domain_mismatch"),
+        },
+    )
+    sample = api("/api/jobs?page=1&page_size=8&profile=albert_liu")
+    jobs = sample.get("jobs") or sample.get("items") or []
+    print(
+        "jobs_sample_domains",
+        [
+            {"seq": j.get("seq_no"), "title": (j.get("title") or "")[:50], "domains": j.get("domains")}
+            for j in jobs[:8]
+        ],
+    )
+
+    print("=== 8. catalog after run ===")
     final = api("/api/sync/ats-catalog/boards?limit=5&status=ok")
     print("ok_boards", final.get("total"), [(b.get("company_name") or b.get("token")) for b in final.get("boards") or []])
     print("E2E_OK")

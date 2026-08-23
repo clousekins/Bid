@@ -132,10 +132,32 @@ async def _heal_datetime_failed_packages(session: AsyncSession) -> int:
     return int(result.rowcount or 0)
 
 
+def _ensure_sqlite_columns(conn) -> None:
+    """Add columns that create_all will not alter on existing SQLite DBs."""
+    from sqlalchemy import text
+
+    tables = {
+        str(r[0])
+        for r in conn.execute(
+            text("SELECT name FROM sqlite_master WHERE type='table'")
+        ).fetchall()
+    }
+    if "jobs" not in tables:
+        return
+    cols = {
+        str(r[1])
+        for r in conn.execute(text("PRAGMA table_info(jobs)")).fetchall()
+    }
+    if "domains" not in cols:
+        conn.execute(text("ALTER TABLE jobs ADD COLUMN domains VARCHAR(64)"))
+
+
 async def init_db() -> None:
     engine = get_engine()
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        if "sqlite" in str(engine.url):
+            await conn.run_sync(_ensure_sqlite_columns)
     from sqlalchemy import text
 
     async with engine.begin() as conn:

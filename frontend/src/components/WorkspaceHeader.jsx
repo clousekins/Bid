@@ -1,27 +1,23 @@
 import { useEffect, useRef, useState } from "react";
 import { personaInitials, shortPersona } from "../utils/persona.js";
 
-export default function WorkspaceHeader({ personas, workingPersonaId, onSwitch }) {
+export default function WorkspaceHeader({
+  personas,
+  workingPersonaId,
+  onSwitch,
+  stats,
+  onRefresh,
+  busy,
+}) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef(null);
-  const closeTimer = useRef(null);
 
   const active = personas.find((p) => p.id === workingPersonaId);
   const displayName = active?.display_name || shortPersona(workingPersonaId) || "Profile";
-
-  const clearClose = () => {
-    if (closeTimer.current) {
-      clearTimeout(closeTimer.current);
-      closeTimer.current = null;
-    }
-  };
-
-  const scheduleClose = () => {
-    clearClose();
-    closeTimer.current = setTimeout(() => setOpen(false), 140);
-  };
-
-  useEffect(() => () => clearClose(), []);
+  const profileCounts = stats?.by_profile?.[workingPersonaId] || {};
+  const ready = Number(profileCounts.resume_ready || 0) + Number(profileCounts.applying || 0);
+  const applied = Number(profileCounts.applied || 0);
+  const total = Number(stats?.total || 0);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -40,83 +36,84 @@ export default function WorkspaceHeader({ personas, workingPersonaId, onSwitch }
   }, [open]);
 
   return (
-    <header className="workspace-header">
-      <div className="workspace-brand">
-        <div className="brand-mark-wrap" aria-label="POONG">
-          <span className="brand-heart brand-heart-a" aria-hidden>
-            ♥
-          </span>
-          <span className="brand-heart brand-heart-b" aria-hidden>
-            ♥
-          </span>
-          <span className="brand-heart brand-heart-c" aria-hidden>
-            ♥
-          </span>
-          <h1 className="brand-mark">
-            {"POONG".split("").map((ch, i) => (
-              <span key={`${ch}-${i}`} className="brand-letter" style={{ "--i": i }}>
-                {ch}
-              </span>
-            ))}
-          </h1>
-          <span className="brand-bloom" aria-hidden />
-        </div>
-        <p className="brand-tag">I will always be with you.</p>
+    <header className="app-header">
+      <div className="app-header-brand">
+        <h1 className="app-logo">POONG</h1>
+        <p className="app-tagline">Remote US apply console</p>
       </div>
 
-      <div
-        className={`working-as-compact ${open ? "open" : ""}`}
-        ref={wrapRef}
-        onMouseEnter={() => {
-          clearClose();
-          setOpen(true);
-        }}
-        onMouseLeave={scheduleClose}
-      >
-        <button
-          type="button"
-          className="working-as-trigger"
-          aria-haspopup="listbox"
-          aria-expanded={open}
-          onClick={() => setOpen((v) => !v)}
-        >
-          <span className="working-as-eyebrow">Working as</span>
-          <strong className="working-as-name">{displayName}</strong>
-          <span className="working-as-caret" aria-hidden>
-            ▾
-          </span>
-        </button>
-
-        {open ? (
-          <div className="working-as-menu" role="listbox" aria-label="Choose profile">
-            <p className="working-as-menu-hint">
-              Generating, applying, and filters use this profile
-            </p>
-            {personas.map((p) => {
-              const selected = p.id === workingPersonaId;
-              const label = p.display_name || shortPersona(p.id);
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  role="option"
-                  aria-selected={selected}
-                  className={`working-as-option ${selected ? "active" : ""}`}
-                  onClick={() => {
-                    onSwitch(p.id);
-                    setOpen(false);
-                  }}
-                >
-                  <span className="persona-pill-initials">{personaInitials(p.id)}</span>
-                  <span className="working-as-option-text">
-                    <span className="working-as-option-name">{label}</span>
-                    <span className="working-as-option-id">{p.id}</span>
-                  </span>
-                </button>
-              );
-            })}
+      <div className="app-header-stats">
+        <div className="stat-pill" title="Total job listings">
+          <span className="stat-value">{total}</span>
+          <span className="stat-label">Jobs</span>
+        </div>
+        <div className="stat-pill accent" title={`${displayName}: resume ready or applying`}>
+          <span className="stat-value">{ready}</span>
+          <span className="stat-label">Ready</span>
+        </div>
+        <div className="stat-pill success" title={`${displayName}: applied`}>
+          <span className="stat-value">{applied}</span>
+          <span className="stat-label">Applied</span>
+        </div>
+        {stats?.ats ? (
+          <div className="stat-pill muted-stat" title="Company ATS boards searched">
+            <span className="stat-value">
+              {stats.ats.checked}/{stats.ats.total}
+            </span>
+            <span className="stat-label">Companies</span>
           </div>
         ) : null}
+      </div>
+
+      <div className="app-header-actions">
+        <button type="button" className="ghost-btn" disabled={busy} onClick={onRefresh} title="Refresh jobs">
+          Refresh
+        </button>
+        <div className={`persona-switch ${open ? "open" : ""}`} ref={wrapRef}>
+          <button
+            type="button"
+            className="persona-switch-trigger"
+            aria-haspopup="listbox"
+            aria-expanded={open}
+            onClick={() => setOpen((v) => !v)}
+          >
+            <span className="persona-pill-initials">{personaInitials(workingPersonaId)}</span>
+            <span className="persona-switch-text">
+              <span className="persona-switch-eyebrow">Working as</span>
+              <strong>{displayName}</strong>
+            </span>
+            <span className="persona-switch-caret" aria-hidden>
+              ▾
+            </span>
+          </button>
+          {open ? (
+            <div className="persona-switch-menu" role="listbox" aria-label="Choose profile">
+              {personas.map((p) => {
+                const selected = p.id === workingPersonaId;
+                const label = p.display_name || shortPersona(p.id);
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    role="option"
+                    aria-selected={selected}
+                    className={`persona-switch-option ${selected ? "active" : ""}`}
+                    onClick={() => {
+                      onSwitch(p.id);
+                      setOpen(false);
+                    }}
+                  >
+                    <span className="persona-pill-initials">{personaInitials(p.id)}</span>
+                    <span>
+                      <span className="persona-option-name">{label}</span>
+                      <span className="persona-option-id">{p.id}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
       </div>
     </header>
   );

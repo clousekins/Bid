@@ -241,47 +241,61 @@ export default function JobDetail({
         <div className="detail-jd">
           <span className="detail-label">JD preview</span>
           <pre className="jd-preview">
-            {(job.description || "").slice(0, 800) || "No JD yet"}
+            {(job.description || "").slice(0, 1200) || "No JD yet — use Fetch JD in Prep stage."}
           </pre>
         </div>
       </div>
 
-      <div className="actions">
-        {onContinueManual ? (
-          <button type="button" className="primary" onClick={onContinueManual}>
-            Continue apply
+      <div className="detail-actions">
+        <div className="action-group primary-group">
+          {onContinueManual ? (
+            <button type="button" className="primary" onClick={onContinueManual}>
+              Continue apply
+            </button>
+          ) : null}
+          {myStatus === "need_resume" || job.status === "jd_ready" ? (
+            <button type="button" className="primary" onClick={onGenerate} disabled={generating}>
+              Generate for {workingLabel}
+            </button>
+          ) : null}
+          {myStatus === "resume_ready" || myStatus === "applying" ? (
+            <>
+              <button type="button" className="primary" onClick={onAssistedApply}>
+                Assisted apply
+              </button>
+              <ResumePreview
+                jobId={job.id}
+                personaId={workingPersonaId}
+                packages={packages}
+                generating={generating}
+              />
+            </>
+          ) : null}
+          {(job.status === "new" || job.status === "scan_failed") && onDeepScan ? (
+            <button type="button" className="primary" onClick={onDeepScan}>
+              Fetch JD
+            </button>
+          ) : null}
+        </div>
+        <div className="action-group secondary-group">
+          <button type="button" onClick={onOpenJd}>
+            Open JD
           </button>
-        ) : null}
-        <button type="button" className="primary" onClick={onGenerate}>
-          Generate for {workingLabel}
-        </button>
-        <ResumePreview
-          jobId={job.id}
-          personaId={workingPersonaId}
-          packages={packages}
-          generating={generating}
-        />
-        <button type="button" onClick={onAssistedApply}>
-          Assisted apply
-        </button>
-        <button type="button" onClick={onOpenJd}>
-          Open JD
-        </button>
-        <button type="button" onClick={onDeepScan}>
-          Fetch JD
-        </button>
-        <button type="button" onClick={onSkip}>
-          Skip
-        </button>
-        <button type="button" onClick={onMarkApplied}>
-          Mark {workingLabel} applied
-        </button>
-        <button type="button" className="danger" onClick={onBlock}>
-          Block
-        </button>
-        <button type="button" className="danger" onClick={onDelete}>
-          Delete
-        </button>
+          <button type="button" onClick={onMarkApplied}>
+            Mark applied
+          </button>
+          <button type="button" onClick={onSkip}>
+            Skip
+          </button>
+        </div>
+        <div className="action-group danger-group-inline">
+          <button type="button" className="danger" onClick={onBlock}>
+            Block company
+          </button>
+          <button type="button" className="danger" onClick={onDelete}>
+            Delete job
+          </button>
+        </div>
       </div>
     </div>
   );

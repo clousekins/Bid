@@ -1,0 +1,182 @@
+/* === Light / dark theme === */
+
+[data-theme="light"] {
+  --surface-0: #eef2f7;
+  --surface-1: #ffffff;
+  --surface-2: #f1f5f9;
+  --surface-3: #e2e8f0;
+  --line: #cbd5e1;
+  --line-soft: #e2e8f0;
+  --text: #0f172a;
+  --text-muted: #475569;
+  --text-faint: #64748b;
+  --profile-accent: #0284c7;
+  --accent-2: #059669;
+  --warn: #d97706;
+  --danger: #dc2626;
+  --shadow: 0 8px 32px rgba(15, 23, 42, 0.08);
+  --glass-bg: color-mix(in srgb, var(--surface-1) 88%, transparent);
+  --glass-border: color-mix(in srgb, var(--line) 85%, transparent);
+}
+
+[data-theme="light"] body {
+  background:
+    radial-gradient(1200px 600px at 0% -10%, color-mix(in srgb, var(--profile-accent) 10%, transparent), transparent 50%),
+    radial-gradient(800px 400px at 100% 0%, color-mix(in srgb, #6366f1 6%, transparent), transparent 45%),
+    linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+}
+
+[data-theme="light"] button {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+[data-theme="light"] button.primary {
+  color: #fff;
+  background: color-mix(in srgb, var(--profile-accent) 92%, #0369a1);
+}
+
+[data-theme="light"] .hero-slide-scrim,
+[data-theme="light"] .landing-hero-scrim {
+  background:
+    linear-gradient(105deg, rgba(248, 250, 252, 0.82) 0%, rgba(248, 250, 252, 0.45) 42%, rgba(248, 250, 252, 0.15) 100%),
+    linear-gradient(0deg, rgba(248, 250, 252, 0.55) 0%, transparent 45%);
+}
+
+[data-theme="light"] .hero-title,
+[data-theme="light"] .landing-title {
+  color: #0f172a;
+  text-shadow: none;
+}
+
+[data-theme="light"] .hero-body,
+[data-theme="light"] .landing-lead {
+  color: #334155;
+}
+
+[data-theme="light"] .hero-metric-value {
+  color: #0f172a;
+}
+
+[data-theme="light"] .hero-metric {
+  background: color-mix(in srgb, #fff 75%, transparent);
+  border-color: color-mix(in srgb, var(--line) 80%, transparent);
+}
+
+[data-theme="light"] .side-rail {
+  background: color-mix(in srgb, var(--surface-1) 95%, #fff);
+}
+
+[data-theme="light"] .log-panel {
+  background: #f8fafc;
+}
+
+[data-theme="light"] .landing-page {
+  background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+}
+
+[data-theme="light"] .landing-header {
+  background: color-mix(in srgb, #fff 85%, transparent);
+  border-bottom-color: var(--line-soft);
+}
+
+[data-theme="light"] .landing-feature-card,
+[data-theme="light"] .landing-hero-card,
+[data-theme="light"] .landing-final-inner {
+  background: #fff;
+  border-color: var(--line-soft);
+  box-shadow: var(--shadow);
+}
+
+[data-theme="light"] .seq-chip {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+[data-theme="light"] .seq-chip.active {
+  background: color-mix(in srgb, var(--profile-accent) 14%, #fff);
+  color: #0f172a;
+}
+
+[data-theme="light"] .company-catalog-table th {
+  background: var(--surface-2);
+}
+
+/* Theme toggle button */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.theme-toggle-icon {
+  display: flex;
+  width: 1rem;
+  height: 1rem;
+}
+
+.theme-toggle-icon svg {
+  width: 100%;
+  height: 100%;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+[data-theme="dark"] .theme-toggle-icon svg path:last-child,
+[data-theme="dark"] .theme-toggle-icon svg circle {
+  fill: none;
+}
+
+[data-theme="light"] .theme-toggle-icon svg path {
+  fill: currentColor;
+  stroke: none;
+}
+
+.side-rail-theme {
+  width: 100%;
+  justify-content: center;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.5rem 0.35rem;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+}
+
+.side-rail-theme:hover {
+  background: var(--surface-2);
+  border-color: var(--line-soft);
+  color: var(--text);
+}
+
+.side-rail-theme .theme-toggle-label {
+  font-size: 0.58rem;
+}
+
+.side-rail-home {
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+}
+
+.side-rail-home:hover .side-rail-logo {
+  transform: scale(1.04);
+}
+
+.side-rail-home:hover .side-rail-name {
+  color: var(--text);
+}

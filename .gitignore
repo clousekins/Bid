@@ -9,6 +9,8 @@ __pycache__/
 node_modules/
 frontend/dist/
 data/
+!frontend/src/data/
+!frontend/src/data/**
 tools/cloudflared.exe
 POONG_FULL_REQUIREMENTS.md
 *.db

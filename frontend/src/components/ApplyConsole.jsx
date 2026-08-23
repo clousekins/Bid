@@ -1,45 +1,56 @@
-export default function ApplyConsole({
-  session,
-  onResume,
-  onConfirm,
-  onClose,
-}) {
+export default function ApplyConsole({ session, job, onResume, onConfirm, onClose }) {
   const idle = !session || session.status === "none";
+  const logs = session?.logs || [];
+
+  if (idle) return null;
+
+  const title = job?.company
+    ? `#${job.seq_no} ${job.company}`
+    : session?.job_id
+      ? `Job ${session.job_id}`
+      : "Apply session";
 
   return (
-    <div className="panel apply-panel work-panel">
-      <div className="panel-head">
-        <h2>Apply console{!idle ? ` — job ${session.job_id}` : ""}</h2>
-        {!idle ? <span className={`pill ${session.status}`}>{session.status}</span> : null}
+    <section className="apply-console">
+      <div className="apply-console-head">
+        <div>
+          <h2>Apply session</h2>
+          <p className="apply-console-sub">{title}</p>
+        </div>
+        <span className={`pill session-${session.status}`}>{session.status}</span>
       </div>
 
-      {idle ? (
-        <p className="muted">No active apply session.</p>
-      ) : (
-        <>
-          <div className="actions">
-            <button type="button" className="primary" onClick={onResume}>
-              Resume after bot check
-            </button>
-            <button type="button" onClick={onConfirm}>
-              Confirm submit (retry)
-            </button>
-            <button type="button" className="danger" onClick={onClose}>
-              Close session
-            </button>
-          </div>
-          <p className="muted hint">
-            Confirm only clicks Submit after fill. Use Mark applied after the ATS shows success.
-          </p>
-          <div className="console">
-            {(session.logs || []).map((line, i) => (
-              <div key={`${line.ts}-${i}`} className={`line ${line.level === "error" ? "error" : ""}`}>
-                [{line.ts}] {line.message}
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
+      <div className="apply-console-actions">
+        <button type="button" className="primary" onClick={onResume}>
+          Resume after bot check
+        </button>
+        <button type="button" onClick={onConfirm}>
+          Confirm submit
+        </button>
+        <button type="button" className="ghost-btn danger-text" onClick={onClose}>
+          Close
+        </button>
+      </div>
+
+      <p className="apply-console-hint muted">
+        Confirm only clicks Submit after fill. Mark applied once the ATS shows success.
+      </p>
+
+      <div className="log-panel" aria-label="Apply log">
+        {logs.length ? (
+          logs.map((line, i) => (
+            <div
+              key={`${line.ts}-${i}`}
+              className={`log-line ${line.level === "error" ? "log-error" : ""}`}
+            >
+              <span className="log-ts">{line.ts}</span>
+              <span className="log-msg">{line.message}</span>
+            </div>
+          ))
+        ) : (
+          <div className="log-line muted">Waiting for browser events…</div>
+        )}
+      </div>
+    </section>
   );
 }

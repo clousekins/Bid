@@ -4,6 +4,7 @@ const SHORT = {
   long: "Long",
   bing: "Bing",
   andrew: "Andrew",
+  albert: "Albert",
 };
 
 const ACCENTS = {
@@ -12,6 +13,7 @@ const ACCENTS = {
   andrew_nguyen: "#4d7c0f",
   bing_lin: "#b45309",
   long_nguyen: "#475569",
+  albert_liu: "#0176d3",
 };
 
 export function shortPersona(personaId) {
@@ -43,6 +45,7 @@ export function personaAccent(personaId) {
     andrew: "#4d7c0f",
     bing: "#b45309",
     long: "#475569",
+    albert: "#0176d3",
   };
   return byKey[key] || "#0284c7";
 }
