@@ -6,6 +6,7 @@ import "./styles-v2.css";
 import "./styles-v3.css";
 import "./styles-theme.css";
 import "./styles-landing.css";
+import "./styles-progress.css";
 
 createRoot(document.getElementById("root")).render(
   <React.StrictMode>

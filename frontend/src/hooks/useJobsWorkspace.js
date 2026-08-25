@@ -206,6 +206,7 @@ export function useJobsWorkspace() {
     setProfileStatusFilter,
     searchText,
     setSearchText,
+    searchQuery,
     page,
     setPage,
     pageSize,

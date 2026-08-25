@@ -1,0 +1,309 @@
+/* === Background job progress dock (non-blocking) === */
+
+.job-progress-panel {
+  position: sticky;
+  bottom: 0.75rem;
+  z-index: 40;
+  margin-top: 0.85rem;
+  border-radius: var(--radius-lg, 14px);
+  border: 1px solid color-mix(in srgb, var(--profile-accent) 28%, var(--line));
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--profile-accent) 8%, var(--surface-1)) 0%,
+      var(--surface-1) 42%
+    );
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 color-mix(in srgb, #fff 5%, transparent);
+  backdrop-filter: blur(12px);
+  overflow: hidden;
+}
+
+.job-progress-panel.success {
+  border-color: color-mix(in srgb, var(--accent-2) 35%, var(--line));
+}
+
+.job-progress-panel.failed {
+  border-color: color-mix(in srgb, var(--danger) 40%, var(--line));
+}
+
+.job-progress-panel.warn {
+  border-color: color-mix(in srgb, var(--warn) 40%, var(--line));
+}
+
+.job-progress-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0.9rem 0.55rem;
+}
+
+.job-progress-head-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.job-progress-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.job-progress-title {
+  font-size: 0.92rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.job-progress-sub {
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.job-progress-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.job-progress-pulse {
+  width: 0.7rem;
+  height: 0.7rem;
+  margin-top: 0.3rem;
+  border-radius: 999px;
+  background: var(--profile-accent);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--profile-accent) 55%, transparent);
+  animation: jobPulse 1.6s ease-out infinite;
+  flex-shrink: 0;
+}
+
+.job-progress-dot {
+  width: 0.7rem;
+  height: 0.7rem;
+  margin-top: 0.3rem;
+  border-radius: 999px;
+  background: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.job-progress-dot.success {
+  background: var(--accent-2);
+}
+
+.job-progress-dot.failed {
+  background: var(--danger);
+}
+
+.job-progress-dot.warn {
+  background: var(--warn);
+}
+
+.job-progress-dot.running {
+  background: var(--profile-accent);
+}
+
+@keyframes jobPulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--profile-accent) 50%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 10px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+.job-progress-body {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0 0.9rem 0.9rem;
+}
+
+.job-progress-card,
+.job-progress-prep {
+  border-radius: var(--radius, 10px);
+  border: 1px solid var(--line-soft);
+  background: color-mix(in srgb, var(--surface-0) 70%, transparent);
+  padding: 0.75rem;
+}
+
+.job-progress-card-top,
+.job-progress-prep-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.55rem;
+}
+
+.job-progress-card h3,
+.job-progress-prep h3 {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 650;
+}
+
+.job-progress-status-line {
+  margin: 0.2rem 0 0;
+  font-size: 0.75rem;
+}
+
+.job-progress-bar {
+  position: relative;
+  height: 0.42rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--line) 55%, var(--surface-2));
+  overflow: hidden;
+}
+
+.job-progress-bar-fill {
+  display: block;
+  height: 100%;
+  width: 28%;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--profile-accent) 70%, #0ea5e9),
+    var(--profile-accent)
+  );
+  transition: width 0.35s ease;
+}
+
+.job-progress-bar.success .job-progress-bar-fill {
+  background: linear-gradient(90deg, #34d399, var(--accent-2));
+  width: 100%;
+}
+
+.job-progress-bar.failed .job-progress-bar-fill {
+  background: linear-gradient(90deg, #fca5a5, var(--danger));
+}
+
+.job-progress-bar.warn .job-progress-bar-fill {
+  background: linear-gradient(90deg, #fcd34d, var(--warn));
+}
+
+.job-progress-bar.indeterminate .job-progress-bar-fill {
+  width: 38%;
+  animation: jobBarSlide 1.35s ease-in-out infinite;
+}
+
+@keyframes jobBarSlide {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(280%);
+  }
+}
+
+.job-progress-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.55rem;
+}
+
+.job-metric-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.28rem;
+  padding: 0.22rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--line-soft);
+  background: var(--surface-2);
+  font-size: 0.72rem;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.job-metric-chip em {
+  font-style: normal;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.job-progress-detail {
+  margin: 0.55rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.job-progress-detail.error {
+  color: #fecaca;
+}
+
+.job-progress-prep-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.job-progress-prep-list {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.job-prep-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.35rem;
+  align-items: start;
+  padding: 0.55rem 0.6rem;
+  border-radius: var(--radius-sm, 6px);
+  border: 1px solid var(--line-soft);
+  background: var(--surface-1);
+}
+
+.job-prep-row-main {
+  display: grid;
+  gap: 0.3rem;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  cursor: pointer;
+}
+
+.job-prep-row-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.job-prep-row-meta {
+  font-size: 0.75rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.job-progress-collapsed-bar {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0 0.9rem 0.75rem;
+  font-size: 0.78rem;
+}
+
+@media (max-width: 720px) {
+  .job-progress-panel {
+    bottom: 0.4rem;
+  }
+
+  .job-progress-head {
+    flex-direction: column;
+  }
+}

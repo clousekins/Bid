@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   personaInitials,
   shortPersona,
@@ -9,6 +10,8 @@ import {
 } from "../utils/statusLabels.js";
 import ResumePreview from "./ResumePreview.jsx";
 import JobsEmptyState from "./JobsEmptyState.jsx";
+import TableExportMenu from "./TableExportMenu.jsx";
+import { exportJobsTable } from "../utils/tableExports.js";
 
 const DOMAIN_SHOW_MAX = 2;
 
@@ -74,7 +77,10 @@ export default function JobsTable({
   onContinue,
   onFetchJd,
   onEmptyFetch,
+  listParams = {},
+  onExportError,
 }) {
+  const [exporting, setExporting] = useState(false);
   const visibleIds = jobs.map((j) => j.id);
   const checkedVisible = visibleIds.filter((id) => checkedIds.has(id));
   const allVisibleChecked =
@@ -108,6 +114,22 @@ export default function JobsTable({
       )}
     </th>
   );
+
+  const runExport = async (format, scope) => {
+    try {
+      setExporting(true);
+      await exportJobsTable({
+        format,
+        listParams,
+        selectedIds: checkedIds,
+        scope,
+      });
+    } catch (e) {
+      onExportError?.(String(e.message || e));
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <div className="panel jobs-panel work-panel">
@@ -149,6 +171,25 @@ export default function JobsTable({
             </>
           ) : null}
         </span>
+        <div className="panel-head-actions">
+          <TableExportMenu
+            label="Download"
+            disabled={!total}
+            exporting={exporting}
+            hint="Download filtered jobs as CSV or Excel"
+            onExportCsv={() => runExport("csv", "filtered")}
+            onExportExcel={() => runExport("excel", "filtered")}
+          />
+          {checkedIds.size ? (
+            <TableExportMenu
+              label="Selected"
+              exporting={exporting}
+              hint="Download only the selected jobs"
+              onExportCsv={() => runExport("csv", "selected")}
+              onExportExcel={() => runExport("excel", "selected")}
+            />
+          ) : null}
+        </div>
       </div>
       {!jobs.length && total === 0 ? (
         <JobsEmptyState onFetch={onEmptyFetch} />

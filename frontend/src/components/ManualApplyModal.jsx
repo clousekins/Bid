@@ -327,7 +327,7 @@ export default function ManualApplyModal({
     if (generating) return;
     setBusy("tailor");
     setStatus(
-      "Queued resume generation. You can wait here, or Close and start another Manual apply — progress stays in the In flight strip."
+      "Queued resume generation. You can wait here, or Close and keep browsing — progress stays in the bottom activity panel."
     );
     try {
       await onQueueGenerate?.(current);

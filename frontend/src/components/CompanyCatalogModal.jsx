@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { client, logPoong } from "../api.js";
+import TableExportMenu from "./TableExportMenu.jsx";
+import { exportCatalogTable } from "../utils/tableExports.js";
 
 const STATUS_TABS = [
   { id: "all", label: "All" },
@@ -47,6 +49,7 @@ export default function CompanyCatalogModal({ open, onClose, summary }) {
   const [data, setData] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [exporting, setExporting] = useState(false);
   const limit = 100;
 
   useEffect(() => {
@@ -105,9 +108,53 @@ export default function CompanyCatalogModal({ open, onClose, summary }) {
               waiting boards are tried first.
             </p>
           </div>
-          <button type="button" className="ghost" onClick={onClose}>
-            Close
-          </button>
+          <div className="company-catalog-head-actions">
+            <TableExportMenu
+              label="Download"
+              disabled={!total}
+              exporting={exporting}
+              hint="Download filtered catalog as CSV or Excel"
+              onExportCsv={async () => {
+                try {
+                  setExporting(true);
+                  setError("");
+                  await exportCatalogTable({
+                    format: "csv",
+                    filters: {
+                      status: status === "all" ? undefined : status,
+                      source: source === "all" ? undefined : source,
+                      q: q || undefined,
+                    },
+                  });
+                } catch (e) {
+                  setError(String(e.message || e));
+                } finally {
+                  setExporting(false);
+                }
+              }}
+              onExportExcel={async () => {
+                try {
+                  setExporting(true);
+                  setError("");
+                  await exportCatalogTable({
+                    format: "excel",
+                    filters: {
+                      status: status === "all" ? undefined : status,
+                      source: source === "all" ? undefined : source,
+                      q: q || undefined,
+                    },
+                  });
+                } catch (e) {
+                  setError(String(e.message || e));
+                } finally {
+                  setExporting(false);
+                }
+              }}
+            />
+            <button type="button" className="ghost" onClick={onClose}>
+              Close
+            </button>
+          </div>
         </div>
 
         <div className="company-catalog-summary muted">

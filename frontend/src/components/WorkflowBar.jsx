@@ -113,12 +113,18 @@ export default function WorkflowBar({
           {hasSelection ? (
             <span className="selection-badge">
               {checkedCount} selected
-              <button type="button" className="linkish" disabled={busy} onClick={onClearSelection}>
+              <button type="button" className="linkish" onClick={onClearSelection}>
                 Clear
               </button>
             </span>
           ) : null}
-          <button type="button" className="ghost-btn danger-text" disabled={busy} onClick={onStopBatch}>
+          <button
+            type="button"
+            className="ghost-btn danger-text"
+            disabled={!busy}
+            onClick={onStopBatch}
+            title={busy ? "Stop the running background job" : "No batch running"}
+          >
             Stop batch
           </button>
           <button
@@ -233,7 +239,7 @@ export default function WorkflowBar({
               Generate (selected)
             </button>
             <p className="stage-hint muted">
-              Tailors HTML resume bundles for <strong>{workingLabel}</strong>. Check In flight cards when running
+              Tailors HTML resume bundles for <strong>{workingLabel}</strong>. Watch the bottom activity panel while it runs.
               from Manual apply.
             </p>
           </div>

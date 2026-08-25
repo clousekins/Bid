@@ -7,7 +7,6 @@ import { useAssistedApply } from "./hooks/useAssistedApply.js";
 import { usePrepQueue } from "./hooks/usePrepQueue.js";
 import { shortPersona, personaLabel } from "./utils/persona.js";
 import { formatGateList } from "./utils/gates.js";
-import ActivityStrip from "./components/ActivityStrip.jsx";
 import WorkspaceHeader from "./components/WorkspaceHeader.jsx";
 import HeroShowcase, { loadHeroCollapsed, saveHeroCollapsed } from "./components/HeroShowcase.jsx";
 import SideRail from "./components/SideRail.jsx";
@@ -18,7 +17,7 @@ import JobDetail from "./components/JobDetail.jsx";
 import ApplyConsole from "./components/ApplyConsole.jsx";
 import ManualApplyModal from "./components/ManualApplyModal.jsx";
 import CompanyCatalogModal from "./components/CompanyCatalogModal.jsx";
-import PrepDock from "./components/PrepDock.jsx";
+import JobProgressPanel from "./components/JobProgressPanel.jsx";
 
 export default function WorkspaceApp({ onGoHome, theme, onToggleTheme }) {
   const ws = useJobsWorkspace();
@@ -297,7 +296,7 @@ export default function WorkspaceApp({ onGoHome, theme, onToggleTheme }) {
               onSwitch={ws.setWorkingAs}
               stats={ws.stats}
               onRefresh={ws.refresh}
-              busy={batch.busy}
+              busy={false}
             />
           </div>
 
@@ -309,12 +308,6 @@ export default function WorkspaceApp({ onGoHome, theme, onToggleTheme }) {
           </button>
         </div>
       ) : null}
-
-      <ActivityStrip
-        message={batch.batchProgress}
-        busy={batch.busy}
-        onDismiss={() => batch.setBatchProgress("")}
-      />
 
       <Toolbar
         searchText={ws.searchText}
@@ -503,25 +496,6 @@ export default function WorkspaceApp({ onGoHome, theme, onToggleTheme }) {
       />
       </div>
 
-      <PrepDock
-        items={prep.items}
-        workingPersonaId={ws.workingPersonaId}
-        onOpen={async (row) => {
-          try {
-            const full = await client.getJob(row.jobId);
-            openManual(full);
-          } catch {
-            openManual({
-              id: row.jobId,
-              seq_no: row.seq,
-              company: row.company,
-              title: row.title,
-            });
-          }
-        }}
-        onDismiss={prep.dismiss}
-      />
-
       <div className="layout">
         <div id="jobs-section">
         <JobsTable
@@ -547,6 +521,18 @@ export default function WorkspaceApp({ onGoHome, theme, onToggleTheme }) {
           onContinue={(job) => openManual(job)}
           onFetchJd={fetchListedJd}
           onEmptyFetch={() => scrollToSection("workflow")}
+          listParams={{
+            status: ws.statusFilter || undefined,
+            profile: ws.workingPersonaId || undefined,
+            profile_status:
+              ws.workingPersonaId && ws.profileStatusFilter
+                ? ws.profileStatusFilter
+                : undefined,
+            q: ws.searchQuery || undefined,
+            sort: ws.sort,
+            sort_dir: ws.sortDir,
+          }}
+          onExportError={(msg) => ws.setError(msg)}
         />
         </div>
         <div className="side-column" id="detail-section">
@@ -651,6 +637,32 @@ export default function WorkspaceApp({ onGoHome, theme, onToggleTheme }) {
           />
         </div>
       </div>
+
+      <JobProgressPanel
+        activeJob={batch.activeJob}
+        busy={batch.busy}
+        prepItems={prep.items}
+        workingPersonaId={ws.workingPersonaId}
+        onStop={async () => {
+          apply.stopApplyQueue();
+          await batch.stopBatch();
+        }}
+        onDismissJob={batch.dismissActiveJob}
+        onOpenPrep={async (row) => {
+          try {
+            const full = await client.getJob(row.jobId);
+            openManual(full);
+          } catch {
+            openManual({
+              id: row.jobId,
+              seq_no: row.seq,
+              company: row.company,
+              title: row.title,
+            });
+          }
+        }}
+        onDismissPrep={prep.dismiss}
+      />
         </div>
       </div>
 
