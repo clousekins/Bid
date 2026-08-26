@@ -198,7 +198,7 @@ Use the following HTML structure:
   <div class="header">
     <div class="name">Long Nguyen</div>
     <div class="title">[TARGET_JOB_TITLE]</div>
-    <div class="contact">Tustin, California &nbsp;&middot;&nbsp; long.nguyen339332@gmail.com &nbsp;&middot;&nbsp; 9295476426 &nbsp;&middot;&nbsp; <a href="https://www.linkedin.com/in/long-nguyen-8a0a9757/">linkedin.com/in/long-nguyen-8a0a9757/</a></div>
+    <div class="contact">Tustin, California &nbsp;&middot;&nbsp; long.nguyen339332@gmail.com &nbsp;&middot;&nbsp; +1 (323) 790-6969 &nbsp;&middot;&nbsp; <a href="https://www.linkedin.com/in/long-nguyen-8a0a9757/">linkedin.com/in/long-nguyen-8a0a9757/</a></div>
   </div>
 
   <div class="section">

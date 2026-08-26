@@ -1,10 +1,15 @@
-/* === Background job progress dock (non-blocking) === */
+/* === Background job toast (Teams/Google-style, right side) === */
 
 .job-progress-panel {
-  position: sticky;
-  bottom: 0.75rem;
-  z-index: 40;
-  margin-top: 0.85rem;
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 80;
+  width: min(380px, calc(100vw - 1.5rem));
+  max-height: min(70vh, 560px);
+  display: flex;
+  flex-direction: column;
+  margin: 0;
   border-radius: var(--radius-lg, 14px);
   border: 1px solid color-mix(in srgb, var(--profile-accent) 28%, var(--line));
   background:
@@ -14,10 +19,17 @@
       var(--surface-1) 42%
     );
   box-shadow:
-    0 12px 40px rgba(0, 0, 0, 0.28),
+    0 16px 48px rgba(0, 0, 0, 0.32),
+    0 4px 12px rgba(0, 0, 0, 0.18),
     inset 0 1px 0 color-mix(in srgb, #fff 5%, transparent);
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(14px);
   overflow: hidden;
+  pointer-events: auto;
+}
+
+.job-progress-panel.collapsed {
+  max-height: none;
+  width: min(320px, calc(100vw - 1.5rem));
 }
 
 .job-progress-panel.success {
@@ -38,6 +50,7 @@
   justify-content: space-between;
   gap: 0.75rem;
   padding: 0.75rem 0.9rem 0.55rem;
+  flex-shrink: 0;
 }
 
 .job-progress-head-main {
@@ -125,6 +138,10 @@
   display: grid;
   gap: 0.65rem;
   padding: 0 0.9rem 0.9rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  min-height: 0;
+  flex: 1;
 }
 
 .job-progress-card,
@@ -252,6 +269,10 @@
 .job-progress-prep-list {
   display: grid;
   gap: 0.45rem;
+  max-height: 240px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 0.15rem;
 }
 
 .job-prep-row {
@@ -300,10 +321,23 @@
 
 @media (max-width: 720px) {
   .job-progress-panel {
-    bottom: 0.4rem;
+    right: 0.65rem;
+    left: 0.65rem;
+    bottom: 0.65rem;
+    width: auto;
+    max-height: min(55vh, 420px);
+  }
+
+  .job-progress-panel.collapsed {
+    width: auto;
   }
 
   .job-progress-head {
     flex-direction: column;
+  }
+
+  .job-progress-head-actions {
+    width: 100%;
+    justify-content: flex-end;
   }
 }

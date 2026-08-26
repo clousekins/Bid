@@ -3,7 +3,7 @@ Above is the job description.
 Below is the candidate profile. Tailor the resume to the job description.
 
 Long Nguyen | Senior Software Engineer
-Tustin, California | [long.nguyen339332@gmail.com](mailto:long.nguyen339332@gmail.com) |  3237906969 | linkedin.com/in/long-nguyen-8a0a9757/
+Tustin, California | [long.nguyen339332@gmail.com](mailto:long.nguyen339332@gmail.com) | +1 (323) 790-6969 | linkedin.com/in/long-nguyen-8a0a9757/
 
 #### Keep the candidate’s name, email, phone number, location, and LinkedIn information exactly as written. Do not modify, reformat, shorten, or remove any part of the contact information.
 
@@ -197,7 +197,7 @@ Use the following HTML structure:
   <div class="header">
     <div class="name">Long Nguyen</div>
     <div class="title">[TARGET_JOB_TITLE]</div>
-    <div class="contact">Tustin, California &nbsp;&middot;&nbsp; long.nguyen339332@gmail.com &nbsp;&middot;&nbsp; 9295476426 &nbsp;&middot;&nbsp; <a href="https://www.linkedin.com/in/long-nguyen-8a0a9757/">linkedin.com/in/long-nguyen-8a0a9757/</a></div>
+    <div class="contact">Tustin, California &nbsp;&middot;&nbsp; long.nguyen339332@gmail.com &nbsp;&middot;&nbsp; +1 (323) 790-6969 &nbsp;&middot;&nbsp; <a href="https://www.linkedin.com/in/long-nguyen-8a0a9757/">linkedin.com/in/long-nguyen-8a0a9757/</a></div>
   </div>
 
   <div class="section">

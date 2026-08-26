@@ -73,7 +73,7 @@ export default function JobProgressPanel({
                     : "Activity"}
             </strong>
             <span className="job-progress-sub muted">
-              Keep browsing jobs — this won’t block the workspace.
+              You can keep browsing.
               {activeJob?.jobId ? ` · #${activeJob.jobId}` : ""}
             </span>
           </div>

@@ -110,7 +110,7 @@ Filename format: AndrewNguyen_CompanyName_JobTitle (e.g., AndrewNguyen_Stripe_Se
   <div class="header">
     <div class="name">Andrew Nguyen</div>
     <div class="title">Senior Data Engineer</div>
-    <div class="contact">Sunnyvale, CA &nbsp;&nbsp;&middot;&nbsp;&nbsp; <a href="mailto:andrew.nguyen2534@gmail.com">andrew.nguyen2534@gmail.com</a> &nbsp;&nbsp;&middot;&nbsp;&nbsp; (xxx) xxx-xxxx &nbsp;&nbsp;&middot;&nbsp;&nbsp; <a href="https://linkedin.com/in/andrew-nguyen-94030ba2">linkedin.com/in/andrew-nguyen-94030ba2</a></div>
+    <div class="contact">Sunnyvale, CA &nbsp;&nbsp;&middot;&nbsp;&nbsp; <a href="mailto:andrew.nguyen2534@gmail.com">andrew.nguyen2534@gmail.com</a> &nbsp;&nbsp;&middot;&nbsp;&nbsp; (213) 495-4478 &nbsp;&nbsp;&middot;&nbsp;&nbsp; <a href="https://linkedin.com/in/andrew-nguyen-94030ba2">linkedin.com/in/andrew-nguyen-94030ba2</a></div>
     <div class="header-rule"></div>
   </div>
 
