@@ -33,6 +33,7 @@ from app.services.folder_writer import (
 )
 from app.services.manual_ingest import parse_upload
 from app.services.ats_score import score_resume, technical_feasibility
+from app.services.employer_conflicts import conflict_reason, persona_employers
 from app.services.persona import get_active_persona_id, load_persona
 from app.services.pipeline import _get_or_create_company, process_listing
 from app.services.renumber import renumber_all_jobs
@@ -272,6 +273,9 @@ async def list_jobs(
     persona_id: str | None = None,
     profile: str | None = None,
     profile_status: str | None = None,
+    hide_own_employers: bool = Query(
+        True, description="Hide jobs at companies this profile claims to work for"
+    ),
     sort: str | None = Query(None, description="seq|domains|company|title|status"),
     sort_dir: str | None = Query("asc", description="asc|desc"),
     db: AsyncSession = Depends(get_db),
@@ -283,6 +287,18 @@ async def list_jobs(
     filters = []
     if persona_id:
         filters.append(Job.persona_id == persona_id)
+
+    # A resume claiming to work at UnitedHealth cannot be sent to UnitedHealth,
+    # and an Optum posting is the same employer. Hidden per profile, never
+    # deleted — another persona can still apply to it.
+    own_employers: set[str] = set()
+    own_filter = None
+    page_persona = _load_profile(profile)
+    if hide_own_employers and page_persona is not None:
+        own_employers = persona_employers(page_persona)
+        if own_employers:
+            own_filter = Job.normalized_company.notin_(own_employers)
+            filters.append(own_filter)
     if profile and profile_status:
         if profile_status == "need_resume":
             filters.append(~Job.packages.any(JobPackage.persona_id == profile))
@@ -369,12 +385,22 @@ async def list_jobs(
     else:
         order_by = (primary_order, Job.id.desc())
 
+    # How many the employer filter removed, so the operator sees a number
+    # rather than silently missing rows.
+    hidden_own = 0
+    if own_filter is not None:
+        others = [f for f in filters if f is not own_filter]
+        without = select(func.count(Job.id))
+        if others:
+            without = without.where(*others)
+        total_without = int((await db.execute(without)).scalar() or 0)
+        hidden_own = max(0, total_without - total)
+
     stmt = select(Job).options(selectinload(Job.packages)).order_by(*order_by)
     if filters:
         stmt = stmt.where(*filters)
     stmt = stmt.offset(start).limit(size)
     rows = (await db.execute(stmt)).scalars().all()
-    page_persona = _load_profile(profile)
     return {
         "jobs": [_job_dict(j, profile=profile, persona=page_persona) for j in rows],
         "total": total,
@@ -384,6 +410,8 @@ async def list_jobs(
         "offset": start,
         "has_more": start + len(rows) < total,
         "sort": sort_key,
+        "hidden_own_employers": hidden_own,
+        "own_employer_names": sorted(own_employers)[:40],
         "sort_dir": "desc" if descending else "asc",
     }
 

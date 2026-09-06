@@ -313,6 +313,9 @@ export default function WorkspaceApp({ onGoHome, theme, onToggleTheme }) {
         searchText={ws.searchText}
         onSearchChange={ws.setSearchText}
         profileStatusFilter={ws.profileStatusFilter}
+        hideOwnEmployers={ws.hideOwnEmployers}
+        onHideOwnEmployersChange={ws.setHideOwnEmployers}
+        ownEmployerInfo={ws.ownEmployerInfo}
         onProfileStatusChange={ws.setProfileStatusFilter}
         statusFilter={ws.statusFilter}
         onStatusFilterChange={ws.setStatusFilter}

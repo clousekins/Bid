@@ -1101,3 +1101,32 @@ body {
 .sector-meta a:hover {
   color: var(--text);
 }
+
+/* Own-employer filter — visible, because silently missing rows is worse
+   than a checkbox. */
+.own-employer-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  cursor: help;
+  white-space: nowrap;
+}
+
+.own-employer-toggle.on {
+  border-color: color-mix(in srgb, var(--warn) 55%, var(--line));
+  color: var(--text);
+}
+
+.own-employer-toggle strong {
+  color: var(--warn);
+}
+
+.own-employer-toggle input {
+  cursor: pointer;
+}

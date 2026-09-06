@@ -13,6 +13,9 @@ export default function Toolbar({
   onStatusFilterChange,
   stats,
   workingPersonaId,
+  hideOwnEmployers = true,
+  onHideOwnEmployersChange,
+  ownEmployerInfo,
 }) {
   const profileCounts = stats?.by_profile?.[workingPersonaId] || {};
   const allCount =
@@ -66,6 +69,32 @@ export default function Toolbar({
           ))}
         </select>
       </label>
+
+      {ownEmployerInfo?.hidden || !hideOwnEmployers ? (
+        <label
+          className={`own-employer-toggle ${hideOwnEmployers ? "on" : ""}`}
+          title={
+            ownEmployerInfo?.names?.length
+              ? `Hidden because this profile's resume claims them:
+${ownEmployerInfo.names
+                  .slice(0, 20)
+                  .join(", ")}`
+              : "Jobs at companies this profile says it works for"
+          }
+        >
+          <input
+            type="checkbox"
+            checked={hideOwnEmployers}
+            onChange={(e) => onHideOwnEmployersChange?.(e.target.checked)}
+          />
+          <span>
+            Hide own employers
+            {ownEmployerInfo?.hidden ? (
+              <strong> · {ownEmployerInfo.hidden}</strong>
+            ) : null}
+          </span>
+        </label>
+      ) : null}
 
       {activeFilters.length ? (
         <div className="filter-active muted" title="Active filters">

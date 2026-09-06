@@ -1,0 +1,108 @@
+# Parent company -> the brands that hire under it.
+#
+# A persona must not be shown jobs at a company their own resume says they
+# work for, and that has to survive the subsidiary: Brian's resume says
+# UnitedHealth Group, so an Optum posting is the same employer reading his
+# application. Listing a brand here hides it for anyone claiming the parent,
+# and hides the parent for anyone claiming the brand.
+#
+# Add your own as you meet them; unknown companies simply match on their own
+# name, which is the common case.
+
+groups:
+  UnitedHealth Group:
+    - Optum
+    - OptumInsight
+    - OptumRx
+    - OptumHealth
+    - Optum Serve
+    - Change Healthcare
+    - UnitedHealthcare
+    - Surgical Care Affiliates
+
+  Meta:
+    - Facebook
+    - Instagram
+    - WhatsApp
+    - Oculus
+    - Reality Labs
+    - Meta Platforms
+
+  Amazon:
+    - AWS
+    - Amazon Web Services
+    - Twitch
+    - Audible
+    - Zappos
+    - Whole Foods Market
+    - Ring
+    - MGM Studios
+    - Amazon Robotics
+
+  Google:
+    - Alphabet
+    - YouTube
+    - DeepMind
+    - Google DeepMind
+    - Waymo
+    - Verily
+    - Fitbit
+    - Wing
+    - X Development
+
+  Microsoft:
+    - LinkedIn
+    - GitHub
+    - Xbox Game Studios
+    - Activision Blizzard
+    - Nuance Communications
+
+  Tenet Healthcare:
+    - Conifer Health Solutions
+    - United Surgical Partners International
+    - USPI
+
+  Bank of America:
+    - Merrill
+    - Merrill Lynch
+    - BofA Securities
+
+  BNY Mellon:
+    - BNY
+    - Pershing
+
+  Capgemini:
+    - Capgemini Engineering
+    - Sogeti
+    - Altran
+
+  NVIDIA:
+    - Mellanox
+    - Run:ai
+
+  Tesla:
+    - SolarCity
+
+  Northwell Health:
+    - NYU Winthrop Hospital
+    - Lenox Hill Hospital
+
+  Salesforce:
+    - Slack
+    - Tableau
+    - MuleSoft
+
+  IBM:
+    - Red Hat
+    - Kyndryl
+    - HashiCorp
+
+  Oracle:
+    - Cerner
+    - NetSuite
+
+  Procore Technologies:
+    - Procore
+
+  Twitch:
+    - Curse

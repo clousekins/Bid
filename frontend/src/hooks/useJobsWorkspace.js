@@ -10,6 +10,10 @@ export function useJobsWorkspace() {
   const [statusFilter, setStatusFilter] = useState("");
   const [workingPersonaId, setWorkingPersonaId] = useState("");
   const [profileStatusFilter, setProfileStatusFilter] = useState("");
+  // Jobs at companies the working profile claims to work for. Hidden by
+  // default, but the operator can look at them.
+  const [hideOwnEmployers, setHideOwnEmployers] = useState(true);
+  const [ownEmployerInfo, setOwnEmployerInfo] = useState({ hidden: 0, names: [] });
   const [searchText, setSearchText] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
@@ -29,6 +33,7 @@ export function useJobsWorkspace() {
       const params = { page, page_size: pageSize, sort, sort_dir: sortDir };
       if (statusFilter) params.status = statusFilter;
       if (workingPersonaId) params.profile = workingPersonaId;
+      if (!hideOwnEmployers) params.hide_own_employers = false;
       if (workingPersonaId && profileStatusFilter) {
         params.profile_status = profileStatusFilter;
       }
@@ -38,6 +43,10 @@ export function useJobsWorkspace() {
       setJobs(rows);
       setJobsTotal(Number(list.total ?? rows.length));
       setJobsPages(Math.max(1, Number(list.pages ?? 1)));
+      setOwnEmployerInfo({
+        hidden: Number(list.hidden_own_employers || 0),
+        names: list.own_employer_names || [],
+      });
       if (list.page != null && Number(list.page) !== page && Number(list.total || 0) > 0) {
         const serverPage = Number(list.page);
         if (serverPage >= 1) setPage(serverPage);
@@ -61,7 +70,7 @@ export function useJobsWorkspace() {
       setError(String(e.message || e));
       logPoong("refresh error", e);
     }
-  }, [statusFilter, workingPersonaId, profileStatusFilter, searchQuery, page, pageSize, sort, sortDir]);
+  }, [statusFilter, workingPersonaId, profileStatusFilter, searchQuery, page, pageSize, sort, sortDir, hideOwnEmployers]);
 
   useEffect(() => {
     const timer = setTimeout(() => setSearchQuery(searchText.trim()), 250);
@@ -70,7 +79,7 @@ export function useJobsWorkspace() {
 
   useEffect(() => {
     setPage(1);
-  }, [statusFilter, workingPersonaId, profileStatusFilter, searchQuery, pageSize, sort, sortDir]);
+  }, [statusFilter, workingPersonaId, profileStatusFilter, searchQuery, pageSize, sort, sortDir, hideOwnEmployers]);
 
   useEffect(() => {
     refresh();
@@ -203,6 +212,9 @@ export function useJobsWorkspace() {
     workingPersonaId,
     setWorkingAs,
     profileStatusFilter,
+    hideOwnEmployers,
+    setHideOwnEmployers,
+    ownEmployerInfo,
     setProfileStatusFilter,
     searchText,
     setSearchText,
