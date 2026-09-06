@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -31,7 +32,8 @@ from app.services.folder_writer import (
     sync_job_folder,
 )
 from app.services.manual_ingest import parse_upload
-from app.services.persona import get_active_persona_id
+from app.services.ats_score import score_resume, technical_feasibility
+from app.services.persona import get_active_persona_id, load_persona
 from app.services.pipeline import _get_or_create_company, process_listing
 from app.services.renumber import renumber_all_jobs
 from app.services.tailor import tailor_job
@@ -95,6 +97,8 @@ def _package_dict(pkg: JobPackage) -> dict[str, Any]:
         "outcome": pkg.outcome or ApplicationOutcome.PENDING.value,
         "outcome_at": pkg.outcome_at.isoformat() if pkg.outcome_at else None,
         "outcome_notes": pkg.outcome_notes,
+        "ats_score": pkg.ats_score,
+        "ats_breakdown": json.loads(pkg.ats_breakdown) if pkg.ats_breakdown else None,
         "created_at": pkg.created_at.isoformat() if pkg.created_at else None,
         "updated_at": pkg.updated_at.isoformat() if pkg.updated_at else None,
     }
@@ -174,6 +178,28 @@ def _listing_pipeline_status(job: Job) -> str:
     return job.status
 
 
+def _feasibility_for(job: Job, profile: str | None) -> dict[str, Any] | None:
+    """How well the viewing profile matches this posting.
+
+    Computed rather than stored: the answer depends on which persona is
+    looking, and writing on a GET would have every page load fight the
+    background workers for the SQLite lock.
+    """
+    if not profile or not job.description:
+        return None
+    try:
+        persona = load_persona(profile)
+    except ValueError:
+        return None
+    breakdown = technical_feasibility(persona, job)
+    return {
+        "score": breakdown.score,
+        "matched": breakdown.matched[:12],
+        "missing": breakdown.missing[:12],
+        "notes": breakdown.notes,
+    }
+
+
 def _job_dict(job: Job, *, profile: str | None = None) -> dict[str, Any]:
     packages = [_package_dict(p) for p in getattr(job, "packages", None) or []]
     packages.sort(key=lambda p: p.get("persona_id") or "")
@@ -200,6 +226,8 @@ def _job_dict(job: Job, *, profile: str | None = None) -> dict[str, Any]:
         "staffing_firm": job.staffing_firm,
         "domains": domains,
         "jd_fetched": job.jd_fetched,
+        "feasibility": _feasibility_for(job, profile),
+        "ats_score": (my_package or {}).get("ats_score"),
         "notes": (my_package or {}).get("notes") or job.notes,
         "packages": packages,
         "package_count": len(packages),
@@ -369,8 +397,30 @@ async def job_stats(db: AsyncSession = Depends(get_db)):
 
     # Do not seed here — every UI poll would write and fight bg workers on SQLite.
     ats = await catalog_stats(db)
+
+    # Applications sent today, in the operator's local day — a UTC boundary
+    # would reset the counter mid-afternoon in US timezones.
+    start_local = datetime.now().astimezone().replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    today_rows = (
+        await db.execute(
+            select(JobPackage.persona_id, func.count())
+            .where(
+                JobPackage.status == PackageStatus.APPLIED.value,
+                JobPackage.applied_at.is_not(None),
+                JobPackage.applied_at >= start_local.astimezone(timezone.utc),
+            )
+            .group_by(JobPackage.persona_id)
+        )
+    ).all()
+    applied_today = {pid: count for pid, count in today_rows}
+
     return {
         "total": total,
+        "applied_today": sum(applied_today.values()),
+        "applied_today_by_profile": applied_today,
+        "today_started_at": start_local.isoformat(),
         "max_seq": max_seq,
         "min_seq": min_seq or (1 if total else 0),
         "by_status": by_status,
@@ -534,11 +584,17 @@ async def delete_jobs_ids(body: IdsDelete, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/{job_id}")
-async def get_job(job_id: int, db: AsyncSession = Depends(get_db)):
+async def get_job(
+    job_id: int,
+    profile: str | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+):
     job = await _get_job_with_packages(db, job_id)
     if not job:
         raise HTTPException(404, detail="not_found")
-    return _job_dict(job)
+    # Without the profile there is no "my package" and no fit score — the
+    # single-job fetch has to answer for the same persona the list did.
+    return _job_dict(job, profile=profile or get_active_persona_id())
 
 
 @router.get("/{job_id}/qa")

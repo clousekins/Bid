@@ -18,6 +18,8 @@ from app.db.models import Job, JobPackage, as_utc
 from app.services.folder_writer import ensure_job_folder, sync_job_folder
 from app.services.pdf_export import export_pdf, markdown_to_html
 from app.services.persona import get_active_persona_id, ground_truth_payload, load_persona
+from app.services import runtime_settings
+from app.services.ats_score import extract_terms, persona_corpus, score_resume
 from app.services.resume_style import polish_flat_resume_html, replace_document_css
 
 log = logging.getLogger("poong.tailor")
@@ -281,15 +283,15 @@ def _load_persona_css(persona) -> str:
     return ""
 
 
-async def generate_resume_markdown(persona, job: Job) -> str:
+async def generate_resume_markdown(persona, job: Job, *, extra: str = "") -> str:
     from app.services.resume_header import enforce_resume_header
 
-    raw = await _chat(persona.system_prompt, _resume_user_message(persona, job))
+    raw = await _chat(persona.system_prompt, _resume_user_message(persona, job) + extra)
     return enforce_resume_header(raw, persona)
 
 
-async def generate_html_bundle(persona, job: Job) -> tuple[str, str]:
-    raw = await _chat(persona.system_prompt, _html_bundle_user_message(persona, job))
+async def generate_html_bundle(persona, job: Job, *, extra: str = "") -> tuple[str, str]:
+    raw = await _chat(persona.system_prompt, _html_bundle_user_message(persona, job) + extra)
     return _split_html_and_cover(raw)
 
 
@@ -327,6 +329,26 @@ async def generate_answers(persona, job: Job) -> dict[str, str]:
     except json.JSONDecodeError:
         pass
     return {a["question"]: a["answer"] for a in persona.screening_answers if "question" in a}
+
+
+def _keyword_retry_hint(breakdown) -> str:
+    """Tell the next attempt exactly which terms the last one missed.
+
+    Only terms the JD actually asks for, and only ones the persona can
+    truthfully claim — the caller filters against ground truth first.
+    """
+    if not breakdown.missing:
+        return ""
+    return (
+        "\n\nPREVIOUS ATTEMPT SCORED "
+        f"{breakdown.score}/100 AGAINST THIS POSTING'S KEYWORD FILTER. "
+        "The job description asks for these and the resume did not surface them: "
+        + ", ".join(breakdown.missing[:20])
+        + ". Where the candidate's real history genuinely supports a term, make it "
+        "explicit in the skills list or a bullet, using the posting's own wording. "
+        "Never claim experience the ground truth does not support — leave a term "
+        "out rather than invent it."
+    )
 
 
 async def tailor_job(
@@ -371,6 +393,55 @@ async def tailor_job(
             cover = await generate_cover_letter(persona, job, resume_md)
             resume_for_answers = resume_md
 
+        floor = runtime_settings.min_ats_score()
+        breakdown = score_resume(resume_for_answers, job.description, job_title=job.title)
+        attempts = 1
+        if floor:
+            max_attempts = runtime_settings.max_attempts()
+            # Only chase terms the persona can actually back up.
+            truthful = extract_terms(persona_corpus(persona))
+            while breakdown.score < floor and attempts < max_attempts:
+                chase = [m for m in breakdown.missing if m in truthful]
+                if not chase:
+                    log.info(
+                        "ats floor %s unreachable for job_id=%s: missing terms are not "
+                        "in this persona's history (%s)",
+                        floor, job.id, ", ".join(breakdown.missing[:8]),
+                    )
+                    break
+                attempts += 1
+                log.info(
+                    "ats retry %s/%s job_id=%s score=%s floor=%s",
+                    attempts, max_attempts, job.id, breakdown.score, floor,
+                )
+                hint = _keyword_retry_hint(breakdown)
+                if mode == "html_resume_bundle":
+                    resume_html, cover = await generate_html_bundle(persona, job, extra=hint)
+                    css = _load_persona_css(persona)
+                    if css:
+                        resume_html = _inject_css(resume_html, css)
+                    (folder / f"{display}.html").write_text(resume_html, encoding="utf-8")
+                    await export_pdf(resume_html, folder / f"{display}.pdf")
+                    resume_for_answers = resume_html
+                else:
+                    resume_md = await generate_resume_markdown(persona, job, extra=hint)
+                    (folder / f"{display}.md").write_text(resume_md, encoding="utf-8")
+                    resume_html = markdown_to_html(resume_md, title=f"{display} — Resume")
+                    css = _load_persona_css(persona)
+                    if css:
+                        resume_html = polish_flat_resume_html(resume_html, display_name=display)
+                        resume_html = replace_document_css(resume_html, css)
+                    (folder / f"{display}.html").write_text(resume_html, encoding="utf-8")
+                    await export_pdf(resume_html, folder / f"{display}.pdf")
+                    resume_for_answers = resume_md
+                breakdown = score_resume(
+                    resume_for_answers, job.description, job_title=job.title
+                )
+        score_payload = {**breakdown.as_dict(), "attempts": attempts, "floor": floor}
+        (folder / "ats_score.json").write_text(
+            json.dumps(score_payload, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+
         answers = await generate_answers(persona, job)
         (folder / "answers.json").write_text(
             json.dumps(answers, indent=2, ensure_ascii=False), encoding="utf-8"
@@ -407,6 +478,8 @@ async def tailor_job(
             folder_path=str(folder),
             notes=None,
         )
+        pkg.ats_score = breakdown.score
+        pkg.ats_breakdown = json.dumps(score_payload, ensure_ascii=False)
         try:
             await _refresh_job_from_packages(session, job)
         except Exception:  # noqa: BLE001
@@ -432,6 +505,8 @@ async def tailor_job(
             "status": job.status,
             "folder": str(folder),
             "persona_id": generate_pid,
+            "ats_score": breakdown.score,
+            "ats_breakdown": score_payload,
             "package": {
                 "id": pkg.id,
                 "persona_id": pkg.persona_id,

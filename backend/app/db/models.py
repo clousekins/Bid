@@ -64,6 +64,9 @@ class Job(Base):
     staffing_firm: Mapped[str | None] = mapped_column(String(255), nullable=True)
     domains: Mapped[str | None] = mapped_column(String(64), nullable=True)
     jd_fetched: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # Can the working persona credibly do this job? Scored from the JD alone,
+    # before any resume is written, so weak matches can be skipped.
+    feasibility_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(
@@ -107,6 +110,10 @@ class JobPackage(Base):
         DateTime(timezone=True), nullable=True
     )
     outcome_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Would this resume survive an ATS keyword filter for this posting?
+    ats_score: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    ats_breakdown: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON
 
     job: Mapped[Job] = relationship(back_populates="packages")
 

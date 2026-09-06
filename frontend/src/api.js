@@ -67,7 +67,11 @@ export const client = {
     }
     return res.json();
   },
-  getJob: (id) => api(`/api/jobs/${id}`),
+  getJob: (id, profile) => {
+    const q = new URLSearchParams();
+    if (profile) q.set("profile", profile);
+    return api(`/api/jobs/${id}?${q}`);
+  },
   getJobQa: (id, persona_id) =>
     api(`/api/jobs/${id}/qa?${new URLSearchParams({ persona_id })}`),
   listArtifacts: (id, persona_id) => {
@@ -151,6 +155,8 @@ export const client = {
   settings: () => api("/api/settings"),
   browserDiag: () => api("/api/settings/browser-diag"),
   personas: () => api("/api/settings/personas"),
+  setAtsFloor: (body) =>
+    api("/api/settings/ats-floor", { method: "POST", json: body }),
   activatePersona: (persona_id) =>
     api("/api/settings/personas/activate", { method: "POST", json: { persona_id } }),
   rejected: () => api("/api/rejected"),

@@ -11,7 +11,7 @@ from app.db.enums import JobStatus, PackageStatus
 from app.db.models import Application, Company, Job, JobPackage, JobSourceSeen, RejectedJob
 from app.services.folder_writer import sync_job_folder
 from app.services.persona import get_active_persona_id
-from app.validators.dedupe import canonicalize_url, normalize_company
+from app.validators.dedupe import canonicalize_url, normalize_company, normalize_title
 from app.validators.it_domain import check_it_domain
 from app.validators.remote_us import check_remote_us
 from app.validators.seniority import check_seniority
@@ -105,6 +105,28 @@ async def find_job_by_url(session: AsyncSession, url: str) -> Job | None:
     return None
 
 
+
+async def find_job_by_company_title(
+    session: AsyncSession, normalized_company: str, title: str
+) -> Job | None:
+    """An existing listing for the same company and the same role."""
+    key = normalize_title(title)
+    if not normalized_company or not key:
+        return None
+    rows = (
+        await session.execute(
+            select(Job)
+            .options(selectinload(Job.packages))
+            .where(Job.normalized_company == normalized_company)
+            .order_by(Job.id.desc())
+        )
+    ).scalars().all()
+    for job in rows:
+        if normalize_title(job.title or "") == key:
+            return job
+    return None
+
+
 async def company_is_blocked(session: AsyncSession, normalized: str) -> bool:
     result = await session.execute(
         select(Company).where(Company.normalized_name == normalized, Company.blocked.is_(True))
@@ -190,6 +212,14 @@ async def process_listing(
     if existing_url:
         return ProcessResult(
             ok=False, skipped=True, reason="duplicate_url", job=existing_url
+        )
+
+    # Same role, different link. Boards and CSV exports re-list one job under
+    # several URLs, so matching the URL alone lets the same posting in twice.
+    existing_role = await find_job_by_company_title(session, normalized, title)
+    if existing_role:
+        return ProcessResult(
+            ok=False, skipped=True, reason="duplicate_company_title", job=existing_role
         )
 
     reject_reason: str | None = None

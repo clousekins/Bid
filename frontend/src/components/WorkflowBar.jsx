@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { commitSeqRange } from "../utils/seqRange.js";
 import DomainFetchModal from "./DomainFetchModal.jsx";
 import SiteFetchPanel from "./SiteFetchPanel.jsx";
+import AtsFloorControl from "./AtsFloorControl.jsx";
 
 const STAGES = [
   { id: "ingest", label: "Ingest", hint: "Add & fetch listings" },
@@ -240,8 +241,8 @@ export default function WorkflowBar({
             </button>
             <p className="stage-hint muted">
               Tailors HTML resume bundles for <strong>{workingLabel}</strong>. Watch the bottom activity panel while it runs.
-              from Manual apply.
             </p>
+            <AtsFloorControl />
           </div>
         ) : null}
 

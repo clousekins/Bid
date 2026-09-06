@@ -567,7 +567,7 @@ export default function WorkspaceApp({ onGoHome, theme, onToggleTheme }) {
             onSetOutcome={async (body) => {
               if (!ws.selected) return;
               await client.setOutcome(ws.selected.id, body);
-              const updated = await client.getJob(ws.selected.id);
+              const updated = await client.getJob(ws.selected.id, ws.workingPersonaId);
               ws.setSelected(updated);
               await ws.refresh();
             }}
@@ -657,7 +657,7 @@ export default function WorkspaceApp({ onGoHome, theme, onToggleTheme }) {
         onDismissJob={batch.dismissActiveJob}
         onOpenPrep={async (row) => {
           try {
-            const full = await client.getJob(row.jobId);
+            const full = await client.getJob(row.jobId, ws.workingPersonaId);
             openManual(full);
           } catch {
             openManual({
@@ -733,7 +733,7 @@ export default function WorkspaceApp({ onGoHome, theme, onToggleTheme }) {
         onAssistedApply={async (job) => {
           let full = job;
           try {
-            full = await client.getJob(job.id);
+            full = await client.getJob(job.id, ws.workingPersonaId);
           } catch {
             /* use provided job */
           }

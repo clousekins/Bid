@@ -18,6 +18,9 @@ export default function WorkspaceHeader({
   const ready = Number(profileCounts.resume_ready || 0) + Number(profileCounts.applying || 0);
   const applied = Number(profileCounts.applied || 0);
   const total = Number(stats?.total || 0);
+  // Today's count is the number that tells you whether to keep going.
+  const todayAll = Number(stats?.applied_today || 0);
+  const todayMine = Number(stats?.applied_today_by_profile?.[workingPersonaId] || 0);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -54,6 +57,20 @@ export default function WorkspaceHeader({
         <div className="stat-pill success" title={`${displayName}: applied`}>
           <span className="stat-value">{applied}</span>
           <span className="stat-label">Applied</span>
+        </div>
+        <div
+          className={`stat-pill today-stat ${todayMine ? "today-active" : ""}`}
+          title={
+            todayAll === todayMine
+              ? `${displayName}: applications sent today`
+              : `${displayName} sent ${todayMine} today — ${todayAll} across all profiles`
+          }
+        >
+          <span className="stat-value">{todayMine}</span>
+          <span className="stat-label">Today</span>
+          {todayAll > todayMine ? (
+            <span className="stat-sub">of {todayAll}</span>
+          ) : null}
         </div>
         {stats?.ats ? (
           <div className="stat-pill muted-stat" title="Company ATS boards searched">

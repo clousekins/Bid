@@ -10,6 +10,7 @@ import {
 } from "../utils/statusLabels.js";
 import ResumePreview from "./ResumePreview.jsx";
 import JobsEmptyState from "./JobsEmptyState.jsx";
+import ScoreBadge from "./ScoreBadge.jsx";
 import TableExportMenu from "./TableExportMenu.jsx";
 import { exportJobsTable } from "../utils/tableExports.js";
 
@@ -203,6 +204,7 @@ export default function JobsTable({
             <col className="col-company" />
             <col className="col-title" />
             <col className="col-domain" />
+            <col className="col-score" />
             <col className="col-my-status" />
             <col className="col-others" />
           </colgroup>
@@ -231,6 +233,9 @@ export default function JobsTable({
               </SortTh>
               <SortTh col="domains" title="Sort by domain codes (AI, DE, FS, SF, …)">
                 Dom
+              </SortTh>
+              <SortTh col="feasibility" title="Fit for this profile, and the generated resume's ATS score">
+                Fit / ATS
               </SortTh>
               <th>Status</th>
               <th>Others</th>
@@ -293,6 +298,11 @@ export default function JobsTable({
                     {j.title}
                   </td>
                   <DomainCell domains={j.domains} />
+                  <td className="cell-score">
+                    <ScoreBadge label="Fit" detail={j.feasibility} compact />
+                    <span className="score-sep">/</span>
+                    <ScoreBadge label="Resume ATS" score={j.ats_score} compact />
+                  </td>
                   <td className="cell-status">
                     <span className={`pill package-status status-strong ${myStatus}`}>
                       {packageStatusLabel(myStatus)}

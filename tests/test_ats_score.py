@@ -1,0 +1,186 @@
+"""ATS keyword scoring and per-job technical feasibility."""
+from __future__ import annotations
+
+from types import SimpleNamespace
+
+import pytest
+
+from app.services.ats_score import (
+    extract_terms,
+    jd_requirements,
+    score_resume,
+    technical_feasibility,
+)
+from app.services.persona import load_persona
+from app.validators.dedupe import normalize_title
+
+JD = """
+About us: we are a fast growing startup.
+Required: strong experience with Python, Spark and Snowflake.
+Experience with dbt and Airflow is required.
+Nice to have: exposure to Kubernetes and Terraform.
+"""
+
+
+def test_terms_are_found_by_their_real_world_spellings():
+    found = extract_terms("We use PySpark, BigQuery, K8s and scikit-learn daily.")
+    assert {"spark", "bigquery", "kubernetes", "scikit-learn"} <= found
+
+
+def test_short_terms_do_not_match_inside_words():
+    """'go' and 'r' would otherwise match half the English in a posting."""
+    found = extract_terms("A good organisation for regular reporting and goals.")
+    assert "go" not in found
+    assert "r" not in found
+
+
+def test_requirements_outrank_passing_mentions():
+    required, mentioned = jd_requirements(JD)
+    assert {"python", "spark", "snowflake", "dbt", "airflow"} <= required
+    # Nice-to-haves are seen but are not requirements.
+    assert "kubernetes" in mentioned
+    assert "kubernetes" not in required
+
+
+def test_a_resume_covering_the_requirements_beats_one_that_does_not():
+    good = """
+    John Smith — john@example.com — (555) 555-5555
+    SKILLS: Python, Spark, Snowflake, dbt, Airflow, Kubernetes
+    EXPERIENCE: Senior Data Engineer building Spark and Airflow pipelines into Snowflake.
+    EDUCATION: BS Computer Science
+    """ + "filler content. " * 120
+    poor = """
+    John Smith — john@example.com — (555) 555-5555
+    SKILLS: Excel, PowerPoint
+    EXPERIENCE: Office administrator.
+    EDUCATION: BA History
+    """ + "filler content. " * 120
+    assert score_resume(good, JD).score > score_resume(poor, JD).score + 30
+
+
+def test_the_score_explains_itself():
+    """A bare number is not actionable — the caller must see what is missing."""
+    resume = "Python developer. john@example.com (555) 555-5555. Experience. Education. Skills."
+    b = score_resume(resume, JD, job_title="Senior Data Engineer")
+    assert 0 <= b.score <= 100
+    assert b.keyword_points + b.structure_points + b.title_points == b.score
+    assert "snowflake" in b.missing
+    assert "python" in b.matched
+    assert b.notes
+
+
+def test_structure_problems_cost_points():
+    body = "Python Spark Snowflake dbt Airflow. " * 40
+    with_contact = (
+        "john@example.com (555) 555-5555 EXPERIENCE EDUCATION SKILLS " + body
+    )
+    without = body
+    assert score_resume(with_contact, JD).structure_points > score_resume(without, JD).structure_points
+
+
+def test_a_table_is_flagged_because_parsers_drop_it():
+    body = "EXPERIENCE EDUCATION SKILLS john@example.com (555) 555-5555 " + "Python Spark. " * 60
+    plain = score_resume(body, JD)
+    tabular = score_resume(body + "<table><tr><td>x</td></tr></table>", JD)
+    assert tabular.structure_points < plain.structure_points
+    assert any("table" in n for n in tabular.notes)
+
+
+def test_an_empty_resume_scores_zero_structure():
+    assert score_resume("", JD).structure_points == 0
+
+
+@pytest.mark.parametrize("persona_id", ["brian_gou"])
+def test_feasibility_separates_a_matching_role_from_an_unrelated_one(persona_id):
+    persona = load_persona(persona_id)
+    data_job = SimpleNamespace(title="Senior Data Engineer", description=JD)
+    unrelated = SimpleNamespace(
+        title="Dental Office Manager",
+        description="Required: dental billing, patient scheduling, insurance claims.",
+    )
+    assert technical_feasibility(persona, data_job).score > technical_feasibility(
+        persona, unrelated
+    ).score
+
+
+def test_feasibility_says_so_when_there_is_no_jd_yet():
+    persona = load_persona("brian_gou")
+    b = technical_feasibility(persona, SimpleNamespace(title="Data Engineer", description=None))
+    assert b.score == 0
+    assert any("no job description" in n for n in b.notes)
+
+
+def test_feasibility_is_judged_against_history_not_wishes():
+    """A persona cannot be feasible for tools absent from their ground truth."""
+    persona = load_persona("brian_gou")
+    job = SimpleNamespace(
+        title="Embedded Engineer",
+        description="Required: experience with COBOL. Required: Fortran expertise.",
+    )
+    assert technical_feasibility(persona, job).score < 50
+
+
+class TestCsvDuplicateTitles:
+    """Re-postings of one role must collapse to a single normalized title."""
+
+    @pytest.mark.parametrize(
+        "variant",
+        [
+            "Senior Data Engineer (Remote)",
+            "Senior Data Engineer - 100% Remote - W2",
+            "Senior Data Engineer  Req #12345",
+            "Senior Data Engineer [Contract]",
+            "senior data engineer",
+        ],
+    )
+    def test_variants_collapse(self, variant):
+        assert normalize_title(variant) == "senior data engineer"
+
+    def test_genuinely_different_roles_stay_apart(self):
+        assert normalize_title("Staff Data Engineer") != normalize_title("Senior Data Engineer")
+        assert normalize_title("Data Analyst") != normalize_title("Data Engineer")
+
+    def test_a_word_containing_a_stopword_survives(self):
+        """'Solidity' must not be eaten by the requisition-id rule."""
+        assert normalize_title("Solidity Developer") == "solidity developer"
+        assert normalize_title("Contractor Relations Lead") == "relations lead"
+
+
+@pytest.mark.asyncio
+async def test_reposted_job_is_rejected_on_csv_upload(tmp_path, monkeypatch):
+    """Same company + same role under a different URL must not enter twice."""
+    from app.config import get_settings
+    from app.db import session as sess
+    from app.db.session import get_session_factory, init_db
+    from app.services.pipeline import process_listing
+
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{(tmp_path / 'dupe.db').as_posix()}")
+    monkeypatch.setenv("ACCESS_TOKEN", "")
+    monkeypatch.setenv("PERSONA_OUTPUT_ROOT", str(tmp_path / "applications"))
+    get_settings.cache_clear()
+    sess._engine = None
+    sess._session_factory = None
+    await init_db()
+
+    base = {"company": "Acme Corp", "location": "Remote, US", "description": "x" * 200}
+    factory = get_session_factory()
+    async with factory() as db:
+        first = await process_listing(
+            db, {**base, "title": "Senior Data Engineer", "url": "https://a.example/1"}
+        )
+        assert first.ok, first.reason
+
+        # Same role, different link and decoration — the CSV re-export case.
+        again = await process_listing(
+            db,
+            {**base, "title": "Senior Data Engineer (Remote) - W2", "url": "https://b.example/2"},
+        )
+        assert not again.ok
+        assert again.reason == "duplicate_company_title"
+        assert again.job is not None and again.job.id == first.job.id
+
+        # A genuinely different role at the same company still gets in.
+        other = await process_listing(
+            db, {**base, "title": "Staff Machine Learning Engineer", "url": "https://c.example/3"}
+        )
+        assert other.ok, other.reason

@@ -106,7 +106,7 @@ export function useJobsWorkspace() {
     selectedIdRef.current = j.id;
     setSelected(j);
     try {
-      const full = await client.getJob(j.id);
+      const full = await client.getJob(j.id, workingPersonaId);
       if (req !== selectReqRef.current) return;
       setSelected(full);
     } catch (e) {

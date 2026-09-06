@@ -1,17 +1,23 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.config import get_settings
 from app.services.octo import browser_diag
 from app.services.persona import get_active_persona_id, list_personas, set_active_persona
+from app.services import runtime_settings
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
 
 class PersonaActivate(BaseModel):
     persona_id: str
+
+
+class AtsFloorPatch(BaseModel):
+    min_ats_score: int = Field(..., ge=0, le=100)
+    ats_max_attempts: int | None = Field(default=None, ge=1, le=6)
 
 
 @router.get("")
@@ -30,6 +36,8 @@ async def get_settings_api():
         "active_persona": get_active_persona_id(),
         "access_token_enabled": bool(s.access_token),
         "company_discovery": search_provider_status(),
+        "min_ats_score": runtime_settings.min_ats_score(),
+        "ats_max_attempts": runtime_settings.max_attempts(),
     }
 
 
@@ -50,3 +58,15 @@ async def activate_persona(body: PersonaActivate):
     except ValueError as exc:
         raise HTTPException(400, detail=str(exc)) from exc
     return {"active": get_active_persona_id()}
+
+
+@router.post("/ats-floor")
+async def set_ats_floor(body: AtsFloorPatch):
+    """Resumes scoring under this are regenerated with the missing terms fed back."""
+    runtime_settings.update(
+        min_ats_score=body.min_ats_score, ats_max_attempts=body.ats_max_attempts
+    )
+    return {
+        "min_ats_score": runtime_settings.min_ats_score(),
+        "ats_max_attempts": runtime_settings.max_attempts(),
+    }

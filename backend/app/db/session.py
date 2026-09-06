@@ -150,6 +150,8 @@ def _ensure_sqlite_columns(conn) -> None:
     }
     if "domains" not in cols:
         conn.execute(text("ALTER TABLE jobs ADD COLUMN domains VARCHAR(64)"))
+    if "feasibility_score" not in cols:
+        conn.execute(text("ALTER TABLE jobs ADD COLUMN feasibility_score INTEGER"))
 
     if "job_packages" not in tables:
         return
@@ -166,6 +168,8 @@ def _ensure_sqlite_columns(conn) -> None:
         ),
         ("outcome_at", "ALTER TABLE job_packages ADD COLUMN outcome_at DATETIME"),
         ("outcome_notes", "ALTER TABLE job_packages ADD COLUMN outcome_notes TEXT"),
+        ("ats_score", "ALTER TABLE job_packages ADD COLUMN ats_score INTEGER"),
+        ("ats_breakdown", "ALTER TABLE job_packages ADD COLUMN ats_breakdown TEXT"),
     ):
         if name not in pkg_cols:
             conn.execute(text(ddl))

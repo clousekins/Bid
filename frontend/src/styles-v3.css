@@ -616,3 +616,169 @@ body {
   background: var(--surface-1);
   border-radius: 6px;
 }
+
+/* ============================================================
+   Scores — technical fit and resume ATS
+   A number without its reasoning is not actionable, so badges
+   carry their matched/missing terms and the detail panel spells
+   them out.
+   ============================================================ */
+.score-badge {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  padding: 0.1rem 0.42rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  white-space: nowrap;
+  cursor: help;
+}
+
+.score-badge .score-label {
+  color: var(--text-faint);
+  font-size: 0.72rem;
+}
+
+.score-badge .score-value {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.score-compact {
+  padding: 0.05rem 0.34rem;
+  min-width: 2.1rem;
+  justify-content: center;
+}
+
+.score-strong { border-color: var(--accent-2); color: var(--accent-2); }
+.score-good   { border-color: var(--profile-accent); color: var(--profile-accent); }
+.score-fair   { border-color: var(--warn); color: var(--warn); }
+.score-weak   { border-color: var(--danger); color: var(--danger); }
+.score-none   { color: var(--text-faint); }
+
+.cell-score {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  white-space: nowrap;
+}
+
+.score-sep { color: var(--text-faint); font-size: 0.75rem; }
+.col-score { width: 7.6rem; }
+
+.score-detail { display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; }
+.score-detail-head { display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; }
+.score-note { color: var(--text-muted); font-size: 0.8rem; }
+
+.score-terms {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.score-terms-label {
+  color: var(--text-faint);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-right: 0.15rem;
+}
+
+.score-chip {
+  padding: 0.05rem 0.36rem;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  border: 1px solid transparent;
+}
+
+.score-chip-missing { color: var(--danger); border-color: var(--danger); opacity: 0.85; }
+.score-chip-matched { color: var(--accent-2); border-color: var(--accent-2); opacity: 0.7; }
+
+.detail-row-block {
+  align-items: flex-start;
+}
+
+/* ============================================================
+   Minimum ATS score
+   ============================================================ */
+.ats-floor {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.ats-floor-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.ats-floor-title { font-weight: 600; font-size: 0.86rem; }
+
+.ats-floor-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.ats-floor-value.on { color: var(--profile-accent); }
+.ats-floor-value.off { color: var(--text-faint); font-size: 0.85rem; font-weight: 500; }
+
+.ats-floor-range { width: 100%; accent-color: var(--profile-accent); cursor: pointer; }
+
+.ats-floor-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+}
+
+.ats-floor-attempts {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.ats-floor-attempts select {
+  font: inherit;
+  padding: 0.05rem 0.2rem;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+  background: var(--surface-1);
+  color: var(--text);
+}
+
+.ats-floor-warn {
+  margin: 0;
+  color: var(--warn);
+  font-size: 0.78rem;
+}
+
+/* ============================================================
+   Today's applications
+   ============================================================ */
+.today-stat { position: relative; }
+
+.today-stat.today-active .stat-value { color: var(--accent-2); }
+
+.today-stat .stat-sub {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 0.15rem;
+  font-size: 0.62rem;
+  color: var(--text-faint);
+}

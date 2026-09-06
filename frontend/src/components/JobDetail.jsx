@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { personaLabel } from "../utils/persona.js";
 import { packageStatusLabel, pipelineLabel } from "../utils/statusLabels.js";
 import ResumePreview from "./ResumePreview.jsx";
+import ScoreBadge, { ScoreDetail } from "./ScoreBadge.jsx";
 
 const OUTCOMES = [
   { value: "pending", label: "Waiting" },
@@ -229,6 +230,23 @@ export default function JobDetail({
         </div>
         {workingPackage?.status === "applied" && onSetOutcome ? (
           <OutcomeControl pkg={workingPackage} onSetOutcome={onSetOutcome} />
+        ) : null}
+        {job.feasibility ? (
+          <div className="detail-row detail-row-block">
+            <span className="detail-label">Fit</span>
+            <ScoreDetail label="Technical fit" detail={job.feasibility} />
+          </div>
+        ) : null}
+        {workingPackage?.ats_breakdown ? (
+          <div className="detail-row detail-row-block">
+            <span className="detail-label">Resume ATS</span>
+            <ScoreDetail label="Resume ATS" detail={workingPackage.ats_breakdown} />
+          </div>
+        ) : workingPackage?.ats_score != null ? (
+          <div className="detail-row">
+            <span className="detail-label">Resume ATS</span>
+            <ScoreBadge label="Resume ATS" score={workingPackage.ats_score} />
+          </div>
         ) : null}
         <EditableField
           label="Company"

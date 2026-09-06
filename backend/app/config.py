@@ -45,6 +45,12 @@ class Settings(BaseSettings):
     tailor_concurrency: int = 2
     deep_scan_concurrency: int = 3
 
+    # Minimum ATS keyword score (0-100) a generated resume must reach. Below
+    # it the resume is regenerated with the missing terms fed back in. 0 is
+    # off. Each retry is a full tailor call, so the ceiling is deliberately low.
+    min_ats_score: int = 0
+    ats_max_attempts: int = 3
+
     # Applied-job Google Sheet log (Ken bid / Sheet8USTamoorSF)
     applied_sheet_enabled: bool = True
     applied_sheet_id: str = "1P5i9CTFj2PpAQ2yqi58zTRphmZQfZD2URHeJPHGxgA8"
