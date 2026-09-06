@@ -4,11 +4,16 @@ import asyncio
 import json
 import html
 import re
+import time
+import logging
 from html.parser import HTMLParser
+from urllib.parse import quote
 
 import httpx
 
 from app.adapters.base import RawListing
+
+log = logging.getLogger(__name__)
 
 USER_AGENT = "RemoteApplyBot/1.0 (+local; research)"
 
@@ -714,6 +719,23 @@ JOBRIGHT_CATEGORIES: tuple[str, ...] = (
     "remote-jobs/infrastructure-security",
 )
 
+# Which of their sections a picker domain belongs to. The section scopes the
+# search; the job title inside it does the narrowing.
+JOBRIGHT_DOMAIN_CATEGORY: dict[str, str] = {
+    "de": "remote-jobs/data-ai",
+    "ai": "remote-jobs/data-ai",
+    "ds": "remote-jobs/data-ai",
+    "da": "remote-jobs/data-ai",
+    "sq": "remote-jobs/data-ai",
+    "be": "remote-jobs/software-engineering",
+    "fe": "remote-jobs/software-engineering",
+    "fs": "remote-jobs/software-engineering",
+    "se": "remote-jobs/software-engineering",
+    "sf": "remote-jobs/software-engineering",
+    "dv": "remote-jobs/infrastructure-security",
+    "ce": "remote-jobs/infrastructure-security",
+}
+
 _JOBRIGHT_ID_RE = re.compile(r"/jobs/info/([0-9a-f]{24})")
 _NEXT_DATA_RE = re.compile(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', re.S)
 
@@ -793,11 +815,14 @@ def _jobright_row(job: dict[str, Any], company: dict[str, Any]) -> RawListing | 
         str(job.get("jobSummary") or "").strip(),
         str(job.get("jdResponsibilitySummary") or "").strip(),
     ]
-    core = job.get("coreResponsibilities")
-    if isinstance(core, list):
-        parts += [str(x).strip() for x in core if x]
-    elif core:
-        parts.append(str(core).strip())
+    # Category pages carry requirements too, and that is the half of a JD the
+    # keyword scorer actually reads.
+    for key in ("coreResponsibilities", "requirements"):
+        value = job.get(key)
+        if isinstance(value, list):
+            parts += [str(x).strip() for x in value if x]
+        elif value:
+            parts.append(str(value).strip())
     if company.get("companyDesc"):
         parts.append(str(company["companyDesc"]).strip())
     description = "\n\n".join(p for p in parts if p) or None
@@ -833,11 +858,61 @@ def jobright_ids_from_html(html: str) -> list[str]:
     return list(dict.fromkeys(_JOBRIGHT_ID_RE.findall(html)))
 
 
+def _jobright_entries(props: dict[str, Any]) -> list[dict[str, Any]]:
+    """The job records a page embeds.
+
+    Category pages carry their whole first page of results in `defaultData`,
+    each entry a complete record — title, dates, description, apply link — not
+    just a link to fetch. Reading that is the difference between thirteen
+    requests and three hundred and forty seven.
+
+    A single job page keeps its one record under `dataSource` instead.
+    """
+    for key in ("defaultData", "jobList"):
+        value = props.get(key)
+        if isinstance(value, list) and value:
+            return [e for e in value if isinstance(e, dict)]
+    single = props.get("dataSource")
+    return [single] if isinstance(single, dict) and single else []
+
+
+def jobright_listings_from_html(html: str) -> list[RawListing]:
+    """Every job embedded in a Jobright page, already parsed."""
+    rows: list[RawListing] = []
+    for entry in _jobright_entries(_jobright_next_data(html)):
+        row = _jobright_row(
+            entry.get("jobResult") or {}, entry.get("companyResult") or {}
+        )
+        if row is not None:
+            rows.append(row)
+    return rows
+
+
+async def jobright_categories() -> tuple[str, ...]:
+    """Every category page their sitemap lists.
+
+    Reading the sitemap rather than a hardcoded few: the constant covered four
+    sections and reached 89 jobs, while the sitemap lists thirteen.
+    """
+    try:
+        xml = await _jobright_html(JOBRIGHT_SITEMAP, timeout=20.0)
+    except Exception:  # noqa: BLE001
+        return JOBRIGHT_CATEGORIES
+    found = [
+        u.replace(f"{JOBRIGHT_BASE}/", "").rstrip("/")
+        for u in re.findall(r"<loc>(.*?)</loc>", xml)
+        if "/remote-jobs" in u
+    ]
+    return tuple(dict.fromkeys(found)) or JOBRIGHT_CATEGORIES
+
+
 async def jobright_job_urls(
-    categories: tuple[str, ...] = JOBRIGHT_CATEGORIES,
-    request_delay: float = 5.0,
+    categories: tuple[str, ...] | None = None,
+    request_delay: float = 4.0,
 ) -> list[str]:
     """Job URLs from the category pages. Cheap: one request per category."""
+    if categories is None:
+        categories = await jobright_categories()
     ids: list[str] = []
     seen: set[str] = set()
     for index, path in enumerate(categories):
@@ -878,48 +953,108 @@ async def _jobright_already_seen() -> set[str]:
         return set()
 
 
-async def fetch_jobright(
-    max_jobs: int = 20,
+def jobright_search_urls(
+    domains: list[str] | None = None,
     roles: list[str] | None = None,
-    request_delay: float = 5.0,
-    skip_seen: bool = True,
-) -> list[RawListing]:
-    """A politely paced slice of Jobright's remote jobs.
+) -> list[str]:
+    """The pages to read for a picker selection.
 
-    One request at a time, spaced apart, capped per run. Run it again to get
-    the next slice — ids already ingested are skipped, so repeated runs walk
-    forward through the site instead of re-reading page one.
+    A category page shows thirty jobs and no more — it has no second page, and
+    `page` / `offset` are ignored. But `jobTitle` is a real server-side filter,
+    and each value answers with its own thirty. So one search per job title is
+    what actually reaches the whole list: ten title searches under data-ai
+    returned 265 distinct jobs where the plain category page gave 30.
+
+    With nothing selected this falls back to the plain category pages.
     """
-    del roles  # titles are filtered downstream, once the JD is known
-    urls = await jobright_job_urls(request_delay=request_delay)
-    if not urls:
+    from app.services.job_domains import (
+        JOB_DOMAINS,
+        domain_queries,
+        role_queries,
+        roles_for_domain,
+    )
+
+    wanted = [d for d in (domains or []) if d]
+    if not wanted and not roles:
         return []
 
-    if skip_seen:
-        seen = await _jobright_already_seen()
-        fresh = [u for u in urls if u.rsplit("/", 1)[-1] not in seen]
-        # If everything on these pages is already ingested there is nothing new
-        # to take; returning the old ones would just be re-work for the gates.
-        urls = fresh or []
+    chosen_roles = set(roles or [])
+    urls: list[str] = []
+    for domain_id in wanted or [d["id"] for d in JOB_DOMAINS]:
+        category = JOBRIGHT_DOMAIN_CATEGORY.get(domain_id, "remote-jobs")
+        # Titles ticked inside this domain narrow it; the bare domain searches
+        # every title it knows.
+        picked = [r["id"] for r in roles_for_domain(domain_id) if r["id"] in chosen_roles]
+        if picked:
+            queries: list[str] = []
+            for role_id in picked:
+                for query in role_queries(role_id):
+                    if query not in queries:
+                        queries.append(query)
+        else:
+            queries = domain_queries(domain_id)
+        for query in queries:
+            url = f"{JOBRIGHT_BASE}/{category}?jobTitle={quote(query)}"
+            if url not in urls:
+                urls.append(url)
+    return urls
 
+
+async def fetch_jobright(
+    max_jobs: int = 0,
+    roles: list[str] | None = None,
+    domains: list[str] | None = None,
+    request_delay: float = 4.0,
+    skip_seen: bool = True,
+    time_budget: float = 0.0,
+) -> list[RawListing]:
+    """Jobright's remote jobs, read from the pages that already contain them.
+
+    Two things make this cheap enough to run in one click. Category pages
+    embed their results in full, so no job needs a second request. And
+    `jobTitle` filters server-side, so a selection of titles becomes a
+    selection of searches — each answering with its own thirty jobs.
+
+    `max_jobs=0` means no cap: take everything the selection reaches.
+    `time_budget` is a wall clock the search stops at and hands back what it
+    found — being cancelled from outside would throw all of it away, and every
+    selected domain widens the run.
+    """
+    targets = jobright_search_urls(domains, roles)
+    if not targets:
+        targets = [f"{JOBRIGHT_BASE}/{path}" for path in await jobright_categories()]
+    if not targets:
+        return []
+
+    seen_ids = await _jobright_already_seen() if skip_seen else set()
     out: list[RawListing] = []
-    for index, url in enumerate(urls[: max(1, max_jobs)]):
+    taken: set[str] = set()
+    started = time.monotonic()
+    for index, url in enumerate(targets):
+        if time_budget and time.monotonic() - started > time_budget:
+            log.info(
+                "jobright: stopped at %d/%d searches, %d jobs (budget %.0fs)",
+                index, len(targets), len(out), time_budget,
+            )
+            break
         if index and request_delay:
             await asyncio.sleep(request_delay)
         try:
             html = await _jobright_html(url)
         except JobrightChallenged:
-            # Keep what we already have; the caller reports the interruption.
+            # Keep what the earlier searches found. Reporting a short run as a
+            # clean one is how "no jobs today" gets said about a bot check.
             if out:
                 return out
             raise
         except Exception:  # noqa: BLE001
             continue
-        props = _jobright_next_data(html)
-        source = props.get("dataSource") or {}
-        row = _jobright_row(
-            source.get("jobResult") or {}, source.get("companyResult") or {}
-        )
-        if row is not None:
+        for row in jobright_listings_from_html(html):
+            job_id = row.external_id or ""
+            if not job_id or job_id in taken or job_id in seen_ids:
+                continue
+            taken.add(job_id)
             out.append(row)
+            if max_jobs and len(out) >= max_jobs:
+                return out
     return out

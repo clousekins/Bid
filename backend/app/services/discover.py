@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 import random
 from datetime import datetime, timedelta, timezone
@@ -581,6 +582,35 @@ async def _fetch_boards(
     return raw, ats_this_run
 
 
+def _adapter_kwargs(
+    fn: Callable[..., Any],
+    cfg: dict[str, Any],
+    domains: list[str] | None,
+    budget: int = 0,
+) -> dict[str, Any]:
+    """The picker's selection, for adapters that can act on it.
+
+    Most feeds return everything they have and are filtered afterwards. A
+    source with a real server-side search — Jobright's `jobTitle` — reaches
+    far more of its catalog when it is told what to look for, so pass the
+    selection to whichever adapter declares it and leave the rest alone.
+    """
+    try:
+        accepted = inspect.signature(fn).parameters
+    except (TypeError, ValueError):  # noqa: BLE001
+        return {}
+    out: dict[str, Any] = {}
+    if "domains" in accepted and domains:
+        out["domains"] = list(domains)
+    if "roles" in accepted and cfg.get("roles"):
+        out["roles"] = list(cfg["roles"])
+    if "time_budget" in accepted and budget:
+        # Leave the source room to finish its last request and return, rather
+        # than being cancelled with everything still in hand.
+        out["time_budget"] = max(15.0, budget - 20.0)
+    return out
+
+
 async def collect_site_listings(
     *,
     site: str,
@@ -642,7 +672,7 @@ async def collect_site_listings(
         budget = int(site_meta.get("timeout") or 60)
         try:
             async with asyncio.timeout(budget):
-                raw = list(await fn())
+                raw = list(await fn(**_adapter_kwargs(fn, cfg, allowed_domains, budget)))
         except TimeoutError:
             cfg["source_error"] = (
                 f"{site_meta['label']} did not answer within {budget}s"

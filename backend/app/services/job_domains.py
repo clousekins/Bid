@@ -504,3 +504,54 @@ def title_matches_roles(title: str | None, role_ids: list[str] | None) -> bool:
         return True
     wanted = set(role_ids)
     return bool(wanted & set(classify_roles(title)))
+
+
+# --- Search queries ---------------------------------------------------------
+# A label reads well in the picker; it is not always a job title someone would
+# search for. "AWS / Azure / GCP Data Engineer" names one row in the UI but
+# three separate searches on a board. These are the strings to actually send.
+#
+# Only the compound labels need an entry — everything else searches for the
+# label as written.
+ROLE_QUERIES: dict[str, list[str]] = {
+    "de_cloud": ["AWS Data Engineer", "Azure Data Engineer", "GCP Data Engineer"],
+    "de_bigdata": ["Big Data Engineer", "Spark Engineer"],
+    "de_etl": ["ETL Developer", "Data Pipeline Engineer"],
+    "de_platform": ["Data Platform Engineer", "Data Infrastructure Engineer"],
+    "ai_llm": ["LLM Engineer", "Generative AI Engineer"],
+    "ai_research": ["Research Scientist", "Applied Scientist"],
+    "ai_nlp_cv": ["NLP Engineer", "Computer Vision Engineer"],
+    "ds_applied": ["Applied Scientist", "Decision Scientist"],
+    "da_bi": ["BI Analyst", "BI Developer"],
+    "da_reporting": ["Tableau Developer", "Power BI Developer"],
+    "da_business": ["Business Analyst", "Product Analyst"],
+    "sf_consultant": ["Salesforce Consultant", "Salesforce Business Analyst"],
+    "sf_cpq": ["Salesforce CPQ Developer", "Marketing Cloud Developer"],
+    "dv_senior": ["Senior DevOps Engineer", "Staff DevOps Engineer"],
+    "be_senior": ["Senior Backend Engineer", "Staff Backend Engineer"],
+    "be_api": ["API Engineer", "Microservices Engineer"],
+    "fs_senior": ["Senior Full Stack Engineer", "Staff Full Stack Engineer"],
+    "fe_react": ["React Developer", "Angular Developer", "Vue Developer"],
+    "se_staff": ["Staff Software Engineer", "Principal Software Engineer"],
+    "se_lead": ["Lead Software Engineer", "Engineering Manager"],
+    "sq_ssis": ["SSIS Developer", "SSRS Developer", "MSBI Developer"],
+}
+
+
+def role_queries(role_id: str) -> list[str]:
+    """Search strings for a role — its label, unless it names several titles."""
+    explicit = ROLE_QUERIES.get(role_id)
+    if explicit:
+        return list(explicit)
+    label = role_label(role_id)
+    return [label] if label and label != role_id else []
+
+
+def domain_queries(domain_id: str) -> list[str]:
+    """Every search string for a domain, in picker order and deduplicated."""
+    out: list[str] = []
+    for role in roles_for_domain(domain_id):
+        for query in role_queries(role["id"]):
+            if query not in out:
+                out.append(query)
+    return out

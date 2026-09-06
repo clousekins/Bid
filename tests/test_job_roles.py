@@ -109,3 +109,59 @@ def test_the_fetch_pipeline_accepts_roles():
 
     assert "roles" in inspect.signature(collect_site_listings).parameters
     assert "allowed_roles" in inspect.signature(_filter_listings).parameters
+
+
+class TestSearchQueries:
+    """A label reads well in a picker; it is not always a searchable title.
+
+    Jobright filters server-side on `jobTitle`, so these strings are sent to a
+    real search — "AWS / Azure / GCP Data Engineer" has to become three.
+    """
+
+    def test_a_plain_label_searches_for_itself(self):
+        from app.services.job_domains import role_queries
+
+        assert role_queries("de_senior") == ["Senior Data Engineer"]
+
+    def test_a_compound_label_becomes_several_titles(self):
+        from app.services.job_domains import role_queries
+
+        assert role_queries("de_cloud") == [
+            "AWS Data Engineer",
+            "Azure Data Engineer",
+            "GCP Data Engineer",
+        ]
+
+    def test_no_query_contains_a_slash(self):
+        """A slash is a label separator, never part of a real job title."""
+        from app.services.job_domains import role_queries
+
+        for roles in JOB_ROLES.values():
+            for role in roles:
+                for query in role_queries(role["id"]):
+                    assert "/" not in query, f"{role['id']}: {query}"
+
+    def test_every_role_is_searchable(self):
+        from app.services.job_domains import role_queries
+
+        for roles in JOB_ROLES.values():
+            for role in roles:
+                assert role_queries(role["id"]), role["id"]
+
+    def test_an_unknown_role_searches_for_nothing(self):
+        from app.services.job_domains import role_queries
+
+        assert role_queries("no_such_role") == []
+
+    def test_a_domain_collects_its_titles_without_repeats(self):
+        from app.services.job_domains import domain_queries
+
+        queries = domain_queries("de")
+        assert len(queries) == len(set(queries))
+        assert "Data Engineer" in queries and "Data Architect" in queries
+
+    def test_every_domain_has_something_to_search(self):
+        from app.services.job_domains import domain_queries
+
+        for domain in JOB_DOMAINS:
+            assert domain_queries(domain["id"]), domain["id"]
