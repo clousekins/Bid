@@ -6,7 +6,6 @@ greenhouse:
   - cloudflare
   - stripe
   - gitlab
-  - hashicorp
   - datadog
   - airbnb
   - dropbox
@@ -14,42 +13,25 @@ greenhouse:
   - hubspot
   - mongodb
   - elastic
-  - snowflakecomputing
-  - zapier
   - asana
   - calendly
   - gusto
   - postman
-  - browserstack
-  - auth0
   - mixpanel
   - amplitude
   - airtable
   - coinbase
   - robinhood
   - pinterest
-  - spotify
-  - square
-  - doordash
   - instacart
   - lyft
-  - uber
-  - shopify
   - databricks
-  - confluent
   - cockroachlabs
-  - dbt-labs
   - fivetran
-  - airbyte
-  - sentry
-  - grafana
   - pagerduty
   - launchdarkly
   - intercom
-  - zendesk
   - klaviyo
-  - gong
-  - outreach
   - salesloft
   - rippling
   - deel
@@ -61,231 +43,109 @@ greenhouse:
   - coursera
   - duolingo
   - khanacademy
-  - pluralsight
-  - latch
   - brex
-  - plaid
   - chime
   - sofi
   - mercury
   - toast
   - block
-  - nerdwallet
   - reddit
   - discord
   - twitch
-  - nvidia
-  - amd
-  - intel
-  - cisco
   - okta
-  - crowdstrike
   - zscaler
-  - palantir
   - anduril
   - scaleai
   - huggingface
   - coreweave
-  - digitalocean
-  - heroku
   - netlify
   - buildkite
   - circleci
-  - retool
   - honeycomb
   - watershed
-  - posthog
-  - clerk
-  - temporal
   - clickhouse
-  - hex
-  - mode
-  - metabase
   - pinecone
-  - weaviate
   - replicate
   - modal
   - anyscale
-  - elevenlabs
-  - runwayml
-  - mistral
   - cohere
-  - together
-  - fireworks
-  - 1password
   - bitwarden
   - braze
   - iterable
   - customerio
-  - resend
-  - front
   - apolloio
-  - clearbit
-  - salesforce
-  - github
-  - sourcegraph
   - newrelic
-  - dynatrace
-  - splunk
-  - betterstack
-  - checkly
-  - incidentio
-  - rootly
-  - firehydrant
-  - harness
-  - pulumi
   - fastly
-  - cloudinary
-  - mux
-  - getstream
-  - ably
   - pubnub
-  - appwrite
-  - convex
   - prisma
-  - hasura
-  - upstash
-  - redpanda
-  - dagster
-  - prefect
-  - astronomer
-  - appsmith
   - webflow
   - framer
-  - replit
-  - codesandbox
   - roblox
   - epicgames
-  - unity
   - riotgames
-  - netflix
   - disney
-  - patreon
-  - substack
   - medium
-  - beehiiv
   - ghost
   - squarespace
-  - bigcommerce
-  - etsy
-  - whatnot
   - stockx
-  - nike
-  - adidas
-  - lululemon
-  - warbyparker
   - affirm
-  - klarna
   - adyen
-  - checkout
-  - column
-  - tipalti
   - melio
-  - expensify
-  - navan
-  - travelperk
-  - grubhub
-  - gopuff
-  - cruise
   - waymo
-  - rivian
-  - lucid
-  - grab
-  - bytedance
-  - rakuten
   - mercari
-  - sony
   - nintendo
-  - bloomberg
-  - reuters
-  - factset
-  - blackrock
-  - vanguard
-  - fidelity
-  - schwab
-  - kraken
   - gemini
   - spacex
   - figure
-  - snorkel
   - labelbox
 
+  - carvana
+  - anthropic
+  - grafanalabs
+  - chainguard
+  - sigmacomputing
+  - tailscale
+  - checkr
+  - singlestore
+  - hackerrank
+  - orchard
+  - betterment
+  - alloy
+  - starburst
+  - renttherunway
+  - pendo
+  - orkes
+  - ginkgobioworks
+  - yugabyte
+  - suki
+  - karat
+  - descript
+  - sendbird
+  - lithic
+  - public
+  - remote
+  - orca
+  - voxel51
 lever:
-  - netlify
-  - buildkite
-  - mattermost
-  - lucidchart
-  - eventbrite
-  - rockbot
   - palantir
-  - anduril
-  - scaleai
-  - twilio
-  - dropbox
-  - reddit
   - spotify
-  - shopify
-  - github
-  - gitlab
-  - hashicorp
-  - elastic
-  - mongodb
-  - datadog
-  - cloudflare
-  - stripe
-  - hubspot
-  - zendesk
-  - intercom
-  - asana
-  - atlassian
-  - canva
-  - figma
-  - notion
-  - airtable
-  - zapier
-  - calendly
-  - gusto
-  - rippling
-  - brex
-  - plaid
-  - coinbase
-  - robinhood
-  - doordash
-  - uber
-  - lyft
-  - airbnb
-  - nvidia
-  - amd
-  - cisco
-  - okta
-  - crowdstrike
-  - paloaltonetworks
-  - zscaler
-  - salesforce
-  - adobe
-  - intuit
-  - paypal
-  - bloomberg
-  - reuters
 
+  - gopuff
+  - ro
+  - angellist
+  - secureframe
+  - alloy
 ashby:
   - linear
   - openai
-  - anthropic
   - ramp
   - vercel
   - notion
-  - retool
-  - honeycomb
   - watershed
   - cursor
   - perplexity
-  - together
   - fireworks
-  - mistral
   - cohere
-  - huggingface
-  - replicate
   - modal
   - anyscale
   - pinecone
@@ -293,44 +153,33 @@ ashby:
   - clerk
   - workos
   - stytch
-  - front
   - posthog
   - hex
-  - metabase
-  - dagster
   - prefect
   - temporal
   - clickhouse
   - neon
-  - planetscale
   - supabase
-  - convex
-  - prisma
-  - hasura
-  - upstash
   - resend
-  - customerio
-  - braze
   - iterable
-  - gong
-  - apolloio
-  - clearbit
-  - incidentio
-  - rootly
   - checkly
-  - betterstack
-  - sourcegraph
   - sentry
   - launchdarkly
-  - pagerduty
-  - rippling
   - deel
-  - lattice
-  - cultureamp
-  - gem
-  - greenhouse
   - ashby
 
+  - harvey
+  - elevenlabs
+  - cerebras
+  - attio
+  - render
+  - mintlify
+  - pika
+  - namespace
+  - railway
+  - runway
+  - finch
+  - depot
 workable:
   - striim
   - ait-global
