@@ -71,8 +71,17 @@ function doPost(e) {
       sh.appendRow(["Title", "Company", "Job Link", "Applied At", "Persona", "Location"]);
     }
     sh.appendRow([title, company, url, ts, persona, location]);
+    // Report where the row actually landed. "ok" alone cannot distinguish a
+    // correct write from one that quietly went to the previous spreadsheet.
     return ContentService.createTextOutput(
-      JSON.stringify({ ok: true })
+      JSON.stringify({
+        ok: true,
+        wrote_to_id: ss.getId(),
+        wrote_to_name: ss.getName(),
+        tab: sh.getName(),
+        gid: sh.getSheetId(),
+        row: sh.getLastRow()
+      })
     ).setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
     return ContentService.createTextOutput(
@@ -81,8 +90,30 @@ function doPost(e) {
   }
 }
 
-function doGet() {
-  return ContentService.createTextOutput(
-    "POONG applied-sheet webhook OK"
+function doGet(e) {
+  // Diagnostic: says which spreadsheet this deployment is bound to, so you can
+  // confirm the target without writing a row. Pass ?sheet_id=... to check that
+  // this deployment can open a specific sheet.
+  var bound = SpreadsheetApp.getActiveSpreadsheet();
+  var out = {
+    ok: true,
+    service: "POONG applied-sheet webhook",
+    bound_to_id: bound ? bound.getId() : null,
+    bound_to_name: bound ? bound.getName() : null,
+    honours_sheet_id: true
+  };
+  var wanted = e && e.parameter ? e.parameter.sheet_id : "";
+  if (wanted) {
+    try {
+      var target = SpreadsheetApp.openById(wanted);
+      out.can_open_requested = true;
+      out.requested_name = target.getName();
+    } catch (err) {
+      out.can_open_requested = false;
+      out.error = String(err);
+    }
+  }
+  return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(
+    ContentService.MimeType.JSON
   );
 }
