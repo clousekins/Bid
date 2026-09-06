@@ -22,7 +22,7 @@ from app.services.fetch_sites import resolve_site
 
 
 def _entry(**overrides) -> dict:
-    """One jobList entry, the shape their listing pages embed."""
+    """The (job, company) pair the parser takes."""
     job = {
         "jobId": "69d5669fe63cea7a8b660fe4",
         "jobTitle": "Senior Data Engineer",
@@ -39,12 +39,12 @@ def _entry(**overrides) -> dict:
     job.update(overrides.pop("job", {}))
     company = {"companyName": "Acme Analytics", "companyDesc": "A data company."}
     company.update(overrides.pop("company", {}))
-    return {"jobResult": job, "companyResult": company}
+    return job, company
 
 
 class TestParsing:
     def test_a_job_page_becomes_a_listing(self):
-        row = _jobright_row(_entry())
+        row = _jobright_row(*_entry())
         assert row is not None
         assert row.source == "Jobright", "source is the board, never the company"
         assert row.company_name == "Acme Analytics"
@@ -54,11 +54,11 @@ class TestParsing:
 
     def test_the_posting_date_is_kept(self):
         """Most feeds give no date; Jobright does, and it drives the 24h window."""
-        row = _jobright_row(_entry())
+        row = _jobright_row(*_entry())
         assert row.posted_at == "2026-08-15 11:20:33"
 
     def test_the_description_joins_every_summary_field(self):
-        row = _jobright_row(_entry())
+        row = _jobright_row(*_entry())
         body = row.description or ""
         assert "batch pipelines" in body
         assert "Design ETL" in body
@@ -66,12 +66,12 @@ class TestParsing:
         assert "$130K" in body, "salary belongs in the JD the tailor reads"
 
     def test_remote_and_work_model_reach_the_gates(self):
-        row = _jobright_row(_entry())
+        row = _jobright_row(*_entry())
         assert row.is_remote_flag_from_board is True
         assert "Remote" in (row.location_raw or "")
 
     def test_an_onsite_job_is_not_marked_remote(self):
-        row = _jobright_row(_entry(job={"isRemote": "False", "workModel": "Onsite"}))
+        row = _jobright_row(*_entry(job={"isRemote": "False", "workModel": "Onsite"}))
         assert row.is_remote_flag_from_board is False
 
 
@@ -83,13 +83,13 @@ class TestBadInput:
         assert _jobright_next_data('<script id="__NEXT_DATA__">{not json</script>') == {}
 
     def test_a_record_missing_title_or_company_is_skipped(self):
-        assert _jobright_row(_entry(job={"jobTitle": ""})) is None
-        assert _jobright_row(_entry(company={"companyName": ""})) is None
-        assert _jobright_row(_entry(job={"jobId": ""})) is None
+        assert _jobright_row(*_entry(job={"jobTitle": ""})) is None
+        assert _jobright_row(*_entry(company={"companyName": ""})) is None
+        assert _jobright_row(*_entry(job={"jobId": ""})) is None
 
     def test_a_job_with_no_summary_still_parses(self):
         row = _jobright_row(
-            _entry(
+            *_entry(
                 job={
                     "jobSummary": "",
                     "jdResponsibilitySummary": "",
@@ -114,7 +114,7 @@ class TestBotChallenge:
         page = '<html><head><link href="//challenges.cloudflare.com"></head></html>'
         with pytest.raises(JobrightChallenged) as exc:
             _jobright_next_data(page)
-        assert "CSV upload" in str(exc.value)
+        assert "fetch again" in str(exc.value), "the error must say what to do"
 
 
 def test_it_is_wired_in_everywhere_the_ui_needs():

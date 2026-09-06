@@ -39,7 +39,10 @@ FETCH_SITES: list[dict[str, Any]] = [
         "id": "jobright",
         "label": "Jobright",
         "kind": "feed",
-        "blurb": "Jobright remote-jobs pages (no public API — reads their sitemap)",
+        "blurb": "Jobright remote jobs — paced; run again for the next slice",
+        # One page per job at 5s apart, so this needs longer than the default
+        # 60s. Reading it faster earns a Cloudflare check.
+        "timeout": 300,
     },
     {
         "id": "remoteok",

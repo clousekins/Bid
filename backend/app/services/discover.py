@@ -637,12 +637,15 @@ async def collect_site_listings(
         # A source that refuses us must say so. Swallowing this reported
         # "Completed - 0 inserted", which reads as "no jobs today" when the
         # truth was that the site returned a bot challenge.
+        # Paced sources need longer than a bulk feed; a per-site budget beats
+        # one number that is either too short for them or too long for the rest.
+        budget = int(site_meta.get("timeout") or 60)
         try:
-            async with asyncio.timeout(60):
+            async with asyncio.timeout(budget):
                 raw = list(await fn())
         except TimeoutError:
             cfg["source_error"] = (
-                f"{site_meta['label']} did not answer within 60s"
+                f"{site_meta['label']} did not answer within {budget}s"
             )
             log.warning("site feed %s timed out", site_meta["id"])
             raw = []

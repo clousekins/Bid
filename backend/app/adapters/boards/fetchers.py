@@ -690,65 +690,87 @@ async def fetch_themuse(pages: int = 3) -> list[RawListing]:
 
 
 # --- Jobright ---------------------------------------------------------------
-# Jobright has no public list API: /swan/job/list answers 401 "Cookie not
-# found". Discovery uses the paths their robots.txt names explicitly
-# (Allow: /jobs/*, Allow: /remote-jobs/*), found through their own sitemap.
+# No public list API: /swan/job/list answers 401 "Cookie not found". Discovery
+# uses the paths their robots.txt names explicitly (Allow: /remote-jobs/*,
+# Allow: /jobs/*).
 #
-# Their listing pages embed __NEXT_DATA__.props.pageProps.jobList, and every
-# entry there is a complete record — title, company, description, salary and a
-# real publishTime. So one page request yields ~16 jobs rather than one, which
-# is the difference between 34 jobs a run and several hundred.
+# Their protection is rate-based, not a ban. A burst of requests earns a
+# Cloudflare "Security check" page for a while; requests spaced a couple of
+# seconds apart are served normally. So this reads politely and takes a slice
+# per run rather than trying to drain the site in one go.
+#
+# Successive runs advance by themselves: ids already recorded in
+# job_source_seen are skipped, so "fetch again tomorrow" reaches new jobs
+# instead of re-reading the same first page.
 JOBRIGHT_BASE = "https://jobright.ai"
-JOBRIGHT_SITEMAPS = (
-    f"{JOBRIGHT_BASE}/sitemap-remote-jobs.xml",
-    f"{JOBRIGHT_BASE}/sitemap-taxonomy.xml",
+JOBRIGHT_SITEMAP = f"{JOBRIGHT_BASE}/sitemap-remote-jobs.xml"
+
+# Category pages that list jobs. /remote-jobs is the index; the rest are its
+# sections. These stayed reachable throughout, unlike the /jobs/<role> pages.
+JOBRIGHT_CATEGORIES: tuple[str, ...] = (
+    "remote-jobs",
+    "remote-jobs/data-ai",
+    "remote-jobs/software-engineering",
+    "remote-jobs/infrastructure-security",
 )
 
-# City-scoped duplicates of the same role add pages without adding jobs.
-_JOBRIGHT_CITY_RE = re.compile(r"-in-[a-z-]+-[a-z]{2}$")
+_JOBRIGHT_ID_RE = re.compile(r"/jobs/info/([0-9a-f]{24})")
 _NEXT_DATA_RE = re.compile(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', re.S)
 
-# Role pages worth walking when no domain filter narrows things.
-JOBRIGHT_DEFAULT_SLUGS: tuple[str, ...] = (
-    "data-engineer",
-    "data-engineering",
-    "software-engineer",
-    "backend-engineer",
-    "full-stack-engineer",
-    "devops",
-    "data-scientist",
-    "machine-learning-engineer",
-    "cloud-engineer",
-    "python-engineer",
+# A browser string. Their pages are server-rendered for browsers; the default
+# bot agent gets the same content, but this keeps us honest about what we are
+# asking for rather than pretending to be a crawler they have not seen.
+JOBRIGHT_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 )
-
-
-async def _jobright_html(url: str, timeout: float = 20.0) -> str:
-    async with httpx.AsyncClient(
-        timeout=timeout,
-        follow_redirects=True,
-        headers={"User-Agent": USER_AGENT, "Accept": "text/html,application/xhtml+xml"},
-    ) as client:
-        resp = await client.get(url)
-        resp.raise_for_status()
-        return resp.text
 
 
 class JobrightChallenged(RuntimeError):
     """Jobright served a bot challenge instead of the page.
 
-    Their Cloudflare protection engages under sustained automated requests.
-    There is no way past it that is not evasion, so the fetcher stops and says
-    so rather than returning an empty list that looks like "no jobs today".
+    Their Cloudflare protection engages after a burst of requests and clears
+    on its own. The fetcher stops and says so rather than returning an empty
+    list, which would read as "no jobs today".
     """
+
+
+_JOBRIGHT_HEADERS = {
+    "User-Agent": JOBRIGHT_UA,
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+}
+
+
+async def _jobright_html(url: str, timeout: float = 25.0, attempts: int = 2) -> str:
+    """Fetch one page, retrying once through a transient challenge.
+
+    Their protection fires intermittently under quick successive requests and
+    clears by itself — the same URL that answered with a security check came
+    back with 272KB of content a minute later. So one challenged response is
+    worth a retry; a second one is an answer rather than a hiccup.
+    """
+    last = ""
+    for attempt in range(1, attempts + 1):
+        async with httpx.AsyncClient(
+            timeout=timeout, follow_redirects=True, headers=_JOBRIGHT_HEADERS
+        ) as client:
+            resp = await client.get(url)
+            resp.raise_for_status()
+            last = resp.text
+        if "Security check | Jobright" not in last:
+            return last
+        if attempt < attempts:
+            await asyncio.sleep(4.0)
+    return last
 
 
 def _jobright_next_data(html: str) -> dict[str, Any]:
     if "Security check | Jobright" in html or "challenges.cloudflare.com" in html:
         raise JobrightChallenged(
-            "Jobright served a Cloudflare bot check. Their protection has "
-            "engaged for this machine; wait before fetching again, or use "
-            "CSV upload for Jobright listings."
+            "Jobright served a Cloudflare bot check — too many requests too "
+            "quickly. It clears on its own; fetch again in a few minutes, or "
+            "raise the delay between requests."
         )
     match = _NEXT_DATA_RE.search(html)
     if not match:
@@ -759,10 +781,8 @@ def _jobright_next_data(html: str) -> dict[str, Any]:
         return {}
 
 
-def _jobright_row(entry: dict[str, Any]) -> RawListing | None:
-    """One jobList entry -> a listing. Same shape as a job detail page."""
-    job = entry.get("jobResult") or {}
-    company = entry.get("companyResult") or {}
+def _jobright_row(job: dict[str, Any], company: dict[str, Any]) -> RawListing | None:
+    """Build a listing from a job page's jobResult / companyResult."""
     title = str(job.get("jobTitle") or job.get("jobNlpTitle") or "").strip()
     employer = str(company.get("companyName") or "").strip()
     job_id = str(job.get("jobId") or "").strip()
@@ -808,103 +828,98 @@ def _jobright_row(entry: dict[str, Any]) -> RawListing | None:
     )
 
 
-async def jobright_role_slugs() -> list[str]:
-    """Role slugs Jobright publishes, city-scoped duplicates removed."""
-    slugs: list[str] = []
+def jobright_ids_from_html(html: str) -> list[str]:
+    """Job ids linked from a category page, in page order."""
+    return list(dict.fromkeys(_JOBRIGHT_ID_RE.findall(html)))
+
+
+async def jobright_job_urls(
+    categories: tuple[str, ...] = JOBRIGHT_CATEGORIES,
+    request_delay: float = 5.0,
+) -> list[str]:
+    """Job URLs from the category pages. Cheap: one request per category."""
+    ids: list[str] = []
     seen: set[str] = set()
-    for sitemap in JOBRIGHT_SITEMAPS:
+    for index, path in enumerate(categories):
+        if index and request_delay:
+            await asyncio.sleep(request_delay)
         try:
-            xml = await _jobright_html(sitemap, timeout=20.0)
+            html = await _jobright_html(f"{JOBRIGHT_BASE}/{path}")
+        except JobrightChallenged:
+            raise
         except Exception:  # noqa: BLE001
             continue
-        for url in re.findall(r"<loc>(.*?)</loc>", xml):
-            slug = url.rstrip("/").rsplit("/", 1)[-1]
-            if not slug or slug in seen or _JOBRIGHT_CITY_RE.search(slug):
-                continue
-            seen.add(slug)
-            slugs.append(slug)
-    return slugs
+        for job_id in jobright_ids_from_html(html):
+            if job_id not in seen:
+                seen.add(job_id)
+                ids.append(job_id)
+    return [f"{JOBRIGHT_BASE}/jobs/info/{i}" for i in ids]
 
 
-def _jobright_pages(slugs: list[str], wanted: list[str] | None) -> list[str]:
-    """Listing pages to walk, narrowed to the caller's role words when given."""
-    if wanted:
-        needles = [w.lower().replace(" ", "-") for w in wanted if w]
-        # Exact slug first, then slugs containing the phrase, so asking for
-        # "data engineer" leads with /jobs/data-engineer.
-        exact = [s for s in slugs if s in needles]
-        partial = [s for s in slugs if s not in exact and any(n in s for n in needles)]
-        slugs = exact + partial
-    else:
-        # The sitemap is ordered by Jobright's own taxonomy, which opens with
-        # manufacturing — walking it blind returned CNC machinists. With no
-        # filter, stay on the roles this pipeline is actually for.
-        available = set(slugs)
-        slugs = [s for s in JOBRIGHT_DEFAULT_SLUGS if s in available]
-    if not slugs:
-        slugs = list(JOBRIGHT_DEFAULT_SLUGS)
-    pages = []
-    for slug in slugs:
-        prefix = "remote-jobs" if slug.startswith(("remote", "data-ai", "software-engineering")) else "jobs"
-        pages.append(f"{JOBRIGHT_BASE}/{prefix}/{slug}")
-    return pages
+async def _jobright_already_seen() -> set[str]:
+    """Ids a previous run already ingested, so repeats reach new jobs."""
+    try:
+        from sqlalchemy import select
+
+        from app.db.models import JobSourceSeen
+        from app.db.session import get_session_factory
+
+        factory = get_session_factory()
+        async with factory() as db:
+            rows = (
+                await db.execute(
+                    select(JobSourceSeen.external_id).where(
+                        JobSourceSeen.source.in_(("Jobright", "jobright"))
+                    )
+                )
+            ).scalars().all()
+        return {str(r) for r in rows if r}
+    except Exception:  # noqa: BLE001
+        return set()
 
 
 async def fetch_jobright(
-    max_jobs: int = 400,
+    max_jobs: int = 20,
     roles: list[str] | None = None,
-    max_pages: int = 26,
-    request_delay: float = 2.0,
+    request_delay: float = 5.0,
+    skip_seen: bool = True,
 ) -> list[RawListing]:
-    """Remote jobs from Jobright's public listing pages.
+    """A politely paced slice of Jobright's remote jobs.
 
-    Reads whole pages rather than one page per job: each listing page embeds
-    the full record for every job on it, so this returns hundreds of jobs in
-    roughly the time a per-job crawl needed for thirty.
+    One request at a time, spaced apart, capped per run. Run it again to get
+    the next slice — ids already ingested are skipped, so repeated runs walk
+    forward through the site instead of re-reading page one.
     """
-    try:
-        slugs = await jobright_role_slugs()
-    except Exception:  # noqa: BLE001
-        slugs = []
-    pages = _jobright_pages(slugs, roles)[: max(1, max_pages)]
+    del roles  # titles are filtered downstream, once the JD is known
+    urls = await jobright_job_urls(request_delay=request_delay)
+    if not urls:
+        return []
 
-    # One request at a time, spaced out. This is a public site with no bulk
-    # API, so the fetch is paced like a person reading pages rather than a
-    # crawl — which is also what keeps a repeated run from looking like one.
-    semaphore = asyncio.Semaphore(1)
-    delay = max(0.0, float(request_delay))
-
-    async def one(url: str) -> list[RawListing]:
-        async with semaphore:
-            try:
-                html = await _jobright_html(url)
-            except JobrightChallenged:
-                raise
-            except Exception:  # noqa: BLE001
-                return []
-            finally:
-                if delay:
-                    await asyncio.sleep(delay)
-        props = _jobright_next_data(html)  # raises JobrightChallenged
-        entries = props.get("jobList")
-        if not isinstance(entries, list):
-            return []
-        rows = [_jobright_row(e) for e in entries if isinstance(e, dict)]
-        return [r for r in rows if r is not None]
-
-    try:
-        groups = await asyncio.gather(*(one(u) for u in pages))
-    except JobrightChallenged:
-        raise
+    if skip_seen:
+        seen = await _jobright_already_seen()
+        fresh = [u for u in urls if u.rsplit("/", 1)[-1] not in seen]
+        # If everything on these pages is already ingested there is nothing new
+        # to take; returning the old ones would just be re-work for the gates.
+        urls = fresh or []
 
     out: list[RawListing] = []
-    seen: set[str] = set()
-    for group in groups:
-        for row in group:
-            if row.external_id in seen:
-                continue
-            seen.add(row.external_id)
-            out.append(row)
-            if len(out) >= max_jobs:
+    for index, url in enumerate(urls[: max(1, max_jobs)]):
+        if index and request_delay:
+            await asyncio.sleep(request_delay)
+        try:
+            html = await _jobright_html(url)
+        except JobrightChallenged:
+            # Keep what we already have; the caller reports the interruption.
+            if out:
                 return out
+            raise
+        except Exception:  # noqa: BLE001
+            continue
+        props = _jobright_next_data(html)
+        source = props.get("dataSource") or {}
+        row = _jobright_row(
+            source.get("jobResult") or {}, source.get("companyResult") or {}
+        )
+        if row is not None:
+            out.append(row)
     return out
