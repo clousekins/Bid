@@ -14,8 +14,13 @@
  * and append a row to the configured tab.
  */
 
-var SHEET_TAB = "Sheet8USTamoorSF"; // change if your tab name differs
-var SHEET_GID = 1934565105; // fallback match by gid
+// Fallbacks only. POONG sends sheet_id / sheet_tab / sheet_gid with every
+// request, and this script now honours them — so changing APPLIED_SHEET_ID in
+// .env redirects the log without editing this file. Set DEFAULT_SHEET_ID if
+// you would rather pin one spreadsheet here.
+var DEFAULT_SHEET_ID = ""; // "" means the spreadsheet this script is bound to
+var SHEET_TAB = ""; // "" means resolve by gid, then first sheet
+var SHEET_GID = 0;
 
 function doPost(e) {
   try {
@@ -30,12 +35,31 @@ function doPost(e) {
     var persona = data.persona_id || "";
     var ts = data.timestamp || new Date().toISOString();
 
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var sh = ss.getSheetByName(SHEET_TAB);
+    // Open the spreadsheet POONG asked for. Without this the script always
+    // wrote to whichever sheet it happened to be created in, so pointing
+    // .env at a new sheet silently kept logging to the old one.
+    var wantId = data.sheet_id || DEFAULT_SHEET_ID || "";
+    var ss;
+    if (wantId) {
+      try {
+        ss = SpreadsheetApp.openById(wantId);
+      } catch (idErr) {
+        ss = SpreadsheetApp.getActiveSpreadsheet();
+      }
+    } else {
+      ss = SpreadsheetApp.getActiveSpreadsheet();
+    }
+
+    var wantTab = data.sheet_tab || SHEET_TAB || "";
+    var wantGid = data.sheet_gid !== undefined && data.sheet_gid !== null && data.sheet_gid !== ""
+      ? Number(data.sheet_gid)
+      : SHEET_GID;
+
+    var sh = wantTab ? ss.getSheetByName(wantTab) : null;
     if (!sh) {
       var sheets = ss.getSheets();
       for (var i = 0; i < sheets.length; i++) {
-        if (sheets[i].getSheetId() === SHEET_GID) {
+        if (sheets[i].getSheetId() === wantGid) {
           sh = sheets[i];
           break;
         }

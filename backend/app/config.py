@@ -51,11 +51,12 @@ class Settings(BaseSettings):
     min_ats_score: int = 0
     ats_max_attempts: int = 3
 
-    # Applied-job Google Sheet log (Ken bid / Sheet8USTamoorSF)
+    # Applied-job Google Sheet log. The target belongs in .env — a personal
+    # spreadsheet id as a code default follows the repo to anyone who clones it.
     applied_sheet_enabled: bool = True
-    applied_sheet_id: str = "1P5i9CTFj2PpAQ2yqi58zTRphmZQfZD2URHeJPHGxgA8"
-    applied_sheet_gid: str = "1934565105"
-    applied_sheet_tab: str = "Sheet8USTamoorSF"
+    applied_sheet_id: str = ""
+    applied_sheet_gid: str = ""
+    applied_sheet_tab: str = ""
     applied_sheets_webhook_url: str = ""
     google_service_account_json: str = ""
 
