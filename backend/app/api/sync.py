@@ -32,6 +32,7 @@ class DiscoverSiteBody(BaseModel):
     site: str
     window: str = "7d"  # 24h | 7d | all
     max_jobs: int = 100
+    roles: list[str] | None = None
     domains: list[str] | None = None  # e.g. ["de","ai","sf"]
 
 
@@ -68,8 +69,15 @@ async def ats_catalog_boards(
 @router.get("/fetch-sites")
 async def fetch_sites_catalog():
     """Sites + time windows + tech domains available for site-scoped Fetch."""
+    from app.services.job_domains import roles_for_domain
+
     catalog = list_fetch_sites()
-    catalog["domains"] = list_job_domains()
+    domains = list_job_domains()
+    # Each domain carries the concrete titles inside it, so the picker can
+    # offer "Senior Data Engineer" rather than only "Data Engineering".
+    for domain in domains:
+        domain["roles"] = roles_for_domain(domain.get("id"))
+    catalog["domains"] = domains
     return catalog
 
 
@@ -127,6 +135,8 @@ async def sync_discover_site(body: DiscoverSiteBody):
             "site": site["id"],
             "window": win["id"],
             "max_jobs": max_jobs,
+        "roles": body.roles or [],
+            "roles": body.roles or [],
             "site_label": site["label"],
             "domains": domains,
         },

@@ -22,6 +22,7 @@ from app.services.fetch_sites import MAX_JOBS_CAP, resolve_site, resolve_window
 from app.services.job_domains import (
     classify_domains,
     domains_storage,
+    title_matches_roles,
     matches_allowed,
     normalize_domain_ids,
 )
@@ -266,12 +267,14 @@ def _filter_listings(
     us_remote_strict: bool,
     require_posted_at: bool = False,
     allowed_domains: list[str] | None = None,
+    allowed_roles: list[str] | None = None,
 ) -> tuple[list[RawListing], dict[str, int], dict[str, int]]:
     by_source: dict[str, int] = {}
     drop_reasons: dict[str, int] = {}
     seen_url: set[str] = set()
     filtered: list[RawListing] = []
     allowed = normalize_domain_ids(allowed_domains) if allowed_domains else []
+    wanted_roles = [r for r in (allowed_roles or []) if r]
 
     def _drop(reason: str) -> None:
         drop_reasons[reason] = drop_reasons.get(reason, 0) + 1
@@ -298,6 +301,11 @@ def _filter_listings(
                 continue
         if allowed:
             domain_ids = classify_domains(listing.job_title, listing.description)
+            # A domain says the field; a role says the job. Selecting
+            # "Senior Data Engineer" should not return every data engineer.
+            if wanted_roles and not title_matches_roles(listing.job_title, wanted_roles):
+                _drop("role_mismatch")
+                continue
             if not matches_allowed(domain_ids, allowed):
                 _drop("domain_mismatch")
                 continue
@@ -312,11 +320,13 @@ async def collect_new_listings(
     *,
     mode: str = "standard",
     domains: list[str] | None = None,
+    roles: list[str] | None = None,
     on_progress: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     cfg = load_discovery_settings(mode=mode)
     allowed_domains = normalize_domain_ids(domains)
     cfg["domains"] = allowed_domains
+    cfg["roles"] = [r for r in (roles or []) if r]
     cutoff = datetime.now(timezone.utc) - timedelta(days=cfg["posted_within_days"])
     factory = get_session_factory()
 
@@ -434,6 +444,7 @@ async def collect_new_listings(
         us_remote_strict=cfg["us_remote_strict"],
         require_posted_at=cfg["require_posted_at"],
         allowed_domains=allowed_domains or None,
+        allowed_roles=cfg.get("roles") or None,
     )
     diversified = diversify_by_company(filtered)
     insert_limit = cfg["insert_limit"]
@@ -576,6 +587,7 @@ async def collect_site_listings(
     window: str = "7d",
     max_jobs: int = 100,
     domains: list[str] | None = None,
+    roles: list[str] | None = None,
     on_progress: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Fetch from one site/feed or one ATS family, capped and time-filtered."""
@@ -592,6 +604,7 @@ async def collect_site_listings(
     cfg["site_kind"] = site_meta["kind"]
     allowed_domains = normalize_domain_ids(domains)
     cfg["domains"] = allowed_domains
+    cfg["roles"] = [r for r in (roles or []) if r]
     # Site fetches try more company boards so one run is useful
     cfg["boards_per_run"] = max(cfg["boards_per_run"], 50 if site_meta["kind"].startswith("ats") else 0)
 
@@ -676,6 +689,7 @@ async def collect_site_listings(
         us_remote_strict=cfg["us_remote_strict"],
         require_posted_at=cfg["require_posted_at"] and kind != "feed",
         allowed_domains=allowed_domains or None,
+        allowed_roles=cfg.get("roles") or None,
     )
     # For 24h feed fetches, still prefer recent when dates exist but don't drop all
     if kind == "feed" and window == "24h":

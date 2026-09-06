@@ -691,28 +691,39 @@ async def fetch_themuse(pages: int = 3) -> list[RawListing]:
 
 # --- Jobright ---------------------------------------------------------------
 # Jobright has no public list API: /swan/job/list answers 401 "Cookie not
-# found". Discovery therefore goes through the paths their robots.txt names
-# explicitly — Allow: /remote-jobs/* and Allow: /jobs/* — reached from their
-# own sitemap. Each category page carries roughly thirty job links, and each
-# job page ships the full record as Next.js __NEXT_DATA__.
+# found". Discovery uses the paths their robots.txt names explicitly
+# (Allow: /jobs/*, Allow: /remote-jobs/*), found through their own sitemap.
+#
+# Their listing pages embed __NEXT_DATA__.props.pageProps.jobList, and every
+# entry there is a complete record — title, company, description, salary and a
+# real publishTime. So one page request yields ~16 jobs rather than one, which
+# is the difference between 34 jobs a run and several hundred.
 JOBRIGHT_BASE = "https://jobright.ai"
-JOBRIGHT_SITEMAP = f"{JOBRIGHT_BASE}/sitemap-remote-jobs.xml"
-
-# Ordered by relevance to this pipeline; the sitemap is the source of truth
-# and anything it stops listing simply drops out.
-JOBRIGHT_CATEGORIES: tuple[str, ...] = (
-    "data-ai",
-    "software-engineering",
-    "infrastructure-security",
+JOBRIGHT_SITEMAPS = (
+    f"{JOBRIGHT_BASE}/sitemap-remote-jobs.xml",
+    f"{JOBRIGHT_BASE}/sitemap-taxonomy.xml",
 )
 
-_JOBRIGHT_ID_RE = re.compile(r"/jobs/info/([0-9a-f]{24})")
-_NEXT_DATA_RE = re.compile(
-    r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', re.S
+# City-scoped duplicates of the same role add pages without adding jobs.
+_JOBRIGHT_CITY_RE = re.compile(r"-in-[a-z-]+-[a-z]{2}$")
+_NEXT_DATA_RE = re.compile(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', re.S)
+
+# Role pages worth walking when no domain filter narrows things.
+JOBRIGHT_DEFAULT_SLUGS: tuple[str, ...] = (
+    "data-engineer",
+    "data-engineering",
+    "software-engineer",
+    "backend-engineer",
+    "full-stack-engineer",
+    "devops",
+    "data-scientist",
+    "machine-learning-engineer",
+    "cloud-engineer",
+    "python-engineer",
 )
 
 
-async def _jobright_html(url: str, timeout: float = 25.0) -> str:
+async def _jobright_html(url: str, timeout: float = 20.0) -> str:
     async with httpx.AsyncClient(
         timeout=timeout,
         follow_redirects=True,
@@ -723,64 +734,62 @@ async def _jobright_html(url: str, timeout: float = 25.0) -> str:
         return resp.text
 
 
-async def _jobright_category_urls() -> list[str]:
-    """Category pages, taken from their sitemap rather than guessed."""
-    try:
-        xml = await _jobright_html(JOBRIGHT_SITEMAP, timeout=20.0)
-    except Exception:  # noqa: BLE001
-        return [f"{JOBRIGHT_BASE}/remote-jobs/{c}" for c in JOBRIGHT_CATEGORIES]
-    listed = re.findall(r"<loc>(.*?)</loc>", xml)
-    wanted = [
-        u
-        for u in listed
-        if any(u.rstrip("/").endswith(c) for c in JOBRIGHT_CATEGORIES)
-    ]
-    return wanted or [u for u in listed if "/remote-jobs" in u][:4]
+class JobrightChallenged(RuntimeError):
+    """Jobright served a bot challenge instead of the page.
+
+    Their Cloudflare protection engages under sustained automated requests.
+    There is no way past it that is not evasion, so the fetcher stops and says
+    so rather than returning an empty list that looks like "no jobs today".
+    """
 
 
-def _jobright_listing(job_id: str, html: str) -> RawListing | None:
-    """Build a listing from the record embedded in the job page."""
+def _jobright_next_data(html: str) -> dict[str, Any]:
+    if "Security check | Jobright" in html or "challenges.cloudflare.com" in html:
+        raise JobrightChallenged(
+            "Jobright served a Cloudflare bot check. Their protection has "
+            "engaged for this machine; wait before fetching again, or use "
+            "CSV upload for Jobright listings."
+        )
     match = _NEXT_DATA_RE.search(html)
     if not match:
-        return None
+        return {}
     try:
-        props = json.loads(match.group(1))["props"]["pageProps"]
+        return json.loads(match.group(1))["props"]["pageProps"]
     except Exception:  # noqa: BLE001
-        return None
+        return {}
 
-    source = props.get("dataSource") or {}
-    job = source.get("jobResult") or {}
-    company = source.get("companyResult") or {}
 
+def _jobright_row(entry: dict[str, Any]) -> RawListing | None:
+    """One jobList entry -> a listing. Same shape as a job detail page."""
+    job = entry.get("jobResult") or {}
+    company = entry.get("companyResult") or {}
     title = str(job.get("jobTitle") or job.get("jobNlpTitle") or "").strip()
     employer = str(company.get("companyName") or "").strip()
-    if not title or not employer:
+    job_id = str(job.get("jobId") or "").strip()
+    if not title or not employer or not job_id:
         return None
 
-    # Their summary fields are the readable job description; join whichever
-    # are present so the gates and the tailor have real text to work with.
     parts = [
         str(job.get("jobSummary") or "").strip(),
         str(job.get("jdResponsibilitySummary") or "").strip(),
     ]
-    responsibilities = job.get("coreResponsibilities")
-    if isinstance(responsibilities, list):
-        parts += [str(r).strip() for r in responsibilities if r]
-    elif responsibilities:
-        parts.append(str(responsibilities).strip())
+    core = job.get("coreResponsibilities")
+    if isinstance(core, list):
+        parts += [str(x).strip() for x in core if x]
+    elif core:
+        parts.append(str(core).strip())
     if company.get("companyDesc"):
         parts.append(str(company["companyDesc"]).strip())
     description = "\n\n".join(p for p in parts if p) or None
+
+    salary = str(job.get("salaryDesc") or "").strip()
+    if salary and description:
+        description = f"{description}\n\nCompensation: {salary}"
 
     location = str(job.get("jobLocation") or "").strip() or None
     work_model = str(job.get("workModel") or "").strip()
     if work_model and location and work_model.lower() not in location.lower():
         location = f"{location} ({work_model})"
-
-    is_remote = str(job.get("isRemote") or "").strip().lower() == "true"
-    salary = str(job.get("salaryDesc") or "").strip()
-    if salary and description:
-        description = f"{description}\n\nCompensation: {salary}"
 
     return RawListing(
         source="Jobright",
@@ -789,45 +798,103 @@ def _jobright_listing(job_id: str, html: str) -> RawListing | None:
         job_url=f"{JOBRIGHT_BASE}/jobs/info/{job_id}",
         location_raw=location,
         description=description,
-        # publishTime is a real posting date, which most feeds do not give us.
         posted_at=str(job.get("publishTime") or "") or None,
-        is_remote_flag_from_board=is_remote or work_model.lower() == "remote",
-        external_id=str(job.get("jobId") or job_id),
+        is_remote_flag_from_board=(
+            str(job.get("isRemote") or "").strip().lower() == "true"
+            or work_model.lower() == "remote"
+        ),
+        external_id=job_id,
         raw={"seniority": job.get("jobSeniority"), "salary": salary},
     )
 
 
-async def fetch_jobright(max_jobs: int = 60) -> list[RawListing]:
-    """Remote jobs from Jobright's public category pages.
-
-    Detail pages are fetched a few at a time on purpose: this walks one page
-    per job, so it should read like a person browsing rather than a crawl.
-    """
-    categories = await _jobright_category_urls()
-    job_ids: list[str] = []
+async def jobright_role_slugs() -> list[str]:
+    """Role slugs Jobright publishes, city-scoped duplicates removed."""
+    slugs: list[str] = []
     seen: set[str] = set()
-    for url in categories:
+    for sitemap in JOBRIGHT_SITEMAPS:
         try:
-            html = await _jobright_html(url)
+            xml = await _jobright_html(sitemap, timeout=20.0)
         except Exception:  # noqa: BLE001
             continue
-        for job_id in _JOBRIGHT_ID_RE.findall(html):
-            if job_id not in seen:
-                seen.add(job_id)
-                job_ids.append(job_id)
-        if len(job_ids) >= max_jobs:
-            break
+        for url in re.findall(r"<loc>(.*?)</loc>", xml):
+            slug = url.rstrip("/").rsplit("/", 1)[-1]
+            if not slug or slug in seen or _JOBRIGHT_CITY_RE.search(slug):
+                continue
+            seen.add(slug)
+            slugs.append(slug)
+    return slugs
 
-    job_ids = job_ids[: max(1, max_jobs)]
-    semaphore = asyncio.Semaphore(4)
 
-    async def one(job_id: str) -> RawListing | None:
+def _jobright_pages(slugs: list[str], wanted: list[str] | None) -> list[str]:
+    """Listing pages to walk, narrowed to the caller's role words when given."""
+    if wanted:
+        needles = [w.lower().replace(" ", "-") for w in wanted if w]
+        # Exact slug first, then slugs containing the phrase, so asking for
+        # "data engineer" leads with /jobs/data-engineer.
+        exact = [s for s in slugs if s in needles]
+        partial = [s for s in slugs if s not in exact and any(n in s for n in needles)]
+        slugs = exact + partial
+    else:
+        # The sitemap is ordered by Jobright's own taxonomy, which opens with
+        # manufacturing — walking it blind returned CNC machinists. With no
+        # filter, stay on the roles this pipeline is actually for.
+        available = set(slugs)
+        slugs = [s for s in JOBRIGHT_DEFAULT_SLUGS if s in available]
+    if not slugs:
+        slugs = list(JOBRIGHT_DEFAULT_SLUGS)
+    pages = []
+    for slug in slugs:
+        prefix = "remote-jobs" if slug.startswith(("remote", "data-ai", "software-engineering")) else "jobs"
+        pages.append(f"{JOBRIGHT_BASE}/{prefix}/{slug}")
+    return pages
+
+
+async def fetch_jobright(
+    max_jobs: int = 400,
+    roles: list[str] | None = None,
+    max_pages: int = 26,
+) -> list[RawListing]:
+    """Remote jobs from Jobright's public listing pages.
+
+    Reads whole pages rather than one page per job: each listing page embeds
+    the full record for every job on it, so this returns hundreds of jobs in
+    roughly the time a per-job crawl needed for thirty.
+    """
+    try:
+        slugs = await jobright_role_slugs()
+    except Exception:  # noqa: BLE001
+        slugs = []
+    pages = _jobright_pages(slugs, roles)[: max(1, max_pages)]
+
+    semaphore = asyncio.Semaphore(6)
+
+    async def one(url: str) -> list[RawListing]:
         async with semaphore:
             try:
-                html = await _jobright_html(f"{JOBRIGHT_BASE}/jobs/info/{job_id}")
+                html = await _jobright_html(url)
             except Exception:  # noqa: BLE001
-                return None
-            return _jobright_listing(job_id, html)
+                return []
+        props = _jobright_next_data(html)  # raises JobrightChallenged
+        entries = props.get("jobList")
+        if not isinstance(entries, list):
+            return []
+        rows = [_jobright_row(e) for e in entries if isinstance(e, dict)]
+        return [r for r in rows if r is not None]
 
-    listings = await asyncio.gather(*(one(j) for j in job_ids))
-    return [row for row in listings if row is not None]
+    try:
+        groups = await asyncio.gather(*(one(u) for u in pages))
+    except JobrightChallenged:
+        raise
+
+    out: list[RawListing] = []
+    seen: set[str] = set()
+    for group in groups:
+        for row in group:
+            if row.external_id in seen:
+                continue
+            seen.add(row.external_id)
+            out.append(row)
+            if len(out) >= max_jobs:
+                return out
+    return out

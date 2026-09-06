@@ -1130,3 +1130,83 @@ body {
 .own-employer-toggle input {
   cursor: pointer;
 }
+
+/* Domain rows with the concrete job titles inside them. A domain says the
+   field; a title says the job, and picking "Senior Data Engineer" should not
+   return every data engineer. */
+.domain-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  max-height: 24rem;
+  overflow-y: auto;
+}
+
+.domain-row {
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  padding: 0.35rem 0.45rem;
+  background: var(--surface-2);
+}
+
+.domain-row.active {
+  border-color: color-mix(in srgb, var(--profile-accent) 45%, var(--line));
+}
+
+.domain-row-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: space-between;
+}
+
+.domain-row-toggle {
+  font-size: 0.72rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text-muted);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.domain-row-toggle:hover {
+  color: var(--text);
+  border-color: var(--profile-accent);
+}
+
+.domain-row-caret {
+  margin-left: 0.3rem;
+  opacity: 0.7;
+}
+
+.domain-role-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.4rem;
+  padding-top: 0.4rem;
+  border-top: 1px dashed var(--line-soft);
+}
+
+.role-chip {
+  font-size: 0.72rem;
+  padding: 0.12rem 0.45rem;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--surface-1);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.role-chip.active {
+  border-color: var(--profile-accent);
+  color: var(--profile-accent);
+  background: color-mix(in srgb, var(--profile-accent) 12%, var(--surface-1));
+}
+
+.role-chip-clear {
+  border-style: dashed;
+  color: var(--text-faint);
+}

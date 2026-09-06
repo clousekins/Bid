@@ -378,7 +378,7 @@ export default function WorkspaceApp({ onGoHome, theme, onToggleTheme }) {
           )
         }
         onOpenCompanyCatalog={() => setShowCompanyCatalog(true)}
-        onFetchSite={({ site, window, max_jobs, domains }) =>
+        onFetchSite={({ site, window, max_jobs, domains, roles }) =>
           runOrError(() =>
             batch.startBg("discover_site", {
               persona_id: ws.workingPersonaId,
@@ -386,6 +386,7 @@ export default function WorkspaceApp({ onGoHome, theme, onToggleTheme }) {
               window,
               max_jobs,
               domains,
+              roles,
             })
           )
         }

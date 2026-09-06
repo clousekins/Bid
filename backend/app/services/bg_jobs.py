@@ -108,7 +108,7 @@ async def enqueue(
         progress["generate_as"] = generate_as
     if options:
         progress["options"] = options
-        progress.update({k: v for k, v in options.items() if k in {"site", "window", "max_jobs", "domains"}})
+        progress.update({k: v for k, v in options.items() if k in {"site", "window", "max_jobs", "domains", "roles"}})
     async with factory() as session:
         row = BackgroundJob(
             kind=str(kind.value if isinstance(kind, BackgroundJobKind) else kind),
@@ -644,6 +644,7 @@ async def _exec_discover(session, row: BackgroundJob, *, mode: str = "standard")
     window = str(opts.get("window") or prog0.get("window") or "7d").strip()
     max_jobs = int(opts.get("max_jobs") or prog0.get("max_jobs") or 100)
     domains = opts.get("domains") if isinstance(opts.get("domains"), list) else []
+    roles = opts.get("roles") if isinstance(opts.get("roles"), list) else []
 
     progress: dict[str, Any] = {
         "done": 0,
@@ -661,6 +662,7 @@ async def _exec_discover(session, row: BackgroundJob, *, mode: str = "standard")
         "window": window if site else None,
         "max_jobs": max_jobs if site else None,
         "domains": domains or None,
+        "roles": roles or None,
         "options": opts or None,
     }
     row.progress = json.dumps(progress)
@@ -681,12 +683,14 @@ async def _exec_discover(session, row: BackgroundJob, *, mode: str = "standard")
             window=window,
             max_jobs=max_jobs,
             domains=domains or None,
+            roles=roles or None,
             on_progress=on_collect_progress,
         )
     else:
         listings, meta = await collect_new_listings(
             mode=mode,
             domains=domains or None,
+            roles=roles or None,
             on_progress=on_collect_progress,
         )
     insert_limit = int(meta.get("insert_limit") or 50)

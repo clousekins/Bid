@@ -303,3 +303,204 @@ def matches_allowed(domain_ids: list[str], allowed_ids: list[str] | None) -> boo
         return False
     allowed = set(allowed_ids)
     return any(d in allowed for d in domain_ids)
+
+
+# Concrete job titles inside each domain.
+#
+# A domain says what field a job is in; a role says which job. "Data
+# Engineering" matches 446 listings in the current table, but the operator
+# usually wants a slice of that — Senior Data Engineer, Staff, Principal — and
+# selecting the domain alone cannot express it.
+#
+# Ordered seniority-first within a domain, because that is how the list reads.
+JOB_ROLES: dict[str, list[dict[str, Any]]] = {
+    "de": [
+        {"id": "de_data_engineer", "label": "Data Engineer",
+         "patterns": [r"\bdata engineer\b"]},
+        {"id": "de_senior", "label": "Senior Data Engineer",
+         "patterns": [r"\b(?:senior|sr\.?)\s+data engineer\b"]},
+        {"id": "de_staff", "label": "Staff Data Engineer",
+         "patterns": [r"\bstaff\s+data engineer\b"]},
+        {"id": "de_principal", "label": "Principal Data Engineer",
+         "patterns": [r"\bprincipal\s+data engineer\b"]},
+        {"id": "de_lead", "label": "Lead Data Engineer",
+         "patterns": [r"\b(?:lead|leading)\s+data engineer\b", r"\bdata engineering lead\b"]},
+        {"id": "de_cloud", "label": "AWS / Azure / GCP Data Engineer",
+         "patterns": [r"\b(?:aws|azure|gcp|google cloud)\s+data engineer\b"]},
+        {"id": "de_bigdata", "label": "Big Data / Spark Engineer",
+         "patterns": [r"\bbig ?data engineer\b", r"\bspark engineer\b", r"\bhadoop engineer\b"]},
+        {"id": "de_etl", "label": "ETL / Pipeline Engineer",
+         "patterns": [r"\betl developer\b", r"\betl engineer\b", r"\bpipeline engineer\b"]},
+        {"id": "de_platform", "label": "Data Platform / Infrastructure",
+         "patterns": [r"\bdata platform engineer\b", r"\bdata infrastructure engineer\b"]},
+        {"id": "de_analytics", "label": "Analytics Engineer",
+         "patterns": [r"\banalytics engineer\b"]},
+        {"id": "de_architect", "label": "Data Architect",
+         "patterns": [r"\bdata architect\b", r"\bdata engineering architect\b"]},
+        {"id": "de_warehouse", "label": "Data Warehouse Engineer",
+         "patterns": [r"\bdata warehouse (?:engineer|developer)\b", r"\bsnowflake engineer\b"]},
+    ],
+    "ai": [
+        {"id": "ai_ml_engineer", "label": "Machine Learning Engineer",
+         "patterns": [r"\b(?:machine learning|ml)\s+engineer\b"]},
+        {"id": "ai_senior_ml", "label": "Senior ML Engineer",
+         "patterns": [r"\b(?:senior|sr\.?|staff|principal)\s+(?:machine learning|ml)\s+engineer\b"]},
+        {"id": "ai_ai_engineer", "label": "AI Engineer",
+         "patterns": [r"\bai engineer\b", r"\bai/ml engineer\b"]},
+        {"id": "ai_llm", "label": "LLM / GenAI Engineer",
+         "patterns": [r"\bllm\b", r"\bgenerative ai\b", r"\bgenai\b", r"\bprompt engineer\b"]},
+        {"id": "ai_mlops", "label": "MLOps Engineer",
+         "patterns": [r"\bml ?ops engineer\b", r"\bml platform engineer\b"]},
+        {"id": "ai_research", "label": "Research / Applied Scientist",
+         "patterns": [r"\bresearch (?:engineer|scientist)\b", r"\bapplied scientist\b"]},
+        {"id": "ai_nlp_cv", "label": "NLP / Computer Vision",
+         "patterns": [r"\bnlp engineer\b", r"\bcomputer vision engineer\b"]},
+    ],
+    "ds": [
+        {"id": "ds_data_scientist", "label": "Data Scientist",
+         "patterns": [r"\bdata scientist\b"]},
+        {"id": "ds_senior", "label": "Senior Data Scientist",
+         "patterns": [r"\b(?:senior|sr\.?|staff|principal|lead)\s+data scientist\b"]},
+        {"id": "ds_applied", "label": "Applied / Decision Scientist",
+         "patterns": [r"\bapplied scientist\b", r"\bdecision scientist\b"]},
+        {"id": "ds_quant", "label": "Quantitative Analyst",
+         "patterns": [r"\bquantitative (?:analyst|researcher)\b", r"\bquant analyst\b"]},
+    ],
+    "da": [
+        {"id": "da_data_analyst", "label": "Data Analyst",
+         "patterns": [r"\bdata analyst\b"]},
+        {"id": "da_senior", "label": "Senior Data Analyst",
+         "patterns": [r"\b(?:senior|sr\.?|lead)\s+data analyst\b"]},
+        {"id": "da_bi", "label": "BI Analyst / Developer",
+         "patterns": [r"\bbi (?:analyst|developer|engineer)\b",
+                      r"\bbusiness intelligence (?:analyst|developer|engineer)\b"]},
+        {"id": "da_reporting", "label": "Reporting / Tableau / Power BI",
+         "patterns": [r"\btableau\b", r"\bpower bi\b", r"\breporting analyst\b"]},
+        {"id": "da_business", "label": "Business / Product Analyst",
+         "patterns": [r"\bbusiness analyst\b", r"\bproduct analyst\b"]},
+    ],
+    "sf": [
+        {"id": "sf_developer", "label": "Salesforce Developer",
+         "patterns": [r"\bsalesforce developer\b", r"\bapex developer\b"]},
+        {"id": "sf_admin", "label": "Salesforce Administrator",
+         "patterns": [r"\bsalesforce admin(?:istrator)?\b"]},
+        {"id": "sf_architect", "label": "Salesforce Architect",
+         "patterns": [r"\bsalesforce (?:technical )?architect\b"]},
+        {"id": "sf_consultant", "label": "Salesforce Consultant / BA",
+         "patterns": [r"\bsalesforce (?:consultant|business analyst)\b"]},
+        {"id": "sf_cpq", "label": "CPQ / Marketing Cloud",
+         "patterns": [r"\bcpq\b", r"\bmarketing cloud\b", r"\bservice cloud\b", r"\bsales cloud\b"]},
+    ],
+    "dv": [
+        {"id": "dv_devops", "label": "DevOps Engineer",
+         "patterns": [r"\bdevops engineer\b"]},
+        {"id": "dv_sre", "label": "Site Reliability Engineer",
+         "patterns": [r"\bsite reliability engineer\b", r"\bsre\b"]},
+        {"id": "dv_platform", "label": "Platform Engineer",
+         "patterns": [r"\bplatform engineer\b"]},
+        {"id": "dv_infra", "label": "Infrastructure Engineer",
+         "patterns": [r"\binfrastructure engineer\b"]},
+        {"id": "dv_senior", "label": "Senior / Staff DevOps",
+         "patterns": [r"\b(?:senior|sr\.?|staff|principal|lead)\s+(?:devops|sre|platform) engineer\b"]},
+    ],
+    "ce": [
+        {"id": "ce_cloud", "label": "Cloud Engineer",
+         "patterns": [r"\bcloud engineer\b"]},
+        {"id": "ce_architect", "label": "Cloud Architect",
+         "patterns": [r"\bcloud (?:solutions )?architect\b"]},
+        {"id": "ce_aws", "label": "AWS Engineer",
+         "patterns": [r"\baws (?:engineer|cloud engineer|developer)\b"]},
+        {"id": "ce_azure", "label": "Azure Engineer",
+         "patterns": [r"\bazure (?:engineer|cloud engineer|developer)\b"]},
+        {"id": "ce_gcp", "label": "GCP Engineer",
+         "patterns": [r"\b(?:gcp|google cloud) (?:engineer|developer)\b"]},
+    ],
+    "be": [
+        {"id": "be_backend", "label": "Backend Engineer",
+         "patterns": [r"\bback ?end (?:engineer|developer)\b"]},
+        {"id": "be_senior", "label": "Senior / Staff Backend",
+         "patterns": [r"\b(?:senior|sr\.?|staff|principal|lead)\s+back ?end\b"]},
+        {"id": "be_python", "label": "Python Engineer",
+         "patterns": [r"\bpython (?:engineer|developer)\b"]},
+        {"id": "be_java", "label": "Java Engineer",
+         "patterns": [r"\bjava (?:engineer|developer)\b"]},
+        {"id": "be_api", "label": "API / Microservices",
+         "patterns": [r"\bapi (?:engineer|developer)\b", r"\bmicroservices? (?:engineer|developer)\b"]},
+    ],
+    "fs": [
+        {"id": "fs_full_stack", "label": "Full Stack Engineer",
+         "patterns": [r"\bfull ?stack (?:engineer|developer)\b"]},
+        {"id": "fs_senior", "label": "Senior / Staff Full Stack",
+         "patterns": [r"\b(?:senior|sr\.?|staff|principal|lead)\s+full ?stack\b"]},
+    ],
+    "fe": [
+        {"id": "fe_frontend", "label": "Frontend Engineer",
+         "patterns": [r"\bfront ?end (?:engineer|developer)\b"]},
+        {"id": "fe_react", "label": "React / Angular / Vue",
+         "patterns": [r"\breact (?:engineer|developer)\b", r"\bangular (?:engineer|developer)\b",
+                      r"\bvue (?:engineer|developer)\b"]},
+        {"id": "fe_ui", "label": "UI Engineer",
+         "patterns": [r"\bui (?:engineer|developer)\b", r"\bweb developer\b"]},
+    ],
+    "se": [
+        {"id": "se_software", "label": "Software Engineer",
+         "patterns": [r"\bsoftware (?:engineer|developer)\b", r"\bsde\b"]},
+        {"id": "se_senior", "label": "Senior Software Engineer",
+         "patterns": [r"\b(?:senior|sr\.?)\s+software engineer\b"]},
+        {"id": "se_staff", "label": "Staff / Principal Engineer",
+         "patterns": [r"\b(?:staff|principal|distinguished)\s+(?:software )?engineer\b"]},
+        {"id": "se_lead", "label": "Lead / Engineering Manager",
+         "patterns": [r"\bengineering manager\b", r"\btech(?:nical)? lead\b"]},
+    ],
+    "sq": [
+        {"id": "sq_sql_dev", "label": "SQL Developer",
+         "patterns": [r"\bsql (?:developer|engineer)\b"]},
+        {"id": "sq_dba", "label": "Database Administrator",
+         "patterns": [r"\bdatabase administrator\b", r"\bdba\b"]},
+        {"id": "sq_ssis", "label": "SSIS / SSRS / MSBI",
+         "patterns": [r"\bssis\b", r"\bssrs\b", r"\bmsbi\b"]},
+        {"id": "sq_db_dev", "label": "Database Developer",
+         "patterns": [r"\bdatabase developer\b", r"\bpl/?sql developer\b"]},
+    ],
+}
+
+_ROLE_COMPILED: dict[str, list[tuple[str, list[Any]]]] = {
+    domain: [(r["id"], [re.compile(p, re.I) for p in r["patterns"]]) for r in roles]
+    for domain, roles in JOB_ROLES.items()
+}
+
+_ROLE_LABELS: dict[str, str] = {
+    role["id"]: role["label"] for roles in JOB_ROLES.values() for role in roles
+}
+
+
+def roles_for_domain(domain_id: str) -> list[dict[str, Any]]:
+    """The concrete titles offered under one domain."""
+    return [
+        {"id": r["id"], "label": r["label"]} for r in JOB_ROLES.get(domain_id, [])
+    ]
+
+
+def role_label(role_id: str) -> str:
+    return _ROLE_LABELS.get(role_id, role_id)
+
+
+def classify_roles(title: str | None) -> list[str]:
+    """Role ids a job title matches, across every domain."""
+    text = (title or "").lower()
+    if not text:
+        return []
+    found: list[str] = []
+    for roles in _ROLE_COMPILED.values():
+        for role_id, patterns in roles:
+            if any(p.search(text) for p in patterns):
+                found.append(role_id)
+    return found
+
+
+def title_matches_roles(title: str | None, role_ids: list[str] | None) -> bool:
+    """True when no roles are selected, or the title matches one of them."""
+    if not role_ids:
+        return True
+    wanted = set(role_ids)
+    return bool(wanted & set(classify_roles(title)))

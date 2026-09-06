@@ -94,7 +94,7 @@ export default function SiteFetchPanel({ busy, onFetchSite }) {
         subtitle={`Fetching ${site?.label || selected} · ${windowMeta?.label || pendingWindow || ""}. Only matching domains are kept.`}
         busy={busy}
         onClose={() => setPendingWindow(null)}
-        onConfirm={(domains) => {
+        onConfirm={(domains, roles) => {
           const win = pendingWindow;
           setPendingWindow(null);
           if (!win) return;
@@ -103,6 +103,7 @@ export default function SiteFetchPanel({ busy, onFetchSite }) {
             window: win,
             max_jobs: maxJobs,
             domains,
+            roles,
           });
         }}
       />

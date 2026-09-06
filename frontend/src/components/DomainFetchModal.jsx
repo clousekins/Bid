@@ -26,6 +26,10 @@ export default function DomainFetchModal({
 }) {
   const [domains, setDomains] = useState(FALLBACK_DOMAINS);
   const [selected, setSelected] = useState(() => new Set(FALLBACK_DOMAINS.map((d) => d.id)));
+  // Titles inside a domain. Empty means "the whole domain", which is what
+  // selecting a row without picking any title should mean.
+  const [roles, setRoles] = useState(() => new Set());
+  const [openRows, setOpenRows] = useState(() => new Set());
 
   useEffect(() => {
     if (!open) return undefined;
@@ -57,6 +61,7 @@ export default function DomainFetchModal({
   }, [open, busy, onClose]);
 
   const selectedList = useMemo(() => [...selected], [selected]);
+  const roleList = useMemo(() => [...roles], [roles]);
   if (!open) return null;
 
   const toggle = (id) => {
@@ -69,7 +74,26 @@ export default function DomainFetchModal({
   };
 
   const selectAll = () => setSelected(new Set(domains.map((d) => d.id)));
-  const clearAll = () => setSelected(new Set());
+  const clearAll = () => {
+    setSelected(new Set());
+    setRoles(new Set());
+  };
+
+  const toggleRole = (domainId, roleId) =>
+    setRoles((prev) => {
+      const next = new Set(prev);
+      next.has(roleId) ? next.delete(roleId) : next.add(roleId);
+      // Picking a title implies wanting its domain.
+      if (next.has(roleId)) setSelected((s2) => new Set(s2).add(domainId));
+      return next;
+    });
+
+  const toggleRow = (id) =>
+    setOpenRows((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
 
   return (
     <div className="modal-backdrop" onClick={() => !busy && onClose?.()}>
@@ -99,21 +123,72 @@ export default function DomainFetchModal({
           </button>
           <span className="muted">{selectedList.length} selected</span>
         </div>
-        <div className="domain-fetch-chips">
+        <div className="domain-rows">
           {domains.map((d) => {
             const active = selected.has(d.id);
+            const rows = d.roles || [];
+            const picked = rows.filter((r) => roles.has(r.id));
+            const expanded = openRows.has(d.id);
             return (
-              <button
-                key={d.id}
-                type="button"
-                className={active ? "seq-chip active" : "seq-chip"}
-                title={d.blurb || d.label}
-                disabled={busy}
-                onClick={() => toggle(d.id)}
-              >
-                <span className="domain-code">{d.code}</span>
-                <span className="domain-label">{d.label}</span>
-              </button>
+              <div key={d.id} className={`domain-row ${active ? "active" : ""}`}>
+                <div className="domain-row-head">
+                  <button
+                    type="button"
+                    className={active ? "seq-chip active" : "seq-chip"}
+                    title={d.blurb || d.label}
+                    disabled={busy}
+                    onClick={() => toggle(d.id)}
+                  >
+                    <span className="domain-code">{d.code}</span>
+                    <span className="domain-label">{d.label}</span>
+                  </button>
+                  {rows.length ? (
+                    <button
+                      type="button"
+                      className="domain-row-toggle"
+                      disabled={busy}
+                      onClick={() => toggleRow(d.id)}
+                      title="Choose specific job titles in this domain"
+                    >
+                      {picked.length
+                        ? `${picked.length} of ${rows.length} titles`
+                        : `all ${rows.length} titles`}
+                      <span className="domain-row-caret">{expanded ? "▴" : "▾"}</span>
+                    </button>
+                  ) : null}
+                </div>
+                {expanded && rows.length ? (
+                  <div className="domain-role-chips">
+                    {rows.map((r) => (
+                      <button
+                        key={r.id}
+                        type="button"
+                        className={roles.has(r.id) ? "role-chip active" : "role-chip"}
+                        disabled={busy}
+                        onClick={() => toggleRole(d.id, r.id)}
+                      >
+                        {r.label}
+                      </button>
+                    ))}
+                    {picked.length ? (
+                      <button
+                        type="button"
+                        className="role-chip role-chip-clear"
+                        disabled={busy}
+                        onClick={() =>
+                          setRoles((prev) => {
+                            const next = new Set(prev);
+                            rows.forEach((r) => next.delete(r.id));
+                            return next;
+                          })
+                        }
+                      >
+                        clear titles
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
             );
           })}
         </div>
@@ -125,9 +200,14 @@ export default function DomainFetchModal({
             type="button"
             className="primary"
             disabled={busy || selectedList.length === 0}
-            onClick={() => onConfirm?.(selectedList)}
+            onClick={() => onConfirm?.(selectedList, roleList)}
           >
-            Fetch {selectedList.length ? `(${selectedList.length} domains)` : ""}
+            Fetch{" "}
+            {roleList.length
+              ? `(${roleList.length} titles)`
+              : selectedList.length
+                ? `(${selectedList.length} domains)`
+                : ""}
           </button>
         </div>
       </div>
