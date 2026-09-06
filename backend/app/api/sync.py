@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -245,3 +245,35 @@ async def apply_preview(body: RangeBody, db: AsyncSession = Depends(get_db)):
             for j in rows
         ]
     }
+
+
+class SectorSearchBody(BaseModel):
+    sector: str = Field(..., min_length=2, max_length=60)
+    limit: int = Field(default=60, ge=1, le=200)
+    it_only: bool = True
+    us_remote_only: bool = True
+
+
+@router.post("/sector-search")
+async def sector_search(body: SectorSearchBody):
+    """Find jobs at companies in one industry sector.
+
+    Returns results for review rather than inserting them: a sector search
+    reaches wider than the curated boards, so the operator picks what enters
+    the pipeline via the normal import path.
+    """
+    from app.services.sector_search import search_sector
+
+    return await search_sector(
+        body.sector,
+        limit=body.limit,
+        it_only=body.it_only,
+        us_remote_only=body.us_remote_only,
+    )
+
+
+@router.get("/sector-search/sectors")
+async def sector_list():
+    from app.services.sector_search import SECTOR_HINTS
+
+    return {"sectors": sorted(SECTOR_HINTS)}

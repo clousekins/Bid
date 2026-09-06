@@ -386,6 +386,33 @@ export default function WorkspaceApp({ onGoHome, theme, onToggleTheme }) {
             })
           )
         }
+        onSectorImport={async (rows) => {
+          // Reuse the normal ingest path so the gates, dedupe and folder
+          // creation behave exactly as they do for any other listing.
+          let added = 0;
+          const skipped = [];
+          for (const row of rows) {
+            try {
+              await client.createJob({
+                company: row.company,
+                title: row.title,
+                url: row.url,
+                location: row.location || "Remote, US",
+                description: row.description || undefined,
+                source: `sector:${row.source}`,
+                persona_id: ws.workingPersonaId || undefined,
+              });
+              added += 1;
+            } catch (e) {
+              skipped.push(`${row.company}: ${String(e.message || e).replace(/^\d+:\s*/, "")}`);
+            }
+          }
+          batch.setBatchProgress(
+            `Sector import: ${added} added` + (skipped.length ? `, ${skipped.length} skipped` : "")
+          );
+          if (skipped.length) ws.setError(formatGateList(skipped.slice(0, 4)));
+          await ws.refresh();
+        }}
         onUpload={onUpload}
         onDeleteRange={async () => {
           const { from, to } = committedRange();

@@ -3,12 +3,14 @@ import { commitSeqRange } from "../utils/seqRange.js";
 import DomainFetchModal from "./DomainFetchModal.jsx";
 import SiteFetchPanel from "./SiteFetchPanel.jsx";
 import AtsFloorControl from "./AtsFloorControl.jsx";
+import SectorSearchPanel from "./SectorSearchPanel.jsx";
 
 const STAGES = [
   { id: "ingest", label: "Ingest", hint: "Add & fetch listings" },
   { id: "prep", label: "Prep", hint: "Fetch job descriptions" },
   { id: "generate", label: "Generate", hint: "Tailor resumes" },
   { id: "apply", label: "Apply", hint: "Assisted apply" },
+  { id: "sector", label: "Special field", hint: "Search one industry sector" },
 ];
 
 export default function WorkflowBar({
@@ -30,6 +32,7 @@ export default function WorkflowBar({
   onDiscoverCompanies,
   onOpenCompanyCatalog,
   onFetchSite,
+  onSectorImport,
   onDeleteRange,
   onRenumber,
   checkedCount,
@@ -243,6 +246,12 @@ export default function WorkflowBar({
               Tailors HTML resume bundles for <strong>{workingLabel}</strong>. Watch the bottom activity panel while it runs.
             </p>
             <AtsFloorControl />
+          </div>
+        ) : null}
+
+        {stage === "sector" ? (
+          <div className="action-grid">
+            <SectorSearchPanel onImport={onSectorImport} busy={busy} />
           </div>
         ) : null}
 

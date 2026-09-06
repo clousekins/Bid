@@ -981,3 +981,123 @@ body {
 .layout {
   grid-template-columns: minmax(0, 1.75fr) minmax(340px, 0.9fr);
 }
+
+/* ============================================================
+   Special field — search one industry sector
+   ============================================================ */
+.sector-panel {
+  flex: 1 0 100%;
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.sector-controls {
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.sector-input {
+  flex: 1 1 18rem;
+  min-width: 0;
+  font: inherit;
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--surface-1);
+  color: var(--text);
+}
+
+.sector-summary {
+  font-size: 0.84rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.sector-list {
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  max-height: 22rem;
+  overflow-y: auto;
+}
+
+.sector-list li {
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  background: var(--surface-2);
+}
+
+.sector-list li.picked {
+  border-color: var(--profile-accent);
+  background: color-mix(in srgb, var(--profile-accent) 8%, var(--surface-2));
+}
+
+.sector-list label {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.sector-company {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.sector-title {
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sector-meta {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  font-size: 0.74rem;
+  margin-top: 0.15rem;
+  padding-left: 1.3rem;
+}
+
+.sector-source {
+  color: var(--profile-accent);
+}
+
+/* The words that matched — a wrong hit should be obvious before importing. */
+.sector-matched {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.22rem;
+  margin-top: 0.25rem;
+  padding-left: 1.3rem;
+}
+
+.sector-term {
+  font-size: 0.68rem;
+  padding: 0.02rem 0.3rem;
+  border-radius: 4px;
+  border: 1px solid color-mix(in srgb, var(--accent-2) 45%, transparent);
+  color: var(--accent-2);
+}
+
+/* The default link colour is near-invisible on the dark panel. */
+.sector-meta a {
+  color: var(--profile-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.sector-meta a:hover {
+  color: var(--text);
+}
