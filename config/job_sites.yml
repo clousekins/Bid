@@ -10,6 +10,13 @@ settings:
   batch_insert_limit: 50
 
 sites:
+  - id: jobright
+    name: Jobright
+    enabled: true
+    adapter: jobright
+    base_url: https://jobright.ai
+    notes: No public list API (401 without a cookie); reads the public remote-jobs pages their robots.txt allows
+
   - id: remoteok
     name: Remote OK
     enabled: true

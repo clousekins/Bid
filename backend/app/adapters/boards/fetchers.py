@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import html
 import re
 from html.parser import HTMLParser
@@ -686,3 +687,147 @@ async def fetch_themuse(pages: int = 3) -> list[RawListing]:
                     )
                 )
     return out
+
+
+# --- Jobright ---------------------------------------------------------------
+# Jobright has no public list API: /swan/job/list answers 401 "Cookie not
+# found". Discovery therefore goes through the paths their robots.txt names
+# explicitly — Allow: /remote-jobs/* and Allow: /jobs/* — reached from their
+# own sitemap. Each category page carries roughly thirty job links, and each
+# job page ships the full record as Next.js __NEXT_DATA__.
+JOBRIGHT_BASE = "https://jobright.ai"
+JOBRIGHT_SITEMAP = f"{JOBRIGHT_BASE}/sitemap-remote-jobs.xml"
+
+# Ordered by relevance to this pipeline; the sitemap is the source of truth
+# and anything it stops listing simply drops out.
+JOBRIGHT_CATEGORIES: tuple[str, ...] = (
+    "data-ai",
+    "software-engineering",
+    "infrastructure-security",
+)
+
+_JOBRIGHT_ID_RE = re.compile(r"/jobs/info/([0-9a-f]{24})")
+_NEXT_DATA_RE = re.compile(
+    r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', re.S
+)
+
+
+async def _jobright_html(url: str, timeout: float = 25.0) -> str:
+    async with httpx.AsyncClient(
+        timeout=timeout,
+        follow_redirects=True,
+        headers={"User-Agent": USER_AGENT, "Accept": "text/html,application/xhtml+xml"},
+    ) as client:
+        resp = await client.get(url)
+        resp.raise_for_status()
+        return resp.text
+
+
+async def _jobright_category_urls() -> list[str]:
+    """Category pages, taken from their sitemap rather than guessed."""
+    try:
+        xml = await _jobright_html(JOBRIGHT_SITEMAP, timeout=20.0)
+    except Exception:  # noqa: BLE001
+        return [f"{JOBRIGHT_BASE}/remote-jobs/{c}" for c in JOBRIGHT_CATEGORIES]
+    listed = re.findall(r"<loc>(.*?)</loc>", xml)
+    wanted = [
+        u
+        for u in listed
+        if any(u.rstrip("/").endswith(c) for c in JOBRIGHT_CATEGORIES)
+    ]
+    return wanted or [u for u in listed if "/remote-jobs" in u][:4]
+
+
+def _jobright_listing(job_id: str, html: str) -> RawListing | None:
+    """Build a listing from the record embedded in the job page."""
+    match = _NEXT_DATA_RE.search(html)
+    if not match:
+        return None
+    try:
+        props = json.loads(match.group(1))["props"]["pageProps"]
+    except Exception:  # noqa: BLE001
+        return None
+
+    source = props.get("dataSource") or {}
+    job = source.get("jobResult") or {}
+    company = source.get("companyResult") or {}
+
+    title = str(job.get("jobTitle") or job.get("jobNlpTitle") or "").strip()
+    employer = str(company.get("companyName") or "").strip()
+    if not title or not employer:
+        return None
+
+    # Their summary fields are the readable job description; join whichever
+    # are present so the gates and the tailor have real text to work with.
+    parts = [
+        str(job.get("jobSummary") or "").strip(),
+        str(job.get("jdResponsibilitySummary") or "").strip(),
+    ]
+    responsibilities = job.get("coreResponsibilities")
+    if isinstance(responsibilities, list):
+        parts += [str(r).strip() for r in responsibilities if r]
+    elif responsibilities:
+        parts.append(str(responsibilities).strip())
+    if company.get("companyDesc"):
+        parts.append(str(company["companyDesc"]).strip())
+    description = "\n\n".join(p for p in parts if p) or None
+
+    location = str(job.get("jobLocation") or "").strip() or None
+    work_model = str(job.get("workModel") or "").strip()
+    if work_model and location and work_model.lower() not in location.lower():
+        location = f"{location} ({work_model})"
+
+    is_remote = str(job.get("isRemote") or "").strip().lower() == "true"
+    salary = str(job.get("salaryDesc") or "").strip()
+    if salary and description:
+        description = f"{description}\n\nCompensation: {salary}"
+
+    return RawListing(
+        source="Jobright",
+        company_name=employer,
+        job_title=title,
+        job_url=f"{JOBRIGHT_BASE}/jobs/info/{job_id}",
+        location_raw=location,
+        description=description,
+        # publishTime is a real posting date, which most feeds do not give us.
+        posted_at=str(job.get("publishTime") or "") or None,
+        is_remote_flag_from_board=is_remote or work_model.lower() == "remote",
+        external_id=str(job.get("jobId") or job_id),
+        raw={"seniority": job.get("jobSeniority"), "salary": salary},
+    )
+
+
+async def fetch_jobright(max_jobs: int = 60) -> list[RawListing]:
+    """Remote jobs from Jobright's public category pages.
+
+    Detail pages are fetched a few at a time on purpose: this walks one page
+    per job, so it should read like a person browsing rather than a crawl.
+    """
+    categories = await _jobright_category_urls()
+    job_ids: list[str] = []
+    seen: set[str] = set()
+    for url in categories:
+        try:
+            html = await _jobright_html(url)
+        except Exception:  # noqa: BLE001
+            continue
+        for job_id in _JOBRIGHT_ID_RE.findall(html):
+            if job_id not in seen:
+                seen.add(job_id)
+                job_ids.append(job_id)
+        if len(job_ids) >= max_jobs:
+            break
+
+    job_ids = job_ids[: max(1, max_jobs)]
+    semaphore = asyncio.Semaphore(4)
+
+    async def one(job_id: str) -> RawListing | None:
+        async with semaphore:
+            try:
+                html = await _jobright_html(f"{JOBRIGHT_BASE}/jobs/info/{job_id}")
+            except Exception:  # noqa: BLE001
+                return None
+            return _jobright_listing(job_id, html)
+
+    listings = await asyncio.gather(*(one(j) for j in job_ids))
+    return [row for row in listings if row is not None]

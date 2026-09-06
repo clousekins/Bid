@@ -21,6 +21,7 @@ ADAPTERS: dict[str, AdapterFn] = {
     "weworkremotely": fetchers.fetch_weworkremotely,
     "themuse": fetchers.fetch_themuse,
     "hn_whoishiring": fetchers.fetch_hn_whoishiring,
+    "jobright": fetchers.fetch_jobright,
 }
 
 

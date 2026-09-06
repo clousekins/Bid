@@ -36,6 +36,12 @@ FETCH_SITES: list[dict[str, Any]] = [
         "blurb": "Rotate unsearched Greenhouse/Lever/Ashby/Workable boards",
     },
     {
+        "id": "jobright",
+        "label": "Jobright",
+        "kind": "feed",
+        "blurb": "Jobright remote-jobs pages (no public API — reads their sitemap)",
+    },
+    {
         "id": "remoteok",
         "label": "Remote OK",
         "kind": "feed",
