@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -7,6 +8,16 @@ from typing import Any
 import yaml
 
 from app.config import get_settings
+
+
+def strip_name_parentheticals(raw: str) -> str:
+    """'Brian Gou (Yi)' and 'Brian(Yi) Gou' both become 'Brian Gou'.
+
+    Persona names carry alternate spellings in parentheses. Left in place they
+    leak into resume titles, ATS last-name fields and cover-letter signatures,
+    so every consumer normalizes through here.
+    """
+    return re.sub(r"\s+", " ", re.sub(r"\([^)]*\)", " ", raw or "")).strip()
 
 
 @dataclass

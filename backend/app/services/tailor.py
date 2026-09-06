@@ -196,13 +196,31 @@ def _html_bundle_user_message(persona, job: Job) -> str:
     )
 
 
-def _cover_letter_system() -> str:
+def _cover_letter_system(persona) -> str:
+    """Lock the signature to this persona, mirroring the resume header lock.
+
+    The resume path enforces its header via enforce_resume_header(); without the
+    equivalent here the model invents a signature from the persona's name
+    parentheticals, so the resume and the cover letter disagree on who applied.
+    """
+    from app.services.resume_header import resume_location
+
+    ident = persona.identity or {}
+    location = resume_location(ident)
+    email = str(ident.get("email") or "").strip()
+    phone = str(ident.get("phone") or "").strip()
+    signature = "\n".join(
+        x for x in (persona.display_name, location, email, phone) if x
+    )
     return (
         "You write truthful professional cover letters grounded only in the provided "
         "candidate ground truth and job description. Output plain text only, 300–450 words. "
-        "Sign with name, Pflugerville, TX, email, and phone only — no street address, "
-        "ZIP, citizenship, or work-authorization wording unless the JD asks. "
-        "Do not invent employers, metrics, or degrees. No markdown headings."
+        "Do not invent employers, metrics, or degrees. No markdown headings.\n\n"
+        "LOCKED SIGNATURE — end the letter with exactly these lines after "
+        "\"Sincerely,\". Copy them verbatim. Do not reformat the name, do not "
+        "substitute any other spelling or variant of it, and do not add street "
+        "address, ZIP, citizenship, or work-authorization lines:\n"
+        f"{signature}"
     )
 
 
@@ -285,7 +303,7 @@ async def generate_cover_letter(persona, job: Job, resume_md: str) -> str:
         f"Resume draft (for tone/alignment only):\n{resume_md[:6000]}\n\n"
         "Write the cover letter plain text only."
     )
-    return await _chat(_cover_letter_system(), user)
+    return await _chat(_cover_letter_system(persona), user)
 
 
 async def generate_answers(persona, job: Job) -> dict[str, str]:

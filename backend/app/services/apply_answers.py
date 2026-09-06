@@ -8,122 +8,220 @@ from typing import Any
 from openai import AsyncOpenAI
 
 from app.config import get_settings
-from app.services.persona import Persona, ground_truth_payload
+from app.services.persona import Persona, ground_truth_payload, strip_name_parentheticals
+
+
+class PersonaIdentityError(RuntimeError):
+    """A persona lacks identity data required to fill a real application."""
+
+
+# Must be present on the persona itself. A fallback here would put a different
+# person's PII on a live application, so we refuse instead.
+REQUIRED_IDENTITY_FIELDS: tuple[str, ...] = (
+    "email",
+    "phone",
+    "location_city",
+    "location_state",
+)
+
+# Persona-specific but optional. When absent the answer is omitted so the field
+# escalates to the LLM/operator rather than being answered with someone else's data.
+OPTIONAL_IDENTITY_FIELDS: tuple[str, ...] = (
+    "address_line",
+    "location_postal",
+    "linkedin_url",
+    "github_url",
+    "citizenship",
+)
+
+
+def split_legal_name(persona: Persona) -> tuple[str, str]:
+    """First/last name for form fields. Never guesses, never borrows."""
+    ident = persona.identity or {}
+    name = strip_name_parentheticals(ident.get("legal_name") or persona.display_name or "")
+    parts = [p for p in name.split() if p]
+    if len(parts) < 2:
+        raise PersonaIdentityError(
+            f"{persona.persona_id}: identity.legal_name must be a full name, got {name!r}"
+        )
+    return parts[0], parts[-1]
+
+
+def _education_facts(persona: Persona) -> dict[str, str]:
+    """School/degree/discipline from this persona's own education ground truth."""
+    entries = [e for e in (persona.education_ground_truth or []) if e]
+    if not entries:
+        return {}
+    top = entries[0]
+    degree_raw = str(top.get("degree") or "").strip()
+    # Personas spell the school key as school / institution / university.
+    school = str(
+        top.get("school") or top.get("institution") or top.get("university") or ""
+    ).strip()
+    # Personas write the discipline inside the degree string three ways:
+    # "Master of Science (Data Science)", "Bachelor of Science in Computer
+    # Science", and "Master's degree, Machine Learning".
+    match = (
+        re.search(r"\(([^)]+)\)", degree_raw)
+        or re.search(r"\bin\s+(.+)$", degree_raw, re.I)
+        or re.search(r",\s*(.+)$", degree_raw)
+    )
+    discipline = (match.group(1) if match else "").strip() or str(
+        top.get("field") or top.get("major") or ""
+    ).strip()
+    facts: dict[str, str] = {}
+    if strip_name_parentheticals(degree_raw):
+        facts["degree"] = strip_name_parentheticals(degree_raw)
+    if discipline:
+        facts["discipline"] = discipline
+    if school:
+        facts["school"] = school
+        facts["university"] = school
+    return facts
+
+
+def _current_employer(persona: Persona) -> str:
+    """The role still marked Present, else the most recent one listed."""
+    roles = [r for r in (persona.experience_ground_truth or []) if r]
+    for role in roles:
+        if str(role.get("end") or "").strip().lower() in {"present", "current"}:
+            return str(role.get("company") or "").strip()
+    return str(roles[0].get("company") or "").strip() if roles else ""
+
+
+def validate_persona_identity(persona: Persona) -> list[str]:
+    """Identity problems that would corrupt a submitted application. Empty == safe."""
+    problems: list[str] = []
+    ident = persona.identity or {}
+    for field in REQUIRED_IDENTITY_FIELDS:
+        if not str(ident.get(field) or "").strip():
+            problems.append(f"identity.{field} is missing")
+    try:
+        split_legal_name(persona)
+    except PersonaIdentityError as exc:
+        problems.append(str(exc))
+    if not persona.education_ground_truth:
+        problems.append("education_ground_truth is empty — school/degree answers unavailable")
+    if not persona.experience_ground_truth:
+        problems.append("experience_ground_truth is empty — employer answers unavailable")
+    return problems
 
 
 def static_defaults(persona: Persona) -> dict[str, str]:
-    """Canonical answers keyed by normalized question fragments."""
+    """Canonical answers keyed by normalized question fragments.
+
+    Every persona-specific value is read from this persona. Values we do not
+    have are omitted rather than defaulted, so the field escalates to the LLM
+    or the operator instead of being answered with another persona's data.
+    """
     ident = persona.identity or {}
-    name = ident.get("legal_name") or persona.display_name
-    parts = name.split()
-    first = parts[0] if parts else "Phong"
-    last = parts[-1] if len(parts) > 1 else "Cao"
-    address = " ".join(
-        x
-        for x in [
-            ident.get("address_line"),
-            ident.get("location_city"),
-            ident.get("location_state"),
-            ident.get("location_postal"),
-        ]
-        if x
-    ).strip() or "21717 Gallus Dr Pflugerville, TX 78660"
+    first, last = split_legal_name(persona)
     today = date.today().isoformat()
-    citizen = ident.get("citizenship") or "US Citizen"
-    work_auth = ident.get("work_authorization") or "Authorized to work in the US"
 
-    from_persona: dict[str, str] = {}
+    city = str(ident.get("location_city") or "").strip()
+    state = str(ident.get("location_state") or "").strip()
+    postal = str(ident.get("location_postal") or "").strip()
+    street = str(ident.get("address_line") or "").strip()
+    address = " ".join(x for x in (street, city, state, postal) if x).strip()
+
+    work_auth = str(ident.get("work_authorization") or "").strip()
+    authorized = bool(re.search(r"authoriz|citizen|permanent resident", work_auth, re.I))
+    citizenship = str(ident.get("citizenship") or "").strip()
+    country = str(ident.get("location_country") or "US").strip()
+
+    defaults: dict[str, str] = {}
+
+    def put(value: Any, *keys: str) -> None:
+        """Set keys only when this persona actually has the value."""
+        text = str(value or "").strip()
+        if not text:
+            return
+        for key in keys:
+            defaults[key] = text
+
+    # --- identity, strictly from this persona ---
+    put(first, "first name", "preferred first name")
+    put(last, "last name")
+    put(ident.get("email"), "email", "email address")
+    put(ident.get("phone"), "phone")
+    put(city, "city")
+    put(state, "state/province", "state")
+    put(postal, "postal code", "zip code", "zip")
+    put(street, "street address")
+    put(address, "full mailing address", "mailing address", "address")
+    put(country or "United States", "country of residence", "country")
+    put(ident.get("linkedin_url"), "linkedin", "linkedin profile", "linkedin profile url")
+    put(ident.get("github_url"), "github", "website")
+
+    # --- claims that must match the attached resume ---
+    for key, value in _education_facts(persona).items():
+        put(value, key)
+    put(_current_employer(persona), "current employer")
+    put(
+        persona.total_experience,
+        "total years",
+        "years of relevant experience",
+        "years of experience",
+    )
+
+    # --- work authorization, derived rather than assumed ---
+    if authorized:
+        put("Yes", "authorized to work")
+        put("No", "sponsorship", "require sponsorship")
+    put(citizenship, "immigration status")
+    if re.search(r"u\.?s\.? citizen", citizenship, re.I):
+        put("Yes", "are you a u.s. citizen", "are you a us citizen", "us citizen", "u.s. citizen")
+
+    if country.upper() in {"US", "USA", "UNITED STATES"}:
+        put(
+            "Yes",
+            "living in the united states",
+            "live in the united states",
+            "residing in the united states",
+            "are you living in the united states",
+            "currently living in the",
+        )
+
+    put(ident.get("salary_expectation"), "desired salary", "salary")
+
+    # --- EEO: decline rather than assert a demographic we were never told ---
+    put(ident.get("gender") or "Decline to self-identify", "gender", "gender identity")
+    put(ident.get("ethnicity") or "Decline to self-identify", "racial", "ethnic", "race")
+    put(ident.get("disability") or "Decline to self-identify", "disability")
+    put(ident.get("veteran_status") or "Decline to self-identify", "veteran", "armed forces")
+
+    # --- genuinely persona-independent process answers ---
+    defaults.update(
+        {
+            "open to travel": "Yes",
+            "do you currently work for": "No",
+            "previously been employed": "No",
+            "previously employed": "No",
+            "source": "Other",
+            "referred": "No",
+            "were you referred": "No",
+            "employee referral": "",
+            "available start date": today,
+            "start date": today,
+            "sms": "Yes",
+            "consent": "Yes",
+            "mobile messages": "Yes",
+            "government agency experience": "No",
+            "program or government": "No",
+            "clearance": "No",
+            "security clearance": "No",
+            "state bar": "None — not a licensed attorney",
+            "bar admission": "None",
+            "admitted to": "None",
+        }
+    )
+
+    # Persona-authored screening answers always win.
     for item in persona.screening_answers or []:
-        q = (item.get("question") or "").strip()
-        a = (item.get("answer") or "").strip()
-        if q and a:
-            from_persona[q] = a
-
-    defaults = {
-        "first name": first,
-        "last name": last,
-        "preferred first name": first,
-        "email": ident.get("email") or "",
-        "email address": ident.get("email") or "",
-        "phone": ident.get("phone") or "",
-        "country of residence": ident.get("location_country") or "United States",
-        "country": ident.get("location_country") or "United States",
-        "city": ident.get("location_city") or "Pflugerville",
-        # Prefer longer keys; bare "state" is matched only via word-boundary + guard
-        "state/province": ident.get("location_state") or "TX",
-        "postal code": ident.get("location_postal") or "78660",
-        "zip code": ident.get("location_postal") or "78660",
-        "zip": ident.get("location_postal") or "78660",
-        "state": ident.get("location_state") or "TX",
-        "full mailing address": address,
-        "mailing address": address,
-        "street address": ident.get("address_line") or "21717 Gallus Dr",
-        "address": address,
-        "linkedin": ident.get("linkedin_url") or "https://www.linkedin.com/in/phcao/",
-        "linkedin profile": ident.get("linkedin_url") or "https://www.linkedin.com/in/phcao/",
-        "linkedin profile url": ident.get("linkedin_url") or "https://www.linkedin.com/in/phcao/",
-        "github": ident.get("github_url") or "https://github.com/phongvcao",
-        "website": ident.get("github_url") or "https://github.com/phongvcao",
-        "degree": "Bachelor's Degree",
-        "discipline": "Computer Science",
-        "school": "Stony Brook University",
-        "university": "Stony Brook University",
-        "are you a u.s. citizen": "Yes",
-        "are you a us citizen": "Yes",
-        "us citizen": "Yes",
-        "u.s. citizen": "Yes",
-        "citizenship": citizen,
-        "immigration status": citizen,
-        "current immigration status": citizen,
-        "work authorization": work_auth,
-        "authorized to work": "Yes",
-        "living in the united states": "Yes",
-        "live in the united states": "Yes",
-        "residing in the united states": "Yes",
-        "are you living in the united states": "Yes",
-        "currently living in the": "Yes",
-        "sponsorship": "No",
-        "require sponsorship": "No",
-        "total years": "11",
-        "years of relevant experience": "11",
-        "years of experience": "11",
-        "current employer": "NVIDIA",
-        "current job title": ident.get("default_professional_title")
-        or persona.default_professional_title
-        or "Senior Software Engineer",
-        "desired salary": ident.get("salary_expectation") or "150000-180000 USD per year",
-        "salary": ident.get("salary_expectation") or "150000",
-        "open to travel": "Yes",
-        "do you currently work for": "No",
-        "previously been employed": "No",
-        "previously employed": "No",
-        "source": "Other",
-        "referred": "No",
-        "were you referred": "No",
-        "employee referral": "",
-        "available start date": today,
-        "start date": today,
-        "gender": ident.get("gender") or "Male",
-        "gender identity": ident.get("gender") or "Male",
-        "racial": ident.get("ethnicity") or "Asian",
-        "ethnic": ident.get("ethnicity") or "Asian",
-        "race": ident.get("ethnicity") or "Asian",
-        "disability": "No, I do not have a disability",
-        "veteran": "I am not a protected veteran",
-        "armed forces": "No",
-        "sms": "Yes",
-        "consent": "Yes",
-        "mobile messages": "Yes",
-        "government agency experience": "No",
-        "program or government": "No",
-        "clearance": "No",
-        "security clearance": "No",
-        "state bar": "None — not a licensed attorney",
-        "bar admission": "None",
-        "admitted to": "None",
-    }
-    for q, a in from_persona.items():
-        defaults[q.lower()] = a
+        question = (item.get("question") or "").strip()
+        answer = (item.get("answer") or "").strip()
+        if question and answer:
+            defaults[question.lower()] = answer
     return defaults
 
 
@@ -179,7 +277,7 @@ def match_static(label: str, defaults: dict[str, str]) -> str | None:
 
     # Bare address-state field: short label that is essentially "State"
     if re.fullmatch(r"state(\s*/\s*province)?", lab) or lab in {"state", "province"}:
-        return defaults.get("state/province") or defaults.get("state") or "TX"
+        return defaults.get("state/province") or defaults.get("state")
     return None
 
 

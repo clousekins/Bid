@@ -1,8 +1,10 @@
-"""Keep Phong (and similar strategist) resume headers consistent."""
+"""Keep every persona's resume header consistent with their own identity."""
 from __future__ import annotations
 
 import re
 from typing import Any
+
+from app.services.persona import strip_name_parentheticals
 
 _RESUME_IDENTITY_KEYS = (
     "legal_name",
@@ -40,9 +42,9 @@ def _bare_url(url: str) -> str:
 
 def resume_location(identity: dict[str, Any] | None) -> str:
     ident = identity or {}
-    city = str(ident.get("location_city") or "Pflugerville").strip()
-    state = str(ident.get("location_state") or "TX").strip()
-    return f"{city}, {state}"
+    city = str(ident.get("location_city") or "").strip()
+    state = str(ident.get("location_state") or "").strip()
+    return ", ".join(x for x in (city, state) if x)
 
 
 def resume_contact_line(identity: dict[str, Any] | None) -> str:
@@ -63,13 +65,18 @@ def resume_identity(identity: dict[str, Any] | None) -> dict[str, Any]:
     return out
 
 
-def _extract_title(header: str, display_name: str, default_title: str) -> str:
+def _extract_title(
+    header: str, display_name: str, default_title: str, location: str = ""
+) -> str:
     title = (default_title or "").strip()
     for raw in header.splitlines():
         line = raw.strip().strip("*").strip()
         if not line or line in {"---", "***", "___"}:
             continue
-        if line.casefold() == display_name.casefold():
+        # Match name variants too: "Brian(Yi) Gou" must not become the title.
+        if strip_name_parentheticals(line).casefold() == strip_name_parentheticals(
+            display_name
+        ).casefold():
             continue
         if _DROP_HEADER_LINE.search(line):
             continue
@@ -77,8 +84,13 @@ def _extract_title(header: str, display_name: str, default_title: str) -> str:
             continue
         if re.search(r"\+?\d[\d\s().-]{7,}\d", line):
             continue
-        if "Pflugerville" in line and len(line) < 40:
-            continue
+        # Skip this persona's own location line so it is never read as a title.
+        if location and len(line) < 40:
+            city = location.split(",")[0].strip()
+            if line.casefold() == location.casefold() or (
+                city and city.casefold() in line.casefold()
+            ):
+                continue
         if len(line) < 80 and not line.isupper():
             return line
     return title
@@ -101,7 +113,7 @@ def enforce_resume_header(md: str, persona: Any) -> str:
         header = text
         body = ""
 
-    title = _extract_title(header, display, default_title)
+    title = _extract_title(header, display, default_title, resume_location(ident))
     contact = resume_contact_line(ident)
     locked = f"{display}\n\n{title}\n\n{contact}\n\n"
     if body:
