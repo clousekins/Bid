@@ -1,2 +1,2 @@
 ats_max_attempts: 3
-min_ats_score: 0
+min_ats_score: 60

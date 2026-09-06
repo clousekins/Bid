@@ -712,7 +712,13 @@ body {
    Minimum ATS score
    ============================================================ */
 .ats-floor {
-  grid-column: 1 / -1;
+  /* .action-grid is flex, not grid, so this sizes to its own content — the
+     box visibly grew when the >=90 warning appeared. Claim the full row and
+     let the text wrap inside a width that does not move. */
+  flex: 1 0 100%;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
@@ -772,6 +778,12 @@ body {
   margin: 0;
   color: var(--warn);
   font-size: 0.78rem;
+}
+
+/* The hint text must be allowed to shrink, or a long sentence pushes the
+   attempts selector out of the row. */
+.ats-floor-foot .muted {
+  min-width: 0;
 }
 
 /* ============================================================
