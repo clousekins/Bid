@@ -20,6 +20,7 @@ from app.services.pdf_export import export_pdf, markdown_to_html
 from app.services.persona import get_active_persona_id, ground_truth_payload, load_persona
 from app.services import runtime_settings
 from app.services.ats_score import extract_terms, persona_corpus, score_resume
+from app.services.resume_credibility import score_credibility
 from app.services.resume_style import polish_flat_resume_html, replace_document_css
 
 log = logging.getLogger("poong.tailor")
@@ -437,9 +438,16 @@ async def tailor_job(
                 breakdown = score_resume(
                     resume_for_answers, job.description, job_title=job.title
                 )
+        # Does the finished document hold together as a truthful resume?
+        credibility = score_credibility(resume_for_answers)
         score_payload = {**breakdown.as_dict(), "attempts": attempts, "floor": floor}
         (folder / "ats_score.json").write_text(
-            json.dumps(score_payload, indent=2, ensure_ascii=False), encoding="utf-8"
+            json.dumps(
+                {"ats": score_payload, "credibility": credibility.as_dict()},
+                indent=2,
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
         )
 
         answers = await generate_answers(persona, job)
@@ -480,6 +488,8 @@ async def tailor_job(
         )
         pkg.ats_score = breakdown.score
         pkg.ats_breakdown = json.dumps(score_payload, ensure_ascii=False)
+        pkg.credibility_score = credibility.score
+        pkg.credibility_findings = json.dumps(credibility.as_dict(), ensure_ascii=False)
         try:
             await _refresh_job_from_packages(session, job)
         except Exception:  # noqa: BLE001
@@ -507,6 +517,8 @@ async def tailor_job(
             "persona_id": generate_pid,
             "ats_score": breakdown.score,
             "ats_breakdown": score_payload,
+            "credibility_score": credibility.score,
+            "credibility": credibility.as_dict(),
             "package": {
                 "id": pkg.id,
                 "persona_id": pkg.persona_id,

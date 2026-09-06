@@ -102,6 +102,8 @@ def _package_dict(pkg: JobPackage) -> dict[str, Any]:
         "outcome_notes": pkg.outcome_notes,
         "ats_score": pkg.ats_score,
         "ats_breakdown": json.loads(pkg.ats_breakdown) if pkg.ats_breakdown else None,
+        "credibility_score": pkg.credibility_score,
+        "credibility": json.loads(pkg.credibility_findings) if pkg.credibility_findings else None,
         "created_at": pkg.created_at.isoformat() if pkg.created_at else None,
         "updated_at": pkg.updated_at.isoformat() if pkg.updated_at else None,
     }
@@ -245,6 +247,7 @@ def _job_dict(
         "jd_fetched": job.jd_fetched,
         "feasibility": _feasibility_for(job, persona),
         "ats_score": (my_package or {}).get("ats_score"),
+        "credibility_score": (my_package or {}).get("credibility_score"),
         "notes": (my_package or {}).get("notes") or job.notes,
         "packages": packages,
         "package_count": len(packages),

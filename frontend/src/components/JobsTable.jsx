@@ -234,8 +234,8 @@ export default function JobsTable({
               <SortTh col="domains" title="Sort by domain codes (AI, DE, FS, SF, …)">
                 Dom
               </SortTh>
-              <SortTh col="feasibility" title="Fit for this profile, and the generated resume's ATS score">
-                Fit / ATS
+              <SortTh col="feasibility" title="Fit for this profile / the resume's ATS keyword score / whether the resume reads as true">
+                Fit / ATS / True
               </SortTh>
               <th>Status</th>
               <th>Others</th>
@@ -303,6 +303,8 @@ export default function JobsTable({
                       <ScoreBadge label="Fit" detail={j.feasibility} compact />
                       <span className="score-sep">/</span>
                       <ScoreBadge label="Resume ATS" score={j.ats_score} compact />
+                      <span className="score-sep">/</span>
+                      <ScoreBadge label="Credibility" score={j.credibility_score} compact />
                     </div>
                   </td>
                   <td className="cell-status">

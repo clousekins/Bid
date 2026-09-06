@@ -170,6 +170,8 @@ def _ensure_sqlite_columns(conn) -> None:
         ("outcome_notes", "ALTER TABLE job_packages ADD COLUMN outcome_notes TEXT"),
         ("ats_score", "ALTER TABLE job_packages ADD COLUMN ats_score INTEGER"),
         ("ats_breakdown", "ALTER TABLE job_packages ADD COLUMN ats_breakdown TEXT"),
+        ("credibility_score", "ALTER TABLE job_packages ADD COLUMN credibility_score INTEGER"),
+        ("credibility_findings", "ALTER TABLE job_packages ADD COLUMN credibility_findings TEXT"),
     ):
         if name not in pkg_cols:
             conn.execute(text(ddl))

@@ -59,6 +59,34 @@ function OutcomeControl({ pkg, onSetOutcome }) {
   );
 }
 
+function CredibilityDetail({ detail }) {
+  if (!detail) return null;
+  const findings = detail.findings || [];
+  return (
+    <div className="score-detail">
+      <div className="score-detail-head">
+        <ScoreBadge label="Believable" score={detail.score} />
+        <span className="score-note">
+          {findings.length
+            ? `${findings.length} thing${findings.length === 1 ? "" : "s"} a reviewer could question`
+            : `reads as consistent · ${detail.roles} roles over ${detail.span_years} years`}
+        </span>
+      </div>
+      {findings.length ? (
+        <ul className="credibility-findings">
+          {findings.map((f, i) => (
+            <li key={i} className={`credibility-${f.severity}`}>
+              <span className="credibility-kind">{f.kind}</span>
+              {f.message}
+              {f.evidence ? <em className="credibility-evidence">{f.evidence}</em> : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
 function EditableField({
   label,
   value,
@@ -242,7 +270,14 @@ export default function JobDetail({
             <span className="detail-label">Resume ATS</span>
             <ScoreDetail label="Resume ATS" detail={workingPackage.ats_breakdown} />
           </div>
-        ) : workingPackage?.ats_score != null ? (
+        ) : null}
+        {workingPackage?.credibility ? (
+          <div className="detail-row detail-row-block">
+            <span className="detail-label">Believable</span>
+            <CredibilityDetail detail={workingPackage.credibility} />
+          </div>
+        ) : null}
+        {workingPackage && !workingPackage.ats_breakdown && workingPackage.ats_score != null ? (
           <div className="detail-row">
             <span className="detail-label">Resume ATS</span>
             <ScoreBadge label="Resume ATS" score={workingPackage.ats_score} />

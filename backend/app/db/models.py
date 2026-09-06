@@ -115,6 +115,11 @@ class JobPackage(Base):
     ats_score: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     ats_breakdown: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON
 
+    # Does the document hold together as a truthful resume? Judged on the
+    # resume's own text — dates against the tech it claims, not the prompt.
+    credibility_score: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    credibility_findings: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON
+
     job: Mapped[Job] = relationship(back_populates="packages")
 
 

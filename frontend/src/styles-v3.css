@@ -788,3 +788,46 @@ body {
   font-size: 0.62rem;
   color: var(--text-faint);
 }
+
+/* Credibility findings — what a reviewer could question, and where. */
+.credibility-findings {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.credibility-findings li {
+  font-size: 0.79rem;
+  line-height: 1.4;
+  padding-left: 0.5rem;
+  border-left: 2px solid var(--line);
+  color: var(--text-muted);
+}
+
+.credibility-high { border-left-color: var(--danger); }
+.credibility-medium { border-left-color: var(--warn); }
+.credibility-low { border-left-color: var(--line); }
+
+.credibility-kind {
+  display: inline-block;
+  margin-right: 0.35rem;
+  padding: 0 0.3rem;
+  border-radius: 3px;
+  background: var(--surface-3);
+  color: var(--text-faint);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.credibility-evidence {
+  display: block;
+  margin-top: 0.1rem;
+  color: var(--text-faint);
+  font-size: 0.74rem;
+}
+
+.col-score { width: 10.4rem; }
