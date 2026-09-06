@@ -659,11 +659,17 @@ body {
 .score-weak   { border-color: var(--danger); color: var(--danger); }
 .score-none   { color: var(--text-faint); }
 
+/* The td must stay a table-cell — display:flex on it drops the cell out of
+   the column model and shifts every column after it. Flex goes on a child. */
 .cell-score {
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.cell-score-wrap {
   display: flex;
   align-items: center;
   gap: 0.2rem;
-  white-space: nowrap;
 }
 
 .score-sep { color: var(--text-faint); font-size: 0.75rem; }

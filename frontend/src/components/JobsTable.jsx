@@ -299,9 +299,11 @@ export default function JobsTable({
                   </td>
                   <DomainCell domains={j.domains} />
                   <td className="cell-score">
-                    <ScoreBadge label="Fit" detail={j.feasibility} compact />
-                    <span className="score-sep">/</span>
-                    <ScoreBadge label="Resume ATS" score={j.ats_score} compact />
+                    <div className="cell-score-wrap">
+                      <ScoreBadge label="Fit" detail={j.feasibility} compact />
+                      <span className="score-sep">/</span>
+                      <ScoreBadge label="Resume ATS" score={j.ats_score} compact />
+                    </div>
                   </td>
                   <td className="cell-status">
                     <span className={`pill package-status status-strong ${myStatus}`}>

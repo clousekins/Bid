@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -68,7 +69,47 @@ def set_active_persona(persona_id: str) -> None:
     path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
 
 
+def _persona_stamp(persona_id: str) -> tuple[float, ...]:
+    """mtimes of the files a persona is built from.
+
+    Part of the cache key so an edit to a .yml or .prompt.md is picked up
+    without a restart, while a table of 50 rows stops re-reading a 71KB
+    prompt file 50 times.
+    """
+    data = _personas_index()
+    opt = next((o for o in data.get("options") or [] if o.get("id") == persona_id), None)
+    cfg = get_settings().config_dir
+    paths = [cfg / "personas.yml"]
+    if opt:
+        for key in ("persona_file", "prompt_file"):
+            name = opt.get(key)
+            if not name:
+                continue
+            candidate = cfg / name
+            if not candidate.exists():
+                candidate = cfg / "persona_identity" / name
+            paths.append(candidate)
+    stamps = []
+    for path in paths:
+        try:
+            stamps.append(path.stat().st_mtime)
+        except OSError:
+            stamps.append(0.0)
+    return tuple(stamps)
+
+
+@lru_cache(maxsize=16)
+def _load_persona_cached(persona_id: str, stamp: tuple[float, ...]) -> Persona:
+    return _load_persona_uncached(persona_id)
+
+
 def load_persona(persona_id: str | None = None) -> Persona:
+    data = _personas_index()
+    pid = persona_id or data.get("active_option") or "phong_v_cao"
+    return _load_persona_cached(pid, _persona_stamp(pid))
+
+
+def _load_persona_uncached(persona_id: str | None = None) -> Persona:
     data = _personas_index()
     pid = persona_id or data.get("active_option") or "phong_v_cao"
     opt = next((o for o in data.get("options") or [] if o.get("id") == pid), None)

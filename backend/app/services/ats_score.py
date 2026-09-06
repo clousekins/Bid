@@ -102,6 +102,7 @@ TECH_TERMS: dict[str, tuple[str, ...]] = {
     "tensorflow": ("tensorflow",),
     "scikit-learn": ("scikit-learn", "sklearn"),
     "mlops": ("mlops", "ml ops"),
+    "ai": ("ai", "artificial intelligence", "ai/ml"),
     "llm": ("llm", "large language model", "gpt", "generative ai", "genai"),
     "rag": ("retrieval augmented", "rag pipeline"),
     "langchain": ("langchain", "llamaindex"),
@@ -175,30 +176,35 @@ def _normalize(text: str | None) -> str:
     return re.sub(r"\s+", " ", body).lower()
 
 
-def _compile_terms() -> list[tuple[str, tuple[re.Pattern[str], ...]]]:
-    """Precompile each alias once.
+def _split_terms() -> tuple[dict[str, str], list[tuple[str, tuple[re.Pattern[str], ...]]]]:
+    """Split the vocabulary into a word lookup and the few that need regex.
 
-    A single 165-group alternation looks tidier but backtracks badly in
-    Python's engine — it measured ~7x slower than looping with an early exit.
+    Most aliases are a single word, and those can be answered by set membership
+    against the document's tokens — one pass over the text instead of one pass
+    per term. Only multi-word or punctuated aliases ("power bi", "ci/cd", "c#")
+    still need a scan, and there are about thirty of those.
     """
-    compiled: list[tuple[str, tuple[re.Pattern[str], ...]]] = []
+    word_to_term: dict[str, str] = {}
+    regex_terms: list[tuple[str, tuple[re.Pattern[str], ...]]] = []
     for canonical, aliases in TECH_TERMS.items():
-        patterns = []
+        patterns: list[re.Pattern[str]] = []
         for alias in (canonical, *aliases):
             token = alias.strip()
             if not token:
                 continue
-            body = (
-                rf"(?<![a-z0-9]){re.escape(token)}(?![a-z0-9])"
-                if token.isalnum()
-                else re.escape(token)
-            )
-            patterns.append(re.compile(body))
-        compiled.append((canonical, tuple(patterns)))
-    return compiled
+            if token.isalnum():
+                # First writer wins; aliases never collide across terms today.
+                word_to_term.setdefault(token, canonical)
+            else:
+                patterns.append(re.compile(re.escape(token)))
+        if patterns:
+            regex_terms.append((canonical, tuple(patterns)))
+    return word_to_term, regex_terms
 
 
-_COMPILED_TERMS = _compile_terms()
+_WORD_TERMS, _REGEX_TERMS = _split_terms()
+# Tokens keep +, # and . so "c#", "ci/cd" halves and "scikit-learn" survive.
+_TOKEN_RE = re.compile(r"[a-z0-9][a-z0-9+#]*")
 
 
 def extract_terms(text: str | None) -> set[str]:
@@ -207,7 +213,13 @@ def extract_terms(text: str | None) -> set[str]:
     if not body:
         return set()
     found: set[str] = set()
-    for canonical, patterns in _COMPILED_TERMS:
+    for token in _TOKEN_RE.findall(body):
+        canonical = _WORD_TERMS.get(token)
+        if canonical is not None:
+            found.add(canonical)
+    for canonical, patterns in _REGEX_TERMS:
+        if canonical in found:
+            continue
         for pattern in patterns:
             if pattern.search(body):
                 found.add(canonical)
@@ -346,6 +358,55 @@ def score_resume(
     )
 
 
+# Words that appear in every other posting and say nothing about the field.
+# "Engineer" matching "Engineer" is not evidence that the roles are related.
+_GENERIC_TITLE_WORDS = frozenset(
+    {
+        "senior", "sr", "junior", "jr", "staff", "principal", "lead", "head",
+        "engineer", "engineering", "developer", "architect", "manager",
+        "analyst", "specialist", "consultant", "administrator", "director",
+        "associate", "expert", "professional", "officer", "technician",
+        "remote", "hybrid", "onsite", "contract", "fulltime", "part", "time",
+        "i", "ii", "iii", "iv", "and", "or", "the", "of", "for", "to", "in",
+        "with", "at", "a", "an", "level", "role", "position", "job", "us",
+    }
+)
+
+
+def _persona_role_words(persona: Any) -> frozenset[str]:
+    """The distinctive words from titles this persona has actually held."""
+    titles = [str(getattr(persona, "default_professional_title", "") or "")]
+    for role in getattr(persona, "experience_ground_truth", None) or []:
+        if isinstance(role, dict):
+            titles.append(str(role.get("title") or ""))
+    words = set()
+    for title in titles:
+        for word in re.findall(r"[a-z][a-z+#.]*", title.lower()):
+            if word not in _GENERIC_TITLE_WORDS:
+                words.add(word)
+    return frozenset(words)
+
+
+def _role_alignment(persona: Any, job_title: str | None) -> tuple[float, str]:
+    """How much the posting's job family overlaps this persona's own.
+
+    Generic words are stripped first: "Electrical Engineer" and "Data
+    Engineer" share only "engineer", which is no evidence at all.
+    """
+    title = (job_title or "").lower()
+    words = [w for w in re.findall(r"[a-z][a-z+#.]*", title) if w not in _GENERIC_TITLE_WORDS]
+    if not words:
+        # Nothing but generic words — no signal either way, so don't punish it.
+        return 0.5, ""
+    mine = _persona_role_words(persona)
+    known = persona_terms(persona)
+    known_words = {part for term in known for part in re.split(r"[ /]", term)}
+    hits = [w for w in words if w in mine or w in known or w in known_words]
+    if not hits:
+        return 0.0, f"title is a different field: {' '.join(words[:4])}"
+    return len(hits) / len(words), ""
+
+
 def persona_corpus(persona: Any) -> str:
     """Everything we can truthfully say this persona has done.
 
@@ -372,55 +433,96 @@ def persona_corpus(persona: Any) -> str:
     return " \n".join(p for p in parts if p)
 
 
-@lru_cache(maxsize=32)
-def _persona_terms_cached(persona_id: str, corpus_len: int, corpus: str) -> frozenset[str]:
-    return frozenset(extract_terms(corpus))
+_PERSONA_TERMS: dict[int, frozenset[str]] = {}
 
 
 def persona_terms(persona: Any) -> frozenset[str]:
-    """Tech terms this persona can evidence. Cached — the corpus is ~70KB and
-    scanning it per row made a 50-job page take 3.5 seconds."""
-    corpus = persona_corpus(persona)
-    return _persona_terms_cached(
-        str(getattr(persona, "persona_id", "") or ""), len(corpus), corpus
-    )
+    """Tech terms this persona can evidence.
+
+    Keyed on the persona object's identity, not its text: the corpus is 41KB
+    and hashing it as a cache key on every table row cost more than the scan
+    it was meant to avoid. load_persona() returns a cached instance, so the
+    same persona is the same object across a request.
+    """
+    key = id(persona)
+    hit = _PERSONA_TERMS.get(key)
+    if hit is None:
+        hit = frozenset(extract_terms(persona_corpus(persona)))
+        if len(_PERSONA_TERMS) > 64:
+            _PERSONA_TERMS.clear()
+        _PERSONA_TERMS[key] = hit
+    return hit
 
 
 def technical_feasibility(persona: Any, job: Any) -> ScoreBreakdown:
     """0–100: can this persona credibly do this job, before writing anything?"""
-    required, mentioned = jd_requirements(getattr(job, "description", None))
+    description = getattr(job, "description", None)
+    required, mentioned = jd_requirements(description)
+    role_ratio_only, role_note_only = _role_alignment(persona, getattr(job, "title", None))
+
     if not required:
-        # No JD yet — nothing to judge, and guessing would be worse than saying so.
+        # Either no JD, or a JD that is all company blurb. These are different
+        # situations and neither is a zero: a zero sorts to the bottom as if the
+        # match were bad, when the truth is we could not read one.
+        if not description:
+            return ScoreBreakdown(
+                score=0,
+                keyword_points=0,
+                structure_points=0,
+                title_points=0,
+                notes=["no job description scanned yet — fetch the JD to score it"],
+            )
         return ScoreBreakdown(
-            score=0,
+            score=max(0, min(100, round(60 * role_ratio_only))),
             keyword_points=0,
             structure_points=0,
-            title_points=0,
-            notes=["no job description scanned yet"],
+            title_points=round(60 * role_ratio_only),
+            notes=[
+                "judged on the title alone — the JD lists no recognisable requirements",
+                *( [role_note_only] if role_note_only else [] ),
+            ],
         )
     have = persona_terms(persona)
     covered = required & have
     missing = sorted(required - have)
     ratio = len(covered) / len(required)
 
-    title_points, _ = _title_points(
-        " ".join(sorted(have)) + " " + str(getattr(persona, "default_professional_title", "") or ""),
-        getattr(job, "title", None),
-    )
-    score = round(85 * ratio) + title_points
-    notes = []
+    role_ratio, role_note = _role_alignment(persona, getattr(job, "title", None))
+    keyword_points = round(70 * ratio)
+    title_points = round(30 * role_ratio)
+    score = keyword_points + title_points
+
+    notes: list[str] = []
+    # A posting in another discipline can still list a familiar stack —
+    # staffing boards paste one across every req. Coverage alone rated
+    # "Power Generation Electrical Engineer" above a Databricks Architect
+    # role, so a title from a different field caps the score outright.
+    if role_ratio == 0.0:
+        score = min(score, 40)
+        notes.append(role_note or "different discipline — title shares nothing with this profile")
+    elif role_note:
+        notes.append(role_note)
+
+    # Two matched terms out of two is not the same evidence as twelve out of
+    # twelve, and calling both "strong match" oversells the thin one.
+    if len(required) < 3:
+        notes.append(
+            f"thin evidence — the JD names only {len(required)} recognisable requirement"
+            f"{'' if len(required) == 1 else 's'}"
+        )
+
+    if ratio >= 0.75 and role_ratio > 0 and len(required) >= 3:
+        notes.insert(0, "strong match")
+    elif ratio >= 0.5 and role_ratio > 0:
+        notes.insert(0, "partial match — resume will have to stretch")
+    elif role_ratio > 0:
+        notes.insert(0, "weak match — likely not worth an application")
     if missing:
         notes.append(f"not evidenced in history: {', '.join(missing[:8])}")
-    if ratio >= 0.75:
-        notes.insert(0, "strong match")
-    elif ratio >= 0.5:
-        notes.insert(0, "partial match — resume will have to stretch")
-    else:
-        notes.insert(0, "weak match — likely not worth an application")
 
     return ScoreBreakdown(
         score=max(0, min(100, score)),
-        keyword_points=round(85 * ratio),
+        keyword_points=keyword_points,
         structure_points=0,
         title_points=title_points,
         matched=sorted(covered),

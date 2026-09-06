@@ -184,3 +184,84 @@ async def test_reposted_job_is_rejected_on_csv_upload(tmp_path, monkeypatch):
             db, {**base, "title": "Staff Machine Learning Engineer", "url": "https://c.example/3"}
         )
         assert other.ok, other.reason
+
+
+class TestFeasibilityRanking:
+    """Regressions from real rows the operator spotted in the jobs table.
+
+    Coverage ratio alone rated "Power Generation Electrical Engineer" at 89 —
+    above a Databricks Architect role — because staffing boards paste one tech
+    stack across every requisition regardless of the discipline.
+    """
+
+    STACK_JD = """
+    Required: strong experience with AWS, Azure, Databricks, Snowflake,
+    Spark, SQL and Java. Experience with solution architecture is required.
+    """
+
+    def _job(self, title, description):
+        return SimpleNamespace(title=title, description=description)
+
+    def test_a_different_discipline_cannot_outrank_a_matching_role(self):
+        persona = load_persona("brian_gou")
+        electrical = technical_feasibility(
+            persona, self._job("Power Generation Electrical Engineer", self.STACK_JD)
+        )
+        databricks = technical_feasibility(
+            persona, self._job("Senior Azure Databricks Architect", self.STACK_JD)
+        )
+        assert electrical.score < databricks.score
+        assert any("different field" in n for n in electrical.notes)
+
+    def test_a_shared_generic_word_is_not_evidence(self):
+        """'Electrical Engineer' and 'Data Engineer' share only 'engineer'."""
+        persona = load_persona("brian_gou")
+        b = technical_feasibility(
+            persona, self._job("Electrical Engineer", self.STACK_JD)
+        )
+        assert b.score <= 40
+
+    def test_an_unreadable_jd_is_not_scored_as_a_bad_match(self):
+        """A zero sorts to the bottom as if the fit were bad; it is unknown."""
+        persona = load_persona("brian_gou")
+        blurb = "We are a technology consulting company delivering solutions worldwide."
+        b = technical_feasibility(persona, self._job("AI Data Engineer", blurb))
+        assert b.score > 0
+        assert any("title alone" in n for n in b.notes)
+
+    def test_no_jd_at_all_still_reports_zero_and_says_why(self):
+        persona = load_persona("brian_gou")
+        b = technical_feasibility(persona, self._job("AI Data Engineer", None))
+        assert b.score == 0
+        assert any("fetch the JD" in n for n in b.notes)
+
+    def test_one_matched_term_is_not_called_a_strong_match(self):
+        persona = load_persona("brian_gou")
+        b = technical_feasibility(
+            persona, self._job("Data Engineer", "Required: experience with Python.")
+        )
+        assert "strong match" not in " ".join(b.notes)
+        assert any("thin evidence" in n for n in b.notes)
+
+    def test_ai_titles_are_recognised(self):
+        """'AI' was absent from the vocabulary, so AI roles read as another field."""
+        assert "ai" in extract_terms("Hands-on artificial intelligence work.")
+        persona = load_persona("brian_gou")
+        b = technical_feasibility(
+            persona, self._job("AI Solutions Engineer", self.STACK_JD)
+        )
+        assert b.score > 40
+
+
+def test_scoring_a_page_of_jobs_stays_fast():
+    """This runs for every row of the table; a slow scan showed up as lag."""
+    import time
+
+    persona = load_persona("brian_gou")
+    jd = TestFeasibilityRanking.STACK_JD + ("filler prose about the company. " * 400)
+    jobs = [SimpleNamespace(title=f"Data Engineer {i}", description=jd + str(i)) for i in range(50)]
+    start = time.perf_counter()
+    for job in jobs:
+        technical_feasibility(persona, job)
+    elapsed = time.perf_counter() - start
+    assert elapsed < 1.0, f"50 uncached jobs took {elapsed:.2f}s"

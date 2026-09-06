@@ -41,6 +41,9 @@ from app.validators.dedupe import normalize_company
 
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])
 
+# Sentinel so callers can pass persona=None to mean "no fit score".
+_UNSET = object()
+
 
 class JobCreate(BaseModel):
     company: str
@@ -178,18 +181,28 @@ def _listing_pipeline_status(job: Job) -> str:
     return job.status
 
 
-def _feasibility_for(job: Job, profile: str | None) -> dict[str, Any] | None:
+def _load_profile(profile: str | None):
+    """Resolve a persona once per request.
+
+    Doing this inside _job_dict meant 50 rows re-read personas.yml and a 71KB
+    prompt file 50 times, which was most of a one-second page load.
+    """
+    if not profile:
+        return None
+    try:
+        return load_persona(profile)
+    except ValueError:
+        return None
+
+
+def _feasibility_for(job: Job, persona: Any) -> dict[str, Any] | None:
     """How well the viewing profile matches this posting.
 
     Computed rather than stored: the answer depends on which persona is
     looking, and writing on a GET would have every page load fight the
     background workers for the SQLite lock.
     """
-    if not profile or not job.description:
-        return None
-    try:
-        persona = load_persona(profile)
-    except ValueError:
+    if persona is None or not job.description:
         return None
     breakdown = technical_feasibility(persona, job)
     return {
@@ -200,7 +213,11 @@ def _feasibility_for(job: Job, profile: str | None) -> dict[str, Any] | None:
     }
 
 
-def _job_dict(job: Job, *, profile: str | None = None) -> dict[str, Any]:
+def _job_dict(
+    job: Job, *, profile: str | None = None, persona: Any = _UNSET
+) -> dict[str, Any]:
+    if persona is _UNSET:
+        persona = _load_profile(profile)
     packages = [_package_dict(p) for p in getattr(job, "packages", None) or []]
     packages.sort(key=lambda p: p.get("persona_id") or "")
     my_package = next((p for p in packages if p["persona_id"] == profile), None)
@@ -226,7 +243,7 @@ def _job_dict(job: Job, *, profile: str | None = None) -> dict[str, Any]:
         "staffing_firm": job.staffing_firm,
         "domains": domains,
         "jd_fetched": job.jd_fetched,
-        "feasibility": _feasibility_for(job, profile),
+        "feasibility": _feasibility_for(job, persona),
         "ats_score": (my_package or {}).get("ats_score"),
         "notes": (my_package or {}).get("notes") or job.notes,
         "packages": packages,
@@ -354,8 +371,9 @@ async def list_jobs(
         stmt = stmt.where(*filters)
     stmt = stmt.offset(start).limit(size)
     rows = (await db.execute(stmt)).scalars().all()
+    page_persona = _load_profile(profile)
     return {
-        "jobs": [_job_dict(j, profile=profile) for j in rows],
+        "jobs": [_job_dict(j, profile=profile, persona=page_persona) for j in rows],
         "total": total,
         "page": current_page,
         "page_size": size,
