@@ -843,15 +843,15 @@ body {
 .jobs-table .col-seq { width: 2.6rem; }
 .jobs-table .col-company { width: auto; min-width: 9rem; }
 .jobs-table .col-title { width: auto; min-width: 12rem; }
-.jobs-table .col-domain { width: 4.5rem; }
-.jobs-table .col-score { width: 7rem; }
+.jobs-table .col-domain { width: 4.1rem; }
+.jobs-table .col-score { width: 6.5rem; }
 /* Status holds a pill plus up to three actions; starving it made them
    wrap to two lines and pushed Others off the right edge. */
 /* Measured: the widest row needs 194px for pill + Resume + Cover + Apply.
    13.5rem leaves headroom for a longer pill ("Need resume", "Generating")
    without clipping the last button. */
 .jobs-table .col-my-status { width: 15rem; }
-.jobs-table .col-others { width: 2.6rem; }
+.jobs-table .col-others { width: 3.8rem; }
 
 /* One line per row. The action buttons were stacking three deep,
    which made rows 89px tall — three visible on a laptop screen. */
