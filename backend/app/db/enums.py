@@ -36,6 +36,41 @@ class PackageStatus(str, Enum):
     FAILED = "failed"
 
 
+class ApplicationOutcome(str, Enum):
+    """What the employer did after we applied.
+
+    Applying is not the outcome. Without this the funnel ends at "sent" and
+    there is no signal to tell a resume that works from one that does not.
+    """
+
+    PENDING = "pending"          # submitted, nothing back yet
+    ACKNOWLEDGED = "acknowledged"  # auto-reply / received confirmation only
+    SCREEN = "screen"            # recruiter screen or take-home
+    INTERVIEW = "interview"      # real interview scheduled or held
+    OFFER = "offer"
+    REJECTED = "rejected"        # employer said no
+    GHOSTED = "ghosted"          # no reply, written off
+
+
+# Outcomes that count as the employer engaging with a human.
+RESPONSE_OUTCOMES: frozenset[str] = frozenset(
+    {
+        ApplicationOutcome.SCREEN.value,
+        ApplicationOutcome.INTERVIEW.value,
+        ApplicationOutcome.OFFER.value,
+    }
+)
+
+# Outcomes that are settled — no further reply expected.
+TERMINAL_OUTCOMES: frozenset[str] = frozenset(
+    {
+        ApplicationOutcome.OFFER.value,
+        ApplicationOutcome.REJECTED.value,
+        ApplicationOutcome.GHOSTED.value,
+    }
+)
+
+
 class BackgroundJobKind(str, Enum):
     DEEP_SCAN = "deep_scan"
     TAILOR = "tailor"

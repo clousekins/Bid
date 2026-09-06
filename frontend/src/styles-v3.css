@@ -564,3 +564,45 @@ body {
     flex: 1;
   }
 }
+
+/* --- Application outcome (what the employer did after we applied) --- */
+.outcome-select {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  padding: 0.25rem 0.4rem;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--surface-1);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.outcome-select:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+/* Outcome carries the signal — colour it so a scan of the list reads. */
+.outcome-select.outcome-interview,
+.outcome-select.outcome-offer {
+  border-color: var(--accent-2);
+  color: var(--accent-2);
+  font-weight: 600;
+}
+
+.outcome-select.outcome-screen {
+  border-color: var(--profile-accent);
+  color: var(--profile-accent);
+}
+
+.outcome-select.outcome-rejected,
+.outcome-select.outcome-ghosted {
+  border-color: var(--line);
+  color: var(--text-faint);
+}
+
+.outcome-sent {
+  white-space: nowrap;
+  font-size: 0.78rem;
+}

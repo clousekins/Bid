@@ -151,6 +151,40 @@ def _ensure_sqlite_columns(conn) -> None:
     if "domains" not in cols:
         conn.execute(text("ALTER TABLE jobs ADD COLUMN domains VARCHAR(64)"))
 
+    if "job_packages" not in tables:
+        return
+    pkg_cols = {
+        str(r[1])
+        for r in conn.execute(text("PRAGMA table_info(job_packages)")).fetchall()
+    }
+    for name, ddl in (
+        ("applied_at", "ALTER TABLE job_packages ADD COLUMN applied_at DATETIME"),
+        (
+            "outcome",
+            "ALTER TABLE job_packages ADD COLUMN outcome VARCHAR(32) "
+            "NOT NULL DEFAULT 'pending'",
+        ),
+        ("outcome_at", "ALTER TABLE job_packages ADD COLUMN outcome_at DATETIME"),
+        ("outcome_notes", "ALTER TABLE job_packages ADD COLUMN outcome_notes TEXT"),
+    ):
+        if name not in pkg_cols:
+            conn.execute(text(ddl))
+    if "applied_at" not in pkg_cols:
+        # Backfill already-submitted packages. updated_at is the closest record
+        # we have of when they went out; it is approximate but ordered right.
+        conn.execute(
+            text(
+                "UPDATE job_packages SET applied_at = updated_at "
+                "WHERE status = 'applied' AND applied_at IS NULL"
+            )
+        )
+    conn.execute(
+        text(
+            "CREATE INDEX IF NOT EXISTS ix_job_packages_outcome "
+            "ON job_packages (outcome)"
+        )
+    )
+
 
 async def init_db() -> None:
     engine = get_engine()

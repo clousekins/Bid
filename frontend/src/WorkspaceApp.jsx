@@ -564,6 +564,13 @@ export default function WorkspaceApp({ onGoHome, theme, onToggleTheme }) {
               ws.setSelected(updated);
               await ws.refresh();
             }}
+            onSetOutcome={async (body) => {
+              if (!ws.selected) return;
+              await client.setOutcome(ws.selected.id, body);
+              const updated = await client.getJob(ws.selected.id);
+              ws.setSelected(updated);
+              await ws.refresh();
+            }}
             onAssistedApply={() =>
               ws.selected && apply.startAssistedOne(ws.selected, ws.workingPersonaId)
             }

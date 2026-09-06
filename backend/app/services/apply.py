@@ -7,8 +7,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
-from app.db.enums import ApplySessionStatus, JobStatus, PackageStatus
-from app.db.models import Application, Job, JobPackage
+from app.db.enums import (
+    ApplicationOutcome,
+    ApplySessionStatus,
+    JobStatus,
+    PackageStatus,
+)
+from app.db.models import Application, Job, JobPackage, utcnow
 from app.services.apply_nav import detect_hard_block, promote_application
 from app.services.apply_session import ApplySession, apply_sessions
 from app.services.browser_attach import BrowserAttach
@@ -546,6 +551,10 @@ async def mark_job_applied(
 
     apply_persona = pkg.persona_id
     pkg.status = PackageStatus.APPLIED.value
+    if pkg.applied_at is None:
+        pkg.applied_at = utcnow()
+    if not pkg.outcome:
+        pkg.outcome = ApplicationOutcome.PENDING.value
 
     # Listing is a shared JD pipeline. Applying is recorded only on the package.
     if job.status not in {

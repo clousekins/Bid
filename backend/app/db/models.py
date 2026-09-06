@@ -95,6 +95,19 @@ class JobPackage(Base):
         DateTime(timezone=True), default=utcnow, onupdate=utcnow
     )
 
+    # What the employer did next. updated_at cannot serve here — it moves on
+    # every write, so response latency needs its own submission timestamp.
+    applied_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    outcome: Mapped[str] = mapped_column(
+        String(32), default="pending", nullable=False, index=True
+    )
+    outcome_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    outcome_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     job: Mapped[Job] = relationship(back_populates="packages")
 
 

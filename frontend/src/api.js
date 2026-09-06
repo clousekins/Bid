@@ -91,6 +91,13 @@ export const client = {
       method: "PATCH",
       json: fields,
     }),
+  setOutcome: (id, body) =>
+    api(`/api/jobs/${id}/outcome`, { method: "PATCH", json: body }),
+  outcomeStats: (persona_id) => {
+    const q = new URLSearchParams();
+    if (persona_id) q.set("persona_id", persona_id);
+    return api(`/api/jobs/meta/outcomes?${q}`);
+  },
   blockCompany: (id) => api(`/api/jobs/${id}/block-company`, { method: "POST" }),
   deepScanOne: (id) => api(`/api/jobs/${id}/deep-scan`, { method: "POST" }),
   manualFetch: (body) => api("/api/manual-apply/fetch", { method: "POST", json: body }),

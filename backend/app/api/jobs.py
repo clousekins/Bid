@@ -12,7 +12,13 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
-from app.db.enums import JobStatus, PackageStatus, can_transition
+from app.db.enums import (
+    RESPONSE_OUTCOMES,
+    ApplicationOutcome,
+    JobStatus,
+    PackageStatus,
+    can_transition,
+)
 from app.db.models import Application, Job, JobPackage, utcnow
 from app.db.session import get_db
 from app.services.apply import mark_job_applied, stop_apply_for_job
@@ -52,6 +58,13 @@ class StatusPatch(BaseModel):
     package_id: int | None = None
 
 
+class OutcomePatch(BaseModel):
+    outcome: str
+    persona_id: str | None = None
+    package_id: int | None = None
+    notes: str | None = None
+
+
 class JobFieldsPatch(BaseModel):
     company: str | None = None
     title: str | None = None
@@ -78,6 +91,10 @@ def _package_dict(pkg: JobPackage) -> dict[str, Any]:
         "status": pkg.status,
         "folder_path": pkg.folder_path,
         "notes": pkg.notes,
+        "applied_at": pkg.applied_at.isoformat() if pkg.applied_at else None,
+        "outcome": pkg.outcome or ApplicationOutcome.PENDING.value,
+        "outcome_at": pkg.outcome_at.isoformat() if pkg.outcome_at else None,
+        "outcome_notes": pkg.outcome_notes,
         "created_at": pkg.created_at.isoformat() if pkg.created_at else None,
         "updated_at": pkg.updated_at.isoformat() if pkg.updated_at else None,
     }
@@ -796,6 +813,84 @@ async def patch_status(job_id: int, body: StatusPatch, db: AsyncSession = Depend
         )
     await db.commit()
     return _job_dict(await _get_job_with_packages(db, job.id) or job)
+
+
+@router.patch("/{job_id}/outcome")
+async def patch_outcome(
+    job_id: int, body: OutcomePatch, db: AsyncSession = Depends(get_db)
+):
+    """Record what the employer did after we applied."""
+    try:
+        outcome = ApplicationOutcome(body.outcome)
+    except ValueError as exc:
+        raise HTTPException(400, detail=f"invalid_outcome:{body.outcome}") from exc
+
+    job = await _get_job_with_packages(db, job_id)
+    if not job:
+        raise HTTPException(404, detail="not_found")
+
+    pkgs = list(job.packages or [])
+    if body.package_id is not None:
+        pkg = next((p for p in pkgs if p.id == body.package_id), None)
+    elif body.persona_id:
+        pkg = next((p for p in pkgs if p.persona_id == body.persona_id), None)
+    elif len(pkgs) == 1:
+        pkg = pkgs[0]
+    else:
+        raise HTTPException(400, detail="multiple_packages_pick_profile")
+    if not pkg:
+        raise HTTPException(404, detail="package_not_found")
+    if pkg.status != PackageStatus.APPLIED.value:
+        raise HTTPException(400, detail=f"not_applied:{pkg.status}")
+
+    pkg.outcome = outcome.value
+    pkg.outcome_at = utcnow()
+    pkg.outcome_notes = (body.notes or "").strip() or None
+    await db.commit()
+    return _package_dict(pkg)
+
+
+@router.get("/meta/outcomes")
+async def outcome_stats(
+    persona_id: str | None = Query(default=None), db: AsyncSession = Depends(get_db)
+):
+    """Response funnel per persona. Applying is not the outcome."""
+    where = [JobPackage.status == PackageStatus.APPLIED.value]
+    if persona_id:
+        where.append(JobPackage.persona_id == persona_id)
+
+    rows = (
+        await db.execute(
+            select(JobPackage.persona_id, JobPackage.outcome, func.count())
+            .where(*where)
+            .group_by(JobPackage.persona_id, JobPackage.outcome)
+        )
+    ).all()
+
+    by_profile: dict[str, dict[str, int]] = {}
+    for pid, outcome, count in rows:
+        by_profile.setdefault(pid, {})[outcome or ApplicationOutcome.PENDING.value] = count
+
+    summary: dict[str, Any] = {}
+    for pid, counts in by_profile.items():
+        applied = sum(counts.values())
+        responses = sum(counts.get(o, 0) for o in RESPONSE_OUTCOMES)
+        # Pending applications have not had their chance yet, so the rate is
+        # measured against those that actually resolved one way or the other.
+        resolved = applied - counts.get(ApplicationOutcome.PENDING.value, 0)
+        summary[pid] = {
+            "applied": applied,
+            "resolved": resolved,
+            "responses": responses,
+            "interviews": counts.get(ApplicationOutcome.INTERVIEW.value, 0)
+            + counts.get(ApplicationOutcome.OFFER.value, 0),
+            "response_rate": round(responses / resolved, 4) if resolved else None,
+            "by_outcome": counts,
+        }
+    return {
+        "outcomes": [o.value for o in ApplicationOutcome],
+        "by_profile": summary,
+    }
 
 
 @router.post("/{job_id}/block-company")

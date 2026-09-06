@@ -3,6 +3,61 @@ import { personaLabel } from "../utils/persona.js";
 import { packageStatusLabel, pipelineLabel } from "../utils/statusLabels.js";
 import ResumePreview from "./ResumePreview.jsx";
 
+const OUTCOMES = [
+  { value: "pending", label: "Waiting" },
+  { value: "acknowledged", label: "Auto-reply only" },
+  { value: "screen", label: "Recruiter screen" },
+  { value: "interview", label: "Interview" },
+  { value: "offer", label: "Offer" },
+  { value: "rejected", label: "Rejected" },
+  { value: "ghosted", label: "Ghosted" },
+];
+
+function OutcomeControl({ pkg, onSetOutcome }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const current = pkg?.outcome || "pending";
+
+  const change = async (value) => {
+    if (value === current) return;
+    setBusy(true);
+    setError("");
+    try {
+      await onSetOutcome({ outcome: value, package_id: pkg.id });
+    } catch (e) {
+      setError(String(e.message || e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="detail-row">
+      <span className="detail-label">Outcome</span>
+      <div className="detail-edit-wrap">
+        <select
+          className={`outcome-select outcome-${current}`}
+          value={current}
+          disabled={busy}
+          onChange={(e) => change(e.target.value)}
+        >
+          {OUTCOMES.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+        {pkg.applied_at ? (
+          <span className="muted outcome-sent">
+            sent {new Date(pkg.applied_at).toLocaleDateString()}
+          </span>
+        ) : null}
+        {error ? <span className="error-text">{error}</span> : null}
+      </div>
+    </div>
+  );
+}
+
 function EditableField({
   label,
   value,
@@ -120,6 +175,7 @@ export default function JobDetail({
   onDelete,
   onUpdateFields,
   onContinueManual,
+  onSetOutcome,
   generating = false,
 }) {
   const [saving, setSaving] = useState(false);
@@ -171,6 +227,9 @@ export default function JobDetail({
           <span className="detail-label">Pipeline</span>
           <span className={`pill ${job.status}`}>{pipelineLabel(job.status)}</span>
         </div>
+        {workingPackage?.status === "applied" && onSetOutcome ? (
+          <OutcomeControl pkg={workingPackage} onSetOutcome={onSetOutcome} />
+        ) : null}
         <EditableField
           label="Company"
           field="company"
