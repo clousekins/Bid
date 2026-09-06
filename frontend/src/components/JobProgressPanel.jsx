@@ -140,6 +140,12 @@ export default function JobProgressPanel({
                 tone={tone}
               />
 
+              {activeJob.sourceError ? (
+                <p className="job-source-error" title={activeJob.sourceError}>
+                  {activeJob.sourceError}
+                </p>
+              ) : null}
+
               {activeJob.metrics?.length ? (
                 <div className="job-progress-metrics">
                   {activeJob.metrics.map((m) => (

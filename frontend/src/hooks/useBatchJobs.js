@@ -74,6 +74,9 @@ function buildProgress(job) {
     indeterminate: !hasTotal && ["queued", "running"].includes(job.status),
     metrics: metrics.slice(0, 8),
     detail: String(detail || "").slice(0, 280),
+    // Set when a source refused or timed out. Without it a blocked fetch
+    // reported "Completed - 0 inserted", which reads as "no jobs today".
+    sourceError: p.source_error || "",
     error: job.error || "",
     rawLine: null,
   };

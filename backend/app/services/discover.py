@@ -634,10 +634,20 @@ async def collect_site_listings(
             raise ValueError(f"no_adapter:{site_meta['id']}")
         if on_progress:
             await on_progress({"phase": "feed", "site": site_meta["id"]})
+        # A source that refuses us must say so. Swallowing this reported
+        # "Completed - 0 inserted", which reads as "no jobs today" when the
+        # truth was that the site returned a bot challenge.
         try:
             async with asyncio.timeout(60):
                 raw = list(await fn())
+        except TimeoutError:
+            cfg["source_error"] = (
+                f"{site_meta['label']} did not answer within 60s"
+            )
+            log.warning("site feed %s timed out", site_meta["id"])
+            raw = []
         except Exception as exc:  # noqa: BLE001
+            cfg["source_error"] = f"{site_meta['label']}: {exc}"
             log.warning("site feed %s failed: %s", site_meta["id"], exc)
             raw = []
     else:
@@ -724,6 +734,10 @@ async def collect_site_listings(
         "site_label": site_meta["label"],
         "window": window,
         "domains": allowed_domains,
+        "roles": cfg.get("roles") or [],
+        # Present only when the source refused or timed out; the UI shows it
+        # instead of reporting a clean run that found nothing.
+        "source_error": cfg.get("source_error"),
         "posted_within_days": cfg["posted_within_days"],
         "discovered_raw": len(raw),
         "after_filters": len(filtered),

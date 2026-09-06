@@ -1210,3 +1210,23 @@ body {
   border-style: dashed;
   color: var(--text-faint);
 }
+
+/* The chip lost its inner spacing when it moved into a domain row, so the
+   code and label ran together as "DEData Engineering". */
+.domain-row-head .seq-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+/* A source that refused has to say so; a silent zero reads as "no jobs". */
+.job-source-error {
+  margin: 0.35rem 0 0;
+  padding: 0.3rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--line));
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+  color: var(--warn);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}

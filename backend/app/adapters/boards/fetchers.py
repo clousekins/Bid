@@ -854,6 +854,7 @@ async def fetch_jobright(
     max_jobs: int = 400,
     roles: list[str] | None = None,
     max_pages: int = 26,
+    request_delay: float = 2.0,
 ) -> list[RawListing]:
     """Remote jobs from Jobright's public listing pages.
 
@@ -867,14 +868,23 @@ async def fetch_jobright(
         slugs = []
     pages = _jobright_pages(slugs, roles)[: max(1, max_pages)]
 
-    semaphore = asyncio.Semaphore(6)
+    # One request at a time, spaced out. This is a public site with no bulk
+    # API, so the fetch is paced like a person reading pages rather than a
+    # crawl — which is also what keeps a repeated run from looking like one.
+    semaphore = asyncio.Semaphore(1)
+    delay = max(0.0, float(request_delay))
 
     async def one(url: str) -> list[RawListing]:
         async with semaphore:
             try:
                 html = await _jobright_html(url)
+            except JobrightChallenged:
+                raise
             except Exception:  # noqa: BLE001
                 return []
+            finally:
+                if delay:
+                    await asyncio.sleep(delay)
         props = _jobright_next_data(html)  # raises JobrightChallenged
         entries = props.get("jobList")
         if not isinstance(entries, list):
