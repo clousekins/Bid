@@ -206,6 +206,15 @@ async def init_db() -> None:
         await _backfill_packages(session)
         await _heal_legacy_listing_statuses(session)
         await _heal_datetime_failed_packages(session)
+        from app.services.renumber import heal_stuck_renumber_folders
+
+        healed = await heal_stuck_renumber_folders(session)
+        if healed["healed"] or healed["blocked"]:
+            import logging
+
+            logging.getLogger("poong.renumber").info(
+                "recovered interrupted renumber: %s", healed
+            )
         from app.services.ats_catalog import seed_ats_catalog
 
         await seed_ats_catalog(session, demote_missing=True)

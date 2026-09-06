@@ -16,3 +16,4 @@ POONG_FULL_REQUIREMENTS.md
 *.db
 .DS_Store
 Thumbs.db
+backups/

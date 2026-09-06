@@ -55,6 +55,72 @@ def _safe_rename(src: Path, dst: Path) -> Path | None:
     return dst
 
 
+_TEMP_FOLDER_RE = re.compile(r"^__renum_(?P<job_id>\d+)__")
+
+
+async def heal_stuck_renumber_folders(session: AsyncSession) -> dict[str, Any]:
+    """Finish a renumber that died between its two rename phases.
+
+    renumber_all_jobs moves every folder to a __renum_ temp name before moving
+    any to its final name, so an interruption anywhere in phase B leaves the
+    remainder stranded under temp names with nothing to repair them. Runs at
+    startup, the same way heal_stuck_jobs recovers interrupted background jobs.
+    """
+    root = get_settings().output_root
+    if not root.exists():
+        return {"healed": 0, "blocked": 0, "orphaned": 0}
+
+    healed = blocked = orphaned = 0
+    repaired_paths: dict[int, dict[str, str]] = {}
+
+    for persona_dir in sorted(root.iterdir()):
+        if not persona_dir.is_dir():
+            continue
+        for folder in sorted(persona_dir.iterdir()):
+            if not folder.is_dir():
+                continue
+            match = _TEMP_FOLDER_RE.match(folder.name)
+            if not match:
+                continue
+            job_id = int(match.group("job_id"))
+            job = await session.get(Job, job_id)
+            if job is None or job.seq_no is None:
+                orphaned += 1
+                continue
+            dst = persona_dir / job_folder_name(job.seq_no, job.company)
+            if dst.exists() and dst.resolve() != folder.resolve():
+                blocked += 1
+                continue
+            moved = _safe_rename(folder, dst)
+            if moved is None:
+                blocked += 1
+                continue
+            _update_meta_seq(moved, job.seq_no, job.id)
+            repaired_paths.setdefault(job_id, {})[persona_dir.name] = str(moved)
+            healed += 1
+
+    # Point the DB at the recovered folders.
+    for job_id, by_persona in repaired_paths.items():
+        job = (
+            await session.execute(
+                select(Job).options(selectinload(Job.packages)).where(Job.id == job_id)
+            )
+        ).scalar_one_or_none()
+        if job is None:
+            continue
+        for pkg in job.packages or []:
+            if pkg.persona_id in by_persona:
+                pkg.folder_path = by_persona[pkg.persona_id]
+        if job.persona_id in by_persona:
+            job.folder_path = by_persona[job.persona_id]
+        elif by_persona:
+            job.folder_path = next(iter(by_persona.values()))
+    if repaired_paths:
+        await session.commit()
+
+    return {"healed": healed, "blocked": blocked, "orphaned": orphaned}
+
+
 def _collect_folders_for_job(
     *,
     old_seq: int | None,
@@ -141,6 +207,7 @@ async def renumber_all_jobs(session: AsyncSession) -> dict[str, Any]:
     await session.flush()
 
     folders_renamed = 0
+    folders_stuck = 0
     changed_jobs = 0
     for job, temps, new_seq in temp_moves:
         old_seq = next(old for j, old, new in plan if j.id == job.id)
@@ -156,7 +223,16 @@ async def renumber_all_jobs(session: AsyncSession) -> dict[str, Any]:
             if temp.name == final_name:
                 final = temp
             else:
-                final = _safe_rename(temp, dst) or temp
+                final = _safe_rename(temp, dst)
+                if final is None:
+                    # Left under its temp name. Count it as stuck rather than
+                    # renamed — reporting this as success is what let 1,444
+                    # folders sit corrupted while the API said everything was
+                    # fine. heal_stuck_renumber_folders picks it up next boot.
+                    folders_stuck += 1
+                    final = temp
+                    new_paths.append(str(final))
+                    continue
             _update_meta_seq(final, new_seq, job.id)
             new_paths.append(str(final))
             folders_renamed += 1
@@ -191,6 +267,7 @@ async def renumber_all_jobs(session: AsyncSession) -> dict[str, Any]:
         "changed": True,
         "renumbered": changed_jobs,
         "folders_renamed": folders_renamed,
+        "folders_stuck": folders_stuck,
         "total": total,
         "seq_max": total if total else 0,
     }
