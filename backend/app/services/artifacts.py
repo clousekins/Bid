@@ -9,14 +9,16 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from app.config import get_settings
+from app.services.submission_capture import list_captures
 
-KINDS = ("resume_pdf", "resume_html", "cover_pdf", "cover_txt")
+KINDS = ("resume_pdf", "resume_html", "cover_pdf", "cover_txt", "submission_png")
 
 _KIND_MEDIA = {
     "resume_pdf": "application/pdf",
     "cover_pdf": "application/pdf",
     "resume_html": "text/html; charset=utf-8",
     "cover_txt": "text/plain; charset=utf-8",
+    "submission_png": "image/png",
 }
 
 
@@ -75,6 +77,9 @@ def resolve_artifacts(folder: str | Path | None) -> dict[str, ArtifactFile]:
         "resume_html": _pick(files, cover=False, suffixes=(".html", ".htm")),
         "cover_pdf": _pick(files, cover=True, suffixes=(".pdf",)),
         "cover_txt": _pick(files, cover=True, suffixes=(".txt",)),
+        # Proof of what was on screen when we submitted. Newest wins; the rest
+        # stay in the folder and are listed by list_captures().
+        "submission_png": next(iter(list_captures(root)), None),
     }
     for kind, path in mapping.items():
         if path is None:

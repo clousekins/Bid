@@ -606,3 +606,13 @@ body {
   white-space: nowrap;
   font-size: 0.78rem;
 }
+
+/* Submission screenshot — proof of what was actually sent. */
+.doc-viewer-image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+  background: var(--surface-1);
+  border-radius: 6px;
+}

@@ -21,6 +21,11 @@ from app.services.folder_writer import sync_job_folder
 from app.services.form_scan import scan_form_fields, write_form_fields
 from app.services.human_input import human_click, human_pause, soft_cloudflare_wait
 from app.services.persona import load_persona
+from app.services.submission_capture import (
+    POST_SUBMIT,
+    PRE_SUBMIT,
+    capture_submission,
+)
 from app.validators.dedupe import normalize_company
 
 
@@ -386,11 +391,15 @@ async def _run_apply(
         apply_sess.status = ApplySessionStatus.NEEDS_MANUAL
         return
 
+    # Evidence of what the form actually contained before anything was sent.
+    await capture_submission(page, folder, PRE_SUBMIT, emit=emit)
+
     settings = get_settings()
     if settings.auto_submit:
         apply_sess.status = ApplySessionStatus.SUBMITTING
         apply_sess.log("AUTO_SUBMIT enabled — attempting submit")
         ok = await _click_submit(page, apply_sess)
+        await capture_submission(page, folder, POST_SUBMIT, emit=emit)
         apply_sess.status = (
             ApplySessionStatus.APPLIED if ok else ApplySessionStatus.NEEDS_MANUAL
         )
@@ -418,6 +427,8 @@ async def _run_apply(
                         cover_pdf=cover_pdf,
                     )
                     await _click_submit(page, apply_sess)
+                # What the employer's page said back after submitting.
+                await capture_submission(page, folder, POST_SUBMIT, emit=emit)
                 apply_sess.log(
                     "Submit click done — verify on the page. "
                     "Use Mark applied only after you confirm it actually submitted."

@@ -4,6 +4,10 @@ import { artifactUrl, client } from "../api.js";
 import { personaLabel } from "../utils/persona.js";
 
 function pickView(tab, files) {
+  if (tab === "submission") {
+    // Proof of what the form looked like when we submitted it.
+    return files.submission_png ? { kind: "submission_png", mode: "image" } : null;
+  }
   if (tab === "cover") {
     if (files.cover_pdf) return { kind: "cover_pdf", mode: "pdf" };
     if (files.cover_txt) return { kind: "cover_txt", mode: "text" };
@@ -101,6 +105,15 @@ function Viewer({ jobId, personaId, packages, initialTab, onClose }) {
             >
               Cover letter
             </button>
+            {files.submission_png ? (
+              <button
+                type="button"
+                className={tab === "submission" ? "active" : ""}
+                onClick={() => setTab("submission")}
+              >
+                Submission
+              </button>
+            ) : null}
           </div>
           <div className="doc-viewer-meta">
             {readyPackages.length > 1 ? (
@@ -142,12 +155,17 @@ function Viewer({ jobId, personaId, packages, initialTab, onClose }) {
             <div className="doc-viewer-empty">
               {tab === "cover"
                 ? "No cover letter file for this profile."
-                : "No resume file for this profile."}
+                : tab === "submission"
+                  ? "No submission screenshot — captured on the next apply."
+                  : "No resume file for this profile."}
             </div>
           ) : null}
           {!meta && !error ? <div className="doc-viewer-empty">Loading…</div> : null}
           {view?.mode === "text" ? <pre className="doc-viewer-text">{text || "—"}</pre> : null}
-          {src ? (
+          {src && view?.mode === "image" ? (
+            <img className="doc-viewer-image" src={src} alt="Submitted application" />
+          ) : null}
+          {src && view?.mode !== "image" ? (
             <iframe
               className="doc-viewer-frame"
               title={tab === "cover" ? "Cover letter" : "Resume"}
