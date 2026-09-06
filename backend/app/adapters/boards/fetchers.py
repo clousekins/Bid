@@ -984,7 +984,9 @@ def jobright_search_urls(
         category = JOBRIGHT_DOMAIN_CATEGORY.get(domain_id, "remote-jobs")
         # Titles ticked inside this domain narrow it; the bare domain searches
         # every title it knows.
-        picked = [r["id"] for r in roles_for_domain(domain_id) if r["id"] in chosen_roles]
+        picked = [
+            r["id"] for r in roles_for_domain(domain_id) if r["id"] in chosen_roles
+        ]
         if picked:
             queries: list[str] = []
             for role_id in picked:
