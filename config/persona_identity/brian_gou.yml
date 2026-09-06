@@ -51,7 +51,7 @@ tailor:
       location: Menlo Park, California
       start: "Aug 2022"
       end: "Feb 2023"
-      bullets: 6
+      bullets: 5
       focus: Distributed systems, big data at scale, analytics readiness, Spark pipelines/streaming per JD
       allowed_tech: Modern data stack aligned to JD
     - company: Amazon
@@ -59,7 +59,7 @@ tailor:
       location: San Francisco, California
       start: "Oct 2021"
       end: "May 2022"
-      bullets: 6
+      bullets: 4
       focus: Cloud-first pipelines, automation, large-scale data, performance, Spark introduction
       allowed_tech: AWS Glue, Lambda, S3, Redshift, Athena, Step Functions, Python, Spark, Terraform, plus modern stack per JD
     - company: UnitedHealth Group
@@ -75,7 +75,7 @@ tailor:
       location: Dallas, Texas
       start: "Sep 2016"
       end: "Aug 2017"
-      bullets: 4
+      bullets: 3
       focus: SQL fundamentals, ETL basics, legacy systems, reporting, stored procedures, healthcare
       allowed_tech: SQL Server, SSIS, SSRS, Stored Procedures, Excel, on-prem databases
   education_ground_truth:

@@ -1,0 +1,108 @@
+persona_id: brian_gou
+display_name: Brian Gou
+default_professional_title: Senior Data Engineer
+total_experience: "10+ years"
+
+identity:
+  legal_name: Brian Gou (Yi)
+  preferred_name: Brian(Yi) Gou
+  email: briangou9@gmail.com
+  phone: "(929) 547 6426"
+  location_city: Tustin
+  location_state: CA
+  location_country: US
+  linkedin_url: https://www.linkedin.com/in/brian-gou-5838541a7/
+  work_authorization: "Authorized to work in the US"
+  salary_expectation: "150000-180000 USD per year"
+
+screening_answers:
+  - question: "Your resume's ATS score for this job description(only score, ex: 40%)?"
+    answer: ""
+  - question: "Are you authorized to work in the United States?"
+    answer: "Yes"
+  - question: "Do you now or will you in the future require sponsorship?"
+    answer: "No"
+  - question: "Are you willing to work remotely in the United States?"
+    answer: "Yes"
+  - question: "How many years of experience do you have?"
+    answer: "10"
+  - question: "What is your expected salary?"
+    answer: "150000-180000 USD per year"
+  - question: "Current Employer"
+    answer: "UnitedHealth Group"
+  - question: "Current Job Title"
+    answer: "Senior Data Engineer"
+  - question: "Were you referred for this position?"
+    answer: "No"
+
+tailor:
+  mode: html_resume_bundle
+  prompt_file: brian_gou.prompt.md
+  css_file: brian_gou.css
+  experience_ground_truth:
+    - company: UnitedHealth Group
+      title: Senior Data Engineer
+      location: Los Angeles, California
+      start: "Feb 2023"
+      end: Present
+      bullets: 7
+      focus: Multi-source integration, architecture, parallelization, schema drift, modernization, ML feature pipelines (if JD), governance, env setup, cross-functional collaboration
+      allowed_tech: Modern data stack aligned to JD
+    - company: Meta
+      title: Data Engineer
+      location: Menlo Park, California
+      start: "Aug 2022"
+      end: "Feb 2023"
+      bullets: 6
+      focus: Distributed systems, big data at scale, analytics readiness, Spark pipelines/streaming per JD
+      allowed_tech: Modern data stack aligned to JD
+    - company: Amazon
+      title: Data Engineer
+      location: San Francisco, California
+      start: "Oct 2021"
+      end: "May 2022"
+      bullets: 6
+      focus: Cloud-first pipelines, automation, large-scale data, performance, Spark introduction
+      allowed_tech: AWS Glue, Lambda, S3, Redshift, Athena, Step Functions, Python, Spark, Terraform, plus modern stack per JD
+    - company: UnitedHealth Group
+      title: SQL Data Engineer
+      location: Los Angeles, California
+      start: "Sep 2017"
+      end: "Oct 2021"
+      bullets: 4
+      focus: Enterprise ETL, claims data, data quality, validation frameworks, early cloud migration
+      allowed_tech: Python data engineering, classical + cloud-native stack per JD
+    - company: Tenet Healthcare
+      title: SQL Developer
+      location: Dallas, Texas
+      start: "Sep 2016"
+      end: "Aug 2017"
+      bullets: 4
+      focus: SQL fundamentals, ETL basics, legacy systems, reporting, stored procedures, healthcare
+      allowed_tech: SQL Server, SSIS, SSRS, Stored Procedures, Excel, on-prem databases
+  education_ground_truth:
+    - degree: Master of Science (Data Science)
+      school: Eastern University
+      location: St. Davids, Pennsylvania
+      year: "2022"
+    - degree: Master of Business Administration (Information Technology)
+      school: University of La Verne
+      location: La Verne, California
+      year: "2017"
+    - degree: Bachelor of Science (Auto Engineering)
+      school: Jiangsu University
+      location: Zhenjiang, Jiangsu Province
+      year: "2014"
+  certifications_ground_truth:
+    - name: Amazon Redshift Development & Administration
+      issuer: Udemy
+      year: "2017"
+      url: https://www.udemy.com/certificate/UC-bfcf8f79-17b5-40df-adb4-09ec2f69a185/
+    - name: Big Data with Apache Spark and Python
+      issuer: Udemy
+      year: "2020"
+      url: https://www.udemy.com/certificate/UC-798915ae-035f-4dc5-b32a-86f15f3de1fa/
+    - name: AWS Certified Cloud Practitioner
+      issuer: AWS
+      year: "2019"
+      url: https://www.credly.com/badges/bdd3e807-bf79-4430-bcd4-1ac2d4222fa8
