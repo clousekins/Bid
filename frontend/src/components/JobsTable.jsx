@@ -308,56 +308,58 @@ export default function JobsTable({
                     </div>
                   </td>
                   <td className="cell-status">
-                    <span className={`pill package-status status-strong ${myStatus}`}>
-                      {packageStatusLabel(myStatus)}
-                    </span>
-                    {generating ? (
-                      <span className="pill generating" title="Resume generating in the background">
-                        Generating
+                    <div className="cell-status-wrap">
+                      <span className={`pill package-status status-strong ${myStatus}`}>
+                        {packageStatusLabel(myStatus)}
                       </span>
-                    ) : null}
-                    {showPipeline ? (
-                      <span className={`pill pipeline-inline ${j.status}`} title="Listing pipeline">
-                        {pipelineLabel(j.status)}
-                      </span>
-                    ) : null}
-                    {needsJd && onFetchJd ? (
-                      <button
-                        type="button"
-                        className="table-continue"
-                        title="Fetch job description from the apply URL"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onFetchJd(j);
-                        }}
-                      >
-                        Fetch
-                      </button>
-                    ) : null}
-                    {["resume_ready", "applying", "applied"].includes(myStatus) ? (
-                      <span onClick={(e) => e.stopPropagation()}>
-                        <ResumePreview
-                          jobId={j.id}
-                          personaId={workingPersonaId}
-                          packages={pkgs}
-                          generating={generating}
-                          labels={{ resume: "Resume", cover: "Cover" }}
-                        />
-                      </span>
-                    ) : null}
-                    {onContinue ? (
-                      <button
-                        type="button"
-                        className="table-continue"
-                        title="Open Manual apply for this job"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onContinue(j);
-                        }}
-                      >
-                        Apply
-                      </button>
-                    ) : null}
+                      {generating ? (
+                        <span className="pill generating" title="Resume generating in the background">
+                          Generating
+                        </span>
+                      ) : null}
+                      {showPipeline ? (
+                        <span className={`pill pipeline-inline ${j.status}`} title="Listing pipeline">
+                          {pipelineLabel(j.status)}
+                        </span>
+                      ) : null}
+                      {needsJd && onFetchJd ? (
+                        <button
+                          type="button"
+                          className="table-continue"
+                          title="Fetch job description from the apply URL"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onFetchJd(j);
+                          }}
+                        >
+                          Fetch
+                        </button>
+                      ) : null}
+                      {["resume_ready", "applying", "applied"].includes(myStatus) ? (
+                        <span onClick={(e) => e.stopPropagation()}>
+                          <ResumePreview
+                            jobId={j.id}
+                            personaId={workingPersonaId}
+                            packages={pkgs}
+                            generating={generating}
+                            labels={{ resume: "Resume", cover: "Cover" }}
+                          />
+                        </span>
+                      ) : null}
+                      {onContinue ? (
+                        <button
+                          type="button"
+                          className="table-continue"
+                          title="Open Manual apply for this job"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onContinue(j);
+                          }}
+                        >
+                          Apply
+                        </button>
+                      ) : null}
+                    </div>
                   </td>
                   <td className="cell-others">
                     {others.length ? (

@@ -865,23 +865,32 @@ body {
   vertical-align: middle;
 }
 
+/* Same trap as the score cell: display:flex on a <td> drops it out of the
+   row model, so it sized to its content (40px) while every sibling was 58px
+   and the whole cell sat misaligned. Flex belongs on a child. */
 .jobs-table .cell-status {
+  /* Overrides the base .cell-status rule in styles.css, which sets flex. */
+  display: table-cell;
+  vertical-align: middle;
+  overflow: hidden;
+}
+
+.jobs-table .cell-status-wrap {
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
   gap: 0.22rem;
-  overflow: hidden;
 }
 
-.jobs-table .cell-status .pill {
+.jobs-table .cell-status-wrap .pill {
   flex: 0 0 auto;
   font-size: 0.72rem;
   padding: 0.08rem 0.4rem;
 }
 
 /* Actions stay one click away but stop dominating the row. */
-.jobs-table .cell-status button,
-.jobs-table .cell-status .doc-preview-btn {
+.jobs-table .cell-status-wrap button,
+.jobs-table .cell-status-wrap .doc-preview-btn {
   flex: 0 0 auto;
   font-size: 0.7rem;
   padding: 0.14rem 0.36rem;
@@ -904,10 +913,10 @@ body {
   padding-right: 0;
 }
 
-.jobs-table tbody tr:hover .cell-status button,
-.jobs-table tbody tr.active .cell-status button,
-.jobs-table tbody tr:hover .cell-status .doc-preview-btn,
-.jobs-table tbody tr.active .cell-status .doc-preview-btn {
+.jobs-table tbody tr:hover .cell-status-wrap button,
+.jobs-table tbody tr.active .cell-status-wrap button,
+.jobs-table tbody tr:hover .cell-status-wrap .doc-preview-btn,
+.jobs-table tbody tr.active .cell-status-wrap .doc-preview-btn {
   opacity: 1;
 }
 
