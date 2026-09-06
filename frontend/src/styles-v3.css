@@ -831,3 +831,118 @@ body {
 }
 
 .col-score { width: 10.4rem; }
+
+/* ============================================================
+   Jobs table — density and column budget
+   The fixed columns added up to ~617px inside a 768px table, so
+   Company and Title (22% + 36%) were crushed to "Sam…" / "Treb…".
+   Those two are how you identify a row; everything else is
+   secondary and now sized to what it actually needs.
+   ============================================================ */
+.jobs-table .col-check { width: 2rem; }
+.jobs-table .col-seq { width: 2.6rem; }
+.jobs-table .col-company { width: auto; min-width: 8rem; }
+.jobs-table .col-title { width: auto; min-width: 11rem; }
+.jobs-table .col-domain { width: 3.7rem; }
+.jobs-table .col-score { width: 6.8rem; }
+/* Status holds a pill plus up to three actions; starving it made them
+   wrap to two lines and pushed Others off the right edge. */
+.jobs-table .col-my-status { width: 11.9rem; }
+.jobs-table .col-others { width: 2rem; }
+
+/* One line per row. The action buttons were stacking three deep,
+   which made rows 89px tall — three visible on a laptop screen. */
+.jobs-table tbody td {
+  padding-top: 0.3rem;
+  padding-bottom: 0.3rem;
+  vertical-align: middle;
+}
+
+.jobs-table .cell-status {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.22rem;
+  overflow: hidden;
+}
+
+.jobs-table .cell-status .pill {
+  flex: 0 0 auto;
+  font-size: 0.68rem;
+  padding: 0.02rem 0.34rem;
+}
+
+/* Actions stay one click away but stop dominating the row. */
+.jobs-table .cell-status button,
+.jobs-table .cell-status .doc-preview-btn {
+  flex: 0 0 auto;
+  font-size: 0.645rem;
+  padding: 0.05rem 0.26rem;
+  line-height: 1.5;
+  border-radius: 4px;
+  white-space: nowrap;
+  opacity: 0.72;
+  transition: opacity 120ms ease, border-color 120ms ease;
+}
+
+/* Nothing in this cell may wrap — a second line is what made rows 89px. */
+.jobs-table .cell-status,
+.jobs-table .cell-status * {
+  white-space: nowrap;
+}
+
+.jobs-table .cell-others {
+  text-align: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.jobs-table tbody tr:hover .cell-status button,
+.jobs-table tbody tr.active .cell-status button,
+.jobs-table tbody tr:hover .cell-status .doc-preview-btn,
+.jobs-table tbody tr.active .cell-status .doc-preview-btn {
+  opacity: 1;
+}
+
+/* Scores: drop the slashes to their own hairline so three numbers
+   read as one unit instead of a sentence. */
+.cell-score-wrap { gap: 0.1rem; }
+.cell-score .score-sep { display: none; }
+
+.cell-score .score-badge + .score-badge {
+  margin-left: 0.14rem;
+  position: relative;
+}
+
+.cell-score .score-badge + .score-badge::before {
+  content: "";
+  position: absolute;
+  left: -0.14rem;
+  top: 20%;
+  bottom: 20%;
+  width: 1px;
+  background: var(--line);
+  opacity: 0.5;
+}
+
+.cell-score .score-compact {
+  min-width: 1.95rem;
+  padding: 0.02rem 0.22rem;
+  font-size: 0.73rem;
+}
+
+/* The header should stay put while a long page scrolls. */
+.jobs-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface-2);
+}
+
+.jobs-table tbody tr {
+  transition: background 110ms ease;
+}
+
+.jobs-table tbody tr.active {
+  box-shadow: inset 2px 0 0 var(--profile-accent);
+}
