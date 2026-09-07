@@ -115,6 +115,8 @@ export const client = {
     api("/api/sync/discover-companies", { method: "POST", json: body }),
   discoverSite: (body) => api("/api/sync/discover-site", { method: "POST", json: body }),
   fetchSites: () => api("/api/sync/fetch-sites"),
+  resetTodayCounter: () =>
+    api("/api/jobs/meta/stats/reset-today", { method: "POST" }),
   sectorSearch: (body) =>
     api("/api/sync/sector-search", { method: "POST", json: body }),
   sectorList: () => api("/api/sync/sector-search/sectors"),

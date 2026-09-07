@@ -783,3 +783,29 @@ button.danger {
     width: 100%;
   }
 }
+
+/* Reset for the Today counter. Sits with the stat pills and matches their
+   height, but reads as an action rather than another number. */
+.stat-reset-btn {
+  align-self: stretch;
+  padding: 0.35rem 0.7rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text-dim, inherit);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.stat-reset-btn:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--profile-accent) 45%, var(--line));
+  color: inherit;
+}
+
+.stat-reset-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}

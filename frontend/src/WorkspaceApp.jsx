@@ -267,6 +267,17 @@ export default function WorkspaceApp({ onGoHome, theme, onToggleTheme }) {
     }
   };
 
+  // Resetting only moves the mark the count runs from - every application
+  // stays on record - so this needs no confirmation.
+  const handleResetToday = async () => {
+    try {
+      await client.resetTodayCounter();
+      await ws.refresh();
+    } catch (e) {
+      ws.setError(String(e.message || e));
+    }
+  };
+
   return (
     <div className="app-shell">
       <SideRail
@@ -296,6 +307,7 @@ export default function WorkspaceApp({ onGoHome, theme, onToggleTheme }) {
               onSwitch={ws.setWorkingAs}
               stats={ws.stats}
               onRefresh={ws.refresh}
+              onResetToday={handleResetToday}
               busy={false}
             />
           </div>

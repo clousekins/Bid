@@ -7,6 +7,7 @@ export default function WorkspaceHeader({
   onSwitch,
   stats,
   onRefresh,
+  onResetToday,
   busy,
 }) {
   const [open, setOpen] = useState(false);
@@ -21,6 +22,32 @@ export default function WorkspaceHeader({
   // Today's count is the number that tells you whether to keep going.
   const todayAll = Number(stats?.applied_today || 0);
   const todayMine = Number(stats?.applied_today_by_profile?.[workingPersonaId] || 0);
+  // When the counter started. Shown on the reset button so the number has a
+  // reference point rather than being a bare figure you have to trust.
+  const countingSince = (() => {
+    const raw = stats?.today_started_at;
+    if (!raw) return "the start of today";
+    const when = new Date(raw);
+    if (Number.isNaN(when.getTime())) return "the start of today";
+    return stats?.today_reset_manually
+      ? when.toLocaleString()
+      : `midnight (${when.toLocaleDateString()})`;
+  })();
+
+  // Ctrl+R resets the counter instead of reloading the page. Worth knowing
+  // that this takes a browser shortcut away from this tab; Ctrl+Shift+R and
+  // F5 still reload, so there is a way out.
+  useEffect(() => {
+    if (!onResetToday) return undefined;
+    const onKey = (e) => {
+      if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return;
+      if (String(e.key).toLowerCase() !== "r") return;
+      e.preventDefault();
+      onResetToday();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onResetToday]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -79,6 +106,17 @@ export default function WorkspaceHeader({
             </span>
             <span className="stat-label">Companies</span>
           </div>
+        ) : null}
+        {onResetToday ? (
+          <button
+            type="button"
+            className="stat-reset-btn"
+            onClick={onResetToday}
+            disabled={busy}
+            title={`Start the Today count from now (Ctrl+R). Counting since ${countingSince}. Nothing is deleted.`}
+          >
+            Reset
+          </button>
         ) : null}
       </div>
 

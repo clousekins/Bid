@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { client, logPoong } from "../api.js";
 import { reasonLabel } from "../utils/outcomes.js";
+import { askNotifyPermission, completionAlert, notify } from "../utils/notify.js";
 
 const KIND_LABELS = {
   discover: "Fetching jobs",
@@ -95,6 +96,11 @@ function buildProgress(job) {
       }))
       .reverse(),
     resultsAdded: p.inserted ?? oks,
+    // Where the run wrote its CSV. The panel shows the last 40 rows; the file
+    // has all of them, including the ones the gates turned away.
+    csvName: p.csv_name || "",
+    csvFile: p.csv_file || "",
+    csvRows: p.csv_rows ?? null,
     window: p.window || "",
     error: job.error || "",
     rawLine: null,
@@ -128,6 +134,13 @@ export function useBatchJobs(refresh) {
         if (["completed", "failed", "cancelled"].includes(job.status)) {
           setBusy(false);
           setBgJobId(null);
+          // Fires once: this branch stops the poll loop. A sweep runs for
+          // twenty minutes, so the panel alone cannot tell you it landed.
+          const alert = completionAlert(job.kind, job.status, {
+            ...(job.progress && typeof job.progress === "object" ? job.progress : {}),
+            error: job.error,
+          });
+          notify(alert.title, alert.body, `bg-job-${bgJobId}`);
           await refresh();
           return;
         }
@@ -163,6 +176,9 @@ export function useBatchJobs(refresh) {
 
   const startBg = async (kind, body) => {
     setBusy(true);
+    // Asked here because this runs from the click on Fetch — browsers refuse
+    // the prompt outside a user gesture. Ignored once answered either way.
+    askNotifyPermission();
     setActiveJob({
       jobId: null,
       kind,
