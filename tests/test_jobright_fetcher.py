@@ -16,6 +16,10 @@ import pytest
 
 from app.adapters.boards import ADAPTERS
 from app.adapters.boards.fetchers import (
+    JOBRIGHT_CONTRACT,
+    JOBRIGHT_PASSES,
+    JOBRIGHT_REMOTE,
+    JOBRIGHT_SENIORITIES,
     JobrightChallenged,
     _jobright_next_data,
     _jobright_row,
@@ -24,6 +28,16 @@ from app.adapters.boards.fetchers import (
     jobright_search_urls,
 )
 from app.services.fetch_sites import resolve_site
+
+
+def _titles(urls: list[str]) -> set[str]:
+    """The distinct job titles a URL list searches for.
+
+    Each title is now swept across the seniority ladder, so the number of URLs
+    is a multiple of the number of searches. What these tests care about is
+    which titles were asked for.
+    """
+    return {u.split("jobTitle=")[1].split("&")[0] for u in urls}
 
 
 def _entry(**overrides) -> dict:
@@ -214,13 +228,13 @@ class TestTitleSearch:
 
     def test_a_domain_searches_every_title_it_knows(self):
         urls = jobright_search_urls(domains=["de"])
-        assert len(urls) > 10, "one search per title, not one per domain"
+        assert len(_titles(urls)) > 10, "one search per title, not one per domain"
         assert all("jobTitle=" in u for u in urls)
         assert any("Senior%20Data%20Engineer" in u for u in urls)
 
     def test_picked_titles_narrow_the_search(self):
         urls = jobright_search_urls(domains=["de"], roles=["de_senior", "de_staff"])
-        assert len(urls) == 2
+        assert len(_titles(urls)) == 2
         assert any("Senior%20Data%20Engineer" in u for u in urls)
         assert any("Staff%20Data%20Engineer" in u for u in urls)
         assert not any("Data%20Architect" in u for u in urls)
@@ -228,7 +242,7 @@ class TestTitleSearch:
     def test_a_compound_title_becomes_several_searches(self):
         """'AWS / Azure / GCP Data Engineer' is one row but three searches."""
         urls = jobright_search_urls(domains=["de"], roles=["de_cloud"])
-        assert len(urls) == 3
+        assert len(_titles(urls)) == 3
         assert any("AWS" in u for u in urls) and any("GCP" in u for u in urls)
 
     def test_each_domain_searches_its_own_section(self):
@@ -294,18 +308,18 @@ class TestTickedTitlesAreTheSelection:
         urls = jobright_search_urls(
             self.ALL_DOMAINS, ["de_senior", "de_staff", "de_architect"]
         )
-        assert len(urls) == 3
+        assert len(_titles(urls)) == 3
         assert all("/remote-jobs/data-ai?" in u for u in urls)
 
     def test_a_domain_with_no_ticked_title_is_not_searched(self):
         urls = jobright_search_urls(["de", "sf"], ["de_senior"])
-        assert len(urls) == 1
+        assert len(_titles(urls)) == 1
         assert "Senior%20Data%20Engineer" in urls[0]
         assert not any("software-engineering" in u for u in urls)
 
     def test_titles_from_several_domains_all_run(self):
         urls = jobright_search_urls(self.ALL_DOMAINS, ["de_senior", "ai_mlops"])
-        assert len(urls) == 2
+        assert len(_titles(urls)) == 2
         assert any("Senior%20Data%20Engineer" in u for u in urls)
         assert any("MLOps%20Engineer" in u for u in urls)
 
@@ -316,9 +330,128 @@ class TestTickedTitlesAreTheSelection:
 
     def test_a_role_finds_its_domain_without_the_domain_given(self):
         urls = jobright_search_urls([], ["de_senior"])
-        assert len(urls) == 1 and "/remote-jobs/data-ai?" in urls[0]
+        assert _titles(urls) == {"Senior%20Data%20Engineer"}
+        assert all("/remote-jobs/data-ai?" in u for u in urls)
 
     def test_a_small_selection_stays_a_small_run(self):
-        """Three titles is seconds of requests; seventy is six minutes."""
+        """One ticked title is one title's sweep, not all twelve domains'."""
         urls = jobright_search_urls(self.ALL_DOMAINS, ["de_senior"])
-        assert len(urls) == 1
+        assert len(_titles(urls)) == 1
+        assert len(urls) == len(JOBRIGHT_PASSES)
+
+
+class TestTheSenioritySweep:
+    """One title is one search only if you ignore their seniority filter.
+
+    A bare `jobTitle` search answers with thirty jobs and no second page.
+    `seniority` splits that same search six more ways, largely into different
+    jobs — measured against live pages, one title reached 174 distinct remote
+    listings where the bare search returned 30.
+    """
+
+    def test_a_title_is_swept_across_every_seniority(self):
+        urls = jobright_search_urls(["de"], ["de_senior"])
+        assert len(urls) == len(JOBRIGHT_PASSES)
+        levels = {u.split("seniority=")[1] for u in urls if "seniority=" in u}
+        assert levels == {str(s) for s in JOBRIGHT_SENIORITIES}
+
+    def test_the_bare_search_is_kept_alongside_the_sweep(self):
+        """Unfiltered returns jobs the per-level pages do not.
+
+        One bare page per employment pool — full time and contract.
+        """
+        urls = jobright_search_urls(["de"], ["de_senior"])
+        assert sum(1 for u in urls if "seniority=" not in u) == 2
+
+    def test_every_search_pins_remote(self):
+        """The path is only a slug; this param is what keeps onsite jobs out."""
+        urls = jobright_search_urls(["de", "dv"], ["de_senior", "dv_sre"])
+        assert urls and all(f"workModel={JOBRIGHT_REMOTE}" in u for u in urls)
+
+    def test_titles_are_covered_before_any_is_swept(self):
+        """A run cut short by its time budget should have seen every title.
+
+        Depth-first, a 900s budget spent its whole life on the first two
+        titles and never reached the rest of the selection.
+        """
+        urls = jobright_search_urls(["de"], ["de_senior", "de_staff", "de_lead"])
+        first_pass = urls[:3]
+        assert not any("seniority=" in u for u in first_pass)
+        assert len(_titles(first_pass)) == 3, "all three titles before any sweep"
+
+    def test_no_duplicate_pages_in_a_sweep(self):
+        urls = jobright_search_urls(["de", "ai"], ["de_senior", "ai_mlops"])
+        assert len(urls) == len(set(urls))
+
+    def test_nothing_selected_still_means_no_searches(self):
+        assert jobright_search_urls(None, None) == []
+
+
+class TestContractAndPartTimeAreIncluded:
+    """An unfiltered Jobright page is full time only, not "everything".
+
+    Every job a bare page returns carries employmentType "Full-time".
+    Contract and part-time are a separate pool reached only by asking:
+    `jobTypes=2` answered with 30 jobs, none of them on the bare page, and
+    swept across seniority it reached 145 more for the same title.
+    """
+
+    def test_each_title_is_read_for_both_employment_pools(self):
+        urls = jobright_search_urls(["de"], ["de_senior"])
+        contract = [u for u in urls if f"jobTypes={JOBRIGHT_CONTRACT}" in u]
+        full_time = [u for u in urls if "jobTypes=" not in u]
+        assert len(contract) == len(full_time) == len(urls) // 2
+
+    def test_full_time_carries_no_job_type_param(self):
+        """Their default. Sending jobTypes=1 explicitly changes nothing."""
+        urls = jobright_search_urls(["de"], ["de_senior"])
+        assert any("jobTypes=" not in u for u in urls)
+        assert not any("jobTypes=1" in u for u in urls)
+
+    def test_internships_are_not_fetched(self):
+        """jobTypes=4 is internships, which the seniority gate drops anyway."""
+        urls = jobright_search_urls(["de"], None)
+        assert not any("jobTypes=4" in u for u in urls)
+
+    def test_both_pools_are_covered_before_any_depth(self):
+        """A truncated run must not have read full time only."""
+        urls = jobright_search_urls(["de"], ["de_senior", "de_staff"])
+        first_pass = urls[:4]          # 2 titles x 2 pools
+        assert not any("seniority=" in u for u in first_pass)
+        assert sum(1 for u in first_pass if "jobTypes=" in u) == 2
+
+    def test_a_selection_doubles_rather_than_duplicates(self):
+        urls = jobright_search_urls(["de", "ai"], ["de_senior", "ai_mlops"])
+        assert len(urls) == len(set(urls))
+        assert len(urls) == 2 * len(JOBRIGHT_PASSES)
+
+
+class TestEmploymentTypeSurvivesParsing:
+    """Fetching contract roles is only half an answer if nothing says so.
+
+    The fetcher now asks for the contract pool as well as full time, so the
+    listing has to carry which one it came back as — otherwise the export is
+    a mixed pile with no way to tell them apart.
+    """
+
+    def test_the_type_is_kept_on_the_listing(self):
+        job, company = _entry()
+        job["employmentType"] = "Contract"
+        row = _jobright_row(job, company)
+        assert row.raw["employment_type"] == "Contract"
+
+    def test_a_compound_type_is_kept_verbatim(self):
+        job, company = _entry()
+        job["employmentType"] = "Part-time, Contract"
+        assert _jobright_row(job, company).raw["employment_type"] == "Part-time, Contract"
+
+    def test_a_missing_type_is_none_not_a_guess(self):
+        """Absent and "Full-time" are different answers."""
+        job, company = _entry()
+        job.pop("employmentType", None)
+        assert _jobright_row(job, company).raw["employment_type"] is None
+
+    def test_a_blank_type_is_none(self):
+        job, company = _entry()
+        job["employmentType"] = "   "
+        assert _jobright_row(job, company).raw["employment_type"] is None

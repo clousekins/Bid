@@ -41,11 +41,18 @@ FETCH_SITES: list[dict[str, Any]] = [
         "label": "Jobright",
         "kind": "feed",
         "blurb": "Jobright remote jobs — searches every title you pick",
-        # One search per job title, spaced 4s apart. Selecting every domain is
-        # 84 searches, measured at 559s; the fetcher stops itself 20s before
-        # this and returns what it has, so leave real headroom or a full sweep
-        # gets cut off near the end.
-        "timeout": 900,
+        # Fourteen pages per job title, spaced 4s apart: two employment pools
+        # (full time, contract/part-time) across the bare search and six
+        # seniority levels. That is where the jobs are — one title alone
+        # reaches ~300 where a single page gives 30.
+        #
+        # 30 minutes buys about 336 pages, so a whole 17-title domain (238,
+        # near 21 minutes) now finishes instead of being cut off. Selecting
+        # every domain is 1176 and still will not fit; the fetcher stops
+        # itself 20s before the deadline and returns what it found, and pages
+        # are ordered so every title is read for both pools before any goes
+        # deeper — a truncated run comes back thin rather than lopsided.
+        "timeout": 1800,
     },
     {
         "id": "remoteok",

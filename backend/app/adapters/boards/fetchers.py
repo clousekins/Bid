@@ -736,6 +736,46 @@ JOBRIGHT_DOMAIN_CATEGORY: dict[str, str] = {
     "ce": "remote-jobs/infrastructure-security",
 }
 
+# The work model to ask for. The /remote-jobs/ path is only a slug: the filter
+# that actually decides is this query param, and the same path serves onsite
+# (1) and hybrid (3) when asked. It defaults to 2, but pinning it means a
+# change to their default cannot quietly feed onsite jobs to a remote-only app.
+JOBRIGHT_REMOTE = 2
+
+# Their seniority filter's whole range. Each value answers with its own thirty,
+# and they overlap far less than you would expect: swept across one title,
+# 1-6 reached 174 distinct remote jobs where the bare search returned 30.
+# 0 and 7+ answer with nothing, so this is the entire ladder.
+JOBRIGHT_SENIORITIES: tuple[int, ...] = (1, 2, 3, 4, 5, 6)
+
+# Employment type. Leaving it off is not "everything" — it is full time, and
+# only full time: every job an unfiltered page returned came back with
+# employmentType "Full-time". Contract and part-time roles are a separate
+# pool of the same size, reached only by asking for them.
+#
+# 2 is contract and part-time. 3 returns the same jobs (29 of 30 identical),
+# so it earns nothing, and 4 is internships, which the seniority gate drops
+# anyway. Values cannot be combined — `jobTypes=1,2,3` and a repeated param
+# both fall back to full time — so each pool costs its own request.
+JOBRIGHT_FULL_TIME: int | None = None
+JOBRIGHT_CONTRACT = 2
+JOBRIGHT_JOB_TYPES: tuple[int | None, ...] = (JOBRIGHT_FULL_TIME, JOBRIGHT_CONTRACT)
+
+# The pages to read for one job title, in the order to read them.
+#
+# Both employment pools before any depth, then a seniority level at a time
+# across both. A run stopped by its time budget then has every title covered
+# for both full time and contract, rather than full time explored deeply and
+# contract never reached at all.
+JOBRIGHT_PASSES: tuple[tuple[int | None, int | None], ...] = tuple(
+    [(job_type, None) for job_type in JOBRIGHT_JOB_TYPES]
+    + [
+        (job_type, seniority)
+        for seniority in JOBRIGHT_SENIORITIES
+        for job_type in JOBRIGHT_JOB_TYPES
+    ]
+)
+
 _JOBRIGHT_ID_RE = re.compile(r"/jobs/info/([0-9a-f]{24})")
 _NEXT_DATA_RE = re.compile(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', re.S)
 
@@ -849,7 +889,14 @@ def _jobright_row(job: dict[str, Any], company: dict[str, Any]) -> RawListing | 
             or work_model.lower() == "remote"
         ),
         external_id=job_id,
-        raw={"seniority": job.get("jobSeniority"), "salary": salary},
+        raw={
+            "seniority": job.get("jobSeniority"),
+            "salary": salary,
+            # Full-time / Contract / Part-time. Worth keeping now that the
+            # fetcher asks for the contract pool as well: a run that brings
+            # both back and labels neither is only half an answer.
+            "employment_type": str(job.get("employmentType") or "").strip() or None,
+        },
     )
 
 
@@ -960,10 +1007,22 @@ def jobright_search_urls(
     """The pages to read for a picker selection.
 
     A category page shows thirty jobs and no more — it has no second page, and
-    `page` / `offset` are ignored. But `jobTitle` is a real server-side filter,
-    and each value answers with its own thirty. So one search per job title is
-    what actually reaches the whole list: ten title searches under data-ai
-    returned 265 distinct jobs where the plain category page gave 30.
+    `page` / `offset` / `pageSize` are all ignored. But `jobTitle` is a real
+    server-side filter, and each value answers with its own thirty. So one
+    search per job title is what actually reaches the whole list: ten title
+    searches under data-ai returned 265 distinct jobs where the plain category
+    page gave 30.
+
+    `seniority` is a second real filter, and this is where the volume is. Each
+    of its six values answers with its own thirty, largely different jobs —
+    sweeping one title across them reached 174 distinct remote jobs where the
+    bare search gave 30. Without it the fetcher was reading a sixth of what
+    the same URL will hand over.
+
+    `jobTypes` is the third, and leaving it off is not neutral: an unfiltered
+    page is full time only. Contract and part-time are a separate pool of much
+    the same size — 145 more for the same title — and invisible until asked
+    for. So each title is read twice over, once per pool.
 
     Ticked titles are the selection. The picker opens with every domain
     already on, so "three titles" arrives as twelve domains plus three roles —
@@ -986,7 +1045,7 @@ def jobright_search_urls(
         return []
 
     domain_ids = wanted or [d["id"] for d in JOB_DOMAINS]
-    urls: list[str] = []
+    searches: list[tuple[str, str]] = []
     for domain_id in domain_ids:
         category = JOBRIGHT_DOMAIN_CATEGORY.get(domain_id, "remote-jobs")
         picked = [
@@ -1005,9 +1064,26 @@ def jobright_search_urls(
         else:
             queries = domain_queries(domain_id)
         for query in queries:
-            url = f"{JOBRIGHT_BASE}/{category}?jobTitle={quote(query)}"
-            if url not in urls:
-                urls.append(url)
+            pair = (category, query)
+            if pair not in searches:
+                searches.append(pair)
+
+    # A pass at a time, not a title at a time. Every title is searched at a
+    # given depth before any of them goes deeper, so a run cut short by its
+    # time budget has covered the whole selection thinly rather than the first
+    # two titles exhaustively.
+    urls: list[str] = []
+    for job_type, seniority in JOBRIGHT_PASSES:
+        for category, query in searches:
+            url = (
+                f"{JOBRIGHT_BASE}/{category}?jobTitle={quote(query)}"
+                f"&workModel={JOBRIGHT_REMOTE}"
+            )
+            if job_type is not None:
+                url = f"{url}&jobTypes={job_type}"
+            if seniority is not None:
+                url = f"{url}&seniority={seniority}"
+            urls.append(url)
     return urls
 
 
