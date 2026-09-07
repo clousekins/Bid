@@ -176,6 +176,9 @@ def listing_to_dict(listing: RawListing) -> dict[str, Any]:
         "staffing_firm": listing.staffing_firm,
         "domains": domains_storage(domain_ids),
         "domain_ids": domain_ids,
+        # Set by adapters that know it; blank everywhere else rather than
+        # guessed, since "no answer" and "full time" are not the same thing.
+        "employment_type": (listing.raw or {}).get("employment_type"),
     }
 
 
@@ -253,8 +256,26 @@ def _us_priority(listing: RawListing) -> int:
     return score
 
 
-def diversify_by_company(listings: list[RawListing]) -> list[RawListing]:
-    """One best role per company first, shuffled company order."""
+def _count_companies(listings: list[RawListing]) -> int:
+    """Distinct employers in a list. The count a diversified list used to be."""
+    return len(
+        {
+            normalize_company(listing.company_name) or listing.company_name.lower()
+            for listing in listings
+        }
+    )
+
+
+def diversify_by_company(
+    listings: list[RawListing], per_company: int = 8
+) -> list[RawListing]:
+    """Company-diverse order, keeping up to `per_company` roles each.
+
+    Round robin: every company's best role comes first, then everyone's
+    second, and so on. So the head of the list is still one role per company
+    — no employer can flood it — but a company hiring five of the titles that
+    were ticked contributes all five instead of four being thrown away.
+    """
     by_co: dict[str, list[RawListing]] = {}
     for listing in listings:
         key = normalize_company(listing.company_name) or listing.company_name.lower()
@@ -262,12 +283,13 @@ def diversify_by_company(listings: list[RawListing]) -> list[RawListing]:
     groups: list[list[RawListing]] = []
     for group in by_co.values():
         group.sort(key=_us_priority, reverse=True)
-        groups.append(group[:8])
+        groups.append(group[: max(1, per_company)])
     random.shuffle(groups)
     out: list[RawListing] = []
-    for group in groups:
-        if group:
-            out.append(group[0])
+    for rank in range(max((len(g) for g in groups), default=0)):
+        for group in groups:
+            if rank < len(group):
+                out.append(group[rank])
     return out
 
 
@@ -480,7 +502,7 @@ async def collect_new_listings(
         "discovered_raw": len(raw),
         "after_filters": len(filtered),
         "prefilter_drops": drop_reasons,
-        "unique_companies": len(diversified),
+        "unique_companies": _count_companies(diversified),
         "by_source": by_source,
         "candidates": len(out),
         "insert_limit": insert_limit,
@@ -779,7 +801,7 @@ async def collect_site_listings(
         "discovered_raw": len(raw),
         "after_filters": len(filtered),
         "prefilter_drops": drop_reasons,
-        "unique_companies": len(diversified),
+        "unique_companies": _count_companies(diversified),
         "by_source": by_source,
         "candidates": len(out),
         "insert_limit": insert_limit,
@@ -791,6 +813,11 @@ async def collect_site_listings(
         "boards_done": len(board_ids),
         "boards_total": len(board_ids),
         "ats_boards": ats_this_run[:40],
+        # Every candidate, not just the slice the window has room to insert —
+        # the CSV export is the whole catch. The caller pops this before the
+        # rest of `meta` is written to the job's progress: full descriptions
+        # for a thousand listings do not belong in a JSON column.
+        "found_rows": out,
     }
     log.info(
         "discover[site=%s window=%s]: raw=%s filtered=%s candidates=%s",

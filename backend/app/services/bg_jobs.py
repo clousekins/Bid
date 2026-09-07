@@ -635,6 +635,7 @@ async def _exec_tailor(session, row: BackgroundJob) -> None:
 
 async def _exec_discover(session, row: BackgroundJob, *, mode: str = "standard") -> None:
     from app.services.discover import collect_new_listings, collect_site_listings
+    from app.services.fetch_export import write_fetch_csv
     from app.services.pipeline import process_listing
 
     bg_id = row.id
@@ -699,6 +700,10 @@ async def _exec_discover(session, row: BackgroundJob, *, mode: str = "standard")
             on_progress=on_collect_progress,
         )
     insert_limit = int(meta.get("insert_limit") or 50)
+    # The whole catch, for the CSV. Popped before `meta` reaches `progress`,
+    # which is stored as JSON on the row — a thousand job descriptions there
+    # would make every poll of this job carry them back to the browser.
+    found_rows = meta.pop("found_rows", None) or listings
     items: list[dict[str, Any]] = []
     progress.update(
         {
@@ -798,6 +803,24 @@ async def _exec_discover(session, row: BackgroundJob, *, mode: str = "standard")
             row2.progress = json.dumps(progress)
             row2.updated_at = _utcnow()
             await session2.commit()
+
+    # Every job the run found, on disk, with what became of each. The table
+    # shows only what cleared the gates; a fetch worth waiting for should
+    # also leave behind the rows it decided against.
+    try:
+        csv_path = write_fetch_csv(
+            site=site or mode,
+            window=window if site else "",
+            listings=found_rows,
+            outcomes=items,
+        )
+        if csv_path:
+            progress["csv_file"] = str(csv_path)
+            progress["csv_name"] = csv_path.name
+            progress["csv_rows"] = len(found_rows)
+    except Exception as exc:  # noqa: BLE001
+        # A fetch that reached the table is not a failed fetch.
+        log.warning("fetch csv export failed: %s", exc)
 
     if new_job_ids and not await _bg_cancelled(bg_id):
         scan_row = await enqueue(

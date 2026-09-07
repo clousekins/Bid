@@ -195,6 +195,12 @@ export default function JobProgressPanel({
                       {activeJob.results.length} found · {activeJob.resultsAdded} new
                     </span>
                   </div>
+                  {activeJob.csvName ? (
+                    <p className="muted fetch-results-csv" title={activeJob.csvFile}>
+                      Saved {activeJob.csvRows ?? activeJob.results.length} rows to
+                      data/fetches/{activeJob.csvName}
+                    </p>
+                  ) : null}
                   <ol className="fetch-results-list">
                     {activeJob.results.map((row) => {
                       const posted = postedLabel(row.postedAt);

@@ -455,3 +455,10 @@ class TestEmploymentTypeSurvivesParsing:
         job, company = _entry()
         job["employmentType"] = "   "
         assert _jobright_row(job, company).raw["employment_type"] is None
+
+    def test_it_reaches_the_normalised_dict(self):
+        from app.services.discover import listing_to_dict
+
+        job, company = _entry()
+        job["employmentType"] = "Contract"
+        assert listing_to_dict(_jobright_row(job, company))["employment_type"] == "Contract"
