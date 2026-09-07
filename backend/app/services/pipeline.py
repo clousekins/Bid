@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -349,3 +349,54 @@ async def process_listing(
         reason=reject_reason or "",
         status=status,
     )
+
+
+async def forget_job_markers(session: AsyncSession, jobs: list[Job]) -> dict[str, int]:
+    """Erase the bookkeeping that would stop a deleted job coming back.
+
+    Deleting a job used to leave two traces behind, neither of them reachable
+    from the UI. The `job_source_seen` marker is the damaging one: every later
+    fetch reads it and skips the listing as `already_seen`, so a job deleted
+    once could never be re-added no matter how often the board was fetched.
+    341 Jobright listings were stranded that way in a single table.
+
+    `applications` is deliberately left alone. That row records applying to a
+    *company*, not to this job — it is unique per persona and company — so
+    dropping it would let a later fetch offer an employer already applied to.
+    """
+    pairs = [(j.source, j.external_id) for j in jobs if j.external_id]
+    urls = [j.url for j in jobs if j.url]
+    out = {"seen_markers": 0, "rejected_rows": 0}
+
+    for source, external_id in pairs:
+        # Source has been written both ways ("Jobright" / "jobright"), so a
+        # case-sensitive match would leave half the markers in place.
+        result = await session.execute(
+            delete(JobSourceSeen).where(
+                func.lower(JobSourceSeen.source) == str(source or "").lower(),
+                JobSourceSeen.external_id == external_id,
+            )
+        )
+        out["seen_markers"] += int(result.rowcount or 0)
+
+    if urls:
+        result = await session.execute(
+            delete(RejectedJob).where(RejectedJob.url.in_(urls))
+        )
+        out["rejected_rows"] += int(result.rowcount or 0)
+    return out
+
+
+async def prune_orphan_seen_markers(session: AsyncSession) -> int:
+    """Drop seen-markers whose job is gone, and report how many.
+
+    Markers are only ever written beside a job row (a listing rejected before
+    that point returns earlier and is never marked), so a marker with no job
+    means the job was deleted while the marker outlived it. Clearing them lets
+    those listings be fetched into the table again.
+    """
+    live = select(Job.external_id).where(Job.external_id.is_not(None))
+    result = await session.execute(
+        delete(JobSourceSeen).where(JobSourceSeen.external_id.not_in(live))
+    )
+    return int(result.rowcount or 0)

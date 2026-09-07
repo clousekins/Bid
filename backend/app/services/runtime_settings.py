@@ -8,6 +8,7 @@ active persona in personas.yml rather than baked into the environment.
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import Any
 
 import yaml
@@ -23,6 +24,10 @@ DEFAULTS: dict[str, Any] = {
     # check. Each retry below the floor is a full tailor call, hence the cap.
     "min_ats_score": 0,
     "ats_max_attempts": 3,
+    # When the Today counter last started counting, as an ISO timestamp.
+    # None means it has never been reset, and the count falls back to the
+    # start of the local day.
+    "applied_counter_since": None,
 }
 
 
@@ -72,6 +77,33 @@ def update(**changes: Any) -> dict[str, Any]:
             value = max(0, min(100, int(value)))
         elif key == "ats_max_attempts":
             value = max(1, min(6, int(value)))
+        elif key == "applied_counter_since":
+            value = str(value)
         values[key] = value
     _path().write_text(yaml.safe_dump(values, sort_keys=True), encoding="utf-8")
     return values
+
+
+def applied_counter_since() -> datetime | None:
+    """When the Today counter started counting, or None for local midnight.
+
+    Stored as an aware ISO timestamp. An unreadable value is treated as unset
+    rather than raised: a corrupt preference should show a stale count, not
+    break the header.
+    """
+    raw = load().get("applied_counter_since")
+    if not raw:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(raw))
+    except ValueError:
+        log.warning("applied_counter_since is not a timestamp: %r", raw)
+        return None
+    return parsed if parsed.tzinfo else parsed.astimezone()
+
+
+def reset_applied_counter(moment: datetime | None = None) -> datetime:
+    """Start the Today counter from now. Returns the new marker."""
+    marker = (moment or datetime.now()).astimezone()
+    update(applied_counter_since=marker.isoformat())
+    return marker

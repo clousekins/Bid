@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -34,11 +35,18 @@ from app.services.folder_writer import (
 from app.services.manual_ingest import parse_upload
 from app.services.ats_score import score_resume, technical_feasibility
 from app.services.employer_conflicts import conflict_reason, persona_employers
+from app.services import runtime_settings
 from app.services.persona import get_active_persona_id, load_persona
-from app.services.pipeline import _get_or_create_company, process_listing
+from app.services.pipeline import (
+    _get_or_create_company,
+    forget_job_markers,
+    process_listing,
+)
 from app.services.renumber import renumber_all_jobs
 from app.services.tailor import tailor_job
 from app.validators.dedupe import normalize_company
+
+log = logging.getLogger("poong.jobs")
 
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])
 
@@ -153,6 +161,15 @@ async def _purge_jobs(
         )
         await apply_sessions.end_session(job.id)
         await db.delete(job)
+
+    # Delete means delete. Without this the job's seen-marker outlives it and
+    # every later fetch skips the listing as `already_seen`, so a job removed
+    # once could never come back.
+    markers = await forget_job_markers(db, jobs)
+    log.info(
+        "purged %d jobs, cleared %d seen-markers and %d rejected rows",
+        len(jobs), markers["seen_markers"], markers["rejected_rows"],
+    )
     return deleted, folders_removed
 
 
@@ -447,10 +464,13 @@ async def job_stats(db: AsyncSession = Depends(get_db)):
     # Do not seed here — every UI poll would write and fight bg workers on SQLite.
     ats = await catalog_stats(db)
 
-    # Applications sent today, in the operator's local day — a UTC boundary
-    # would reset the counter mid-afternoon in US timezones.
-    start_local = datetime.now().astimezone().replace(
-        hour=0, minute=0, second=0, microsecond=0
+    # Applications sent since the counter was last reset. That reset is
+    # manual: an automatic midnight rollover wiped the number mid-session,
+    # and a run that spans midnight is still one sitting's work. Until it has
+    # ever been reset this falls back to the local day — a UTC boundary would
+    # have rolled over mid-afternoon in US timezones.
+    start_local = runtime_settings.applied_counter_since() or (
+        datetime.now().astimezone().replace(hour=0, minute=0, second=0, microsecond=0)
     )
     today_rows = (
         await db.execute(
@@ -470,6 +490,7 @@ async def job_stats(db: AsyncSession = Depends(get_db)):
         "applied_today": sum(applied_today.values()),
         "applied_today_by_profile": applied_today,
         "today_started_at": start_local.isoformat(),
+        "today_reset_manually": runtime_settings.applied_counter_since() is not None,
         "max_seq": max_seq,
         "min_seq": min_seq or (1 if total else 0),
         "by_status": by_status,
@@ -578,6 +599,19 @@ async def wipe_jobs(
         "folders_removed": folders_removed,
         "renumber": renumber,
     }
+
+
+@router.post("/meta/stats/reset-today")
+async def reset_today_counter():
+    """Start the Today counter from now.
+
+    Nothing is deleted. The count is derived from JobPackage.applied_at, so
+    clearing it would mean erasing real applied history; this moves the mark
+    the count runs from instead, and every application stays on record.
+    """
+    marker = runtime_settings.reset_applied_counter()
+    log.info("today counter reset to %s", marker.isoformat())
+    return {"ok": True, "today_started_at": marker.isoformat(), "applied_today": 0}
 
 
 @router.post("/renumber")
