@@ -14,9 +14,9 @@ const FALLBACK_SITES = [
 ];
 
 const FALLBACK_WINDOWS = [
-  { id: "24h", label: "24h" },
-  { id: "7d", label: "7 days" },
-  { id: "all", label: "All time" },
+  { id: "24h", label: "24h", max_jobs: 1000 },
+  { id: "7d", label: "7 days", max_jobs: 500 },
+  { id: "all", label: "All time", max_jobs: 100 },
 ];
 
 export default function SiteFetchPanel({ busy, onFetchSite }) {
@@ -24,7 +24,6 @@ export default function SiteFetchPanel({ busy, onFetchSite }) {
   const [windows, setWindows] = useState(FALLBACK_WINDOWS);
   const [notes, setNotes] = useState("");
   const [selected, setSelected] = useState("greenhouse");
-  const [maxJobs] = useState(100);
   const [pendingWindow, setPendingWindow] = useState(null);
 
   useEffect(() => {
@@ -47,12 +46,15 @@ export default function SiteFetchPanel({ busy, onFetchSite }) {
 
   const site = sites.find((s) => s.id === selected) || sites[0];
   const windowMeta = windows.find((w) => w.id === pendingWindow);
+  // Each window says how many it may return. A day of listings is bounded by
+  // its own date filter, so asking for "today" takes all of today.
+  const capFor = (w) => w?.max_jobs || 100;
 
   return (
     <div className="site-fetch-panel">
       <div className="site-fetch-head">
         <span className="workflow-group-label">Fetch by site</span>
-        <span className="muted site-fetch-cap">max {maxJobs} jobs</span>
+        <span className="muted site-fetch-cap">the window sets the limit</span>
       </div>
       <p className="muted site-fetch-blurb">
         Pick a board/feed, then a time window. Next you choose domains (AI, DE, FS, SF, …) so
@@ -81,7 +83,7 @@ export default function SiteFetchPanel({ busy, onFetchSite }) {
             className="primary"
             disabled={busy || !selected}
             onClick={() => setPendingWindow(w.id)}
-            title={`Choose domains, then fetch up to ${maxJobs} from ${site?.label || selected} (${w.label})`}
+            title={`Choose domains, then fetch up to ${capFor(w)} from ${site?.label || selected} (${w.label})`}
           >
             {site?.label || selected} · {w.label}
           </button>
@@ -101,7 +103,7 @@ export default function SiteFetchPanel({ busy, onFetchSite }) {
           onFetchSite?.({
             site: selected,
             window: win,
-            max_jobs: maxJobs,
+            max_jobs: capFor(windows.find((w) => w.id === win)),
             domains,
             roles,
           });

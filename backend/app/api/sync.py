@@ -11,7 +11,12 @@ from app.db.models import Job, JobPackage
 from app.db.session import get_db
 from app.services import bg_jobs
 from app.services.ats_catalog import catalog_stats, list_boards, seed_ats_catalog
-from app.services.fetch_sites import MAX_JOBS_CAP, list_fetch_sites, resolve_site, resolve_window
+from app.services.fetch_sites import (
+    list_fetch_sites,
+    resolve_site,
+    resolve_window,
+    window_cap,
+)
 from app.services.job_domains import list_job_domains, normalize_domain_ids
 from app.services.persona import get_active_persona_id
 
@@ -31,7 +36,9 @@ class DiscoverSiteBody(BaseModel):
     persona_id: str | None = None
     site: str
     window: str = "7d"  # 24h | 7d | all
-    max_jobs: int = 100
+    # None means "as many as this window allows" — a day of listings is
+    # bounded by its own date filter, so 24h does not need a second limit.
+    max_jobs: int | None = None
     roles: list[str] | None = None
     domains: list[str] | None = None  # e.g. ["de","ai","sf"]
 
@@ -120,12 +127,22 @@ async def sync_discover_fresh(body: RangeBody):
 
 @router.post("/discover-site")
 async def sync_discover_site(body: DiscoverSiteBody):
-    """Fetch from one site/feed or ATS family with a time window (max 100)."""
+    """Fetch from one site/feed or ATS family, bounded by the window.
+
+    The window sets how many jobs may come back: a day of listings is limited
+    by its own date filter, so 24h takes everything it finds and only the open
+    "all time" window needs a hard ceiling.
+    """
     site = resolve_site(body.site)
     if not site:
         raise HTTPException(400, detail=f"unknown site: {body.site}")
     win = resolve_window(body.window)
-    max_jobs = max(1, min(MAX_JOBS_CAP, int(body.max_jobs or MAX_JOBS_CAP)))
+    ceiling = window_cap(win["id"])
+    max_jobs = (
+        ceiling
+        if body.max_jobs is None
+        else max(1, min(ceiling, int(body.max_jobs)))
+    )
     domains = normalize_domain_ids(body.domains)
     pid = body.persona_id or get_active_persona_id()
     row = await bg_jobs.enqueue(
@@ -135,7 +152,6 @@ async def sync_discover_site(body: DiscoverSiteBody):
             "site": site["id"],
             "window": win["id"],
             "max_jobs": max_jobs,
-        "roles": body.roles or [],
             "roles": body.roles or [],
             "site_label": site["label"],
             "domains": domains,

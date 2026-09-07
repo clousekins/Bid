@@ -19,7 +19,12 @@ from app.services.ats_catalog import (
     seed_ats_catalog,
 )
 from app.services.config_loader import load_job_sites
-from app.services.fetch_sites import MAX_JOBS_CAP, resolve_site, resolve_window
+from app.services.fetch_sites import (
+    MAX_JOBS_CAP,
+    resolve_site,
+    resolve_window,
+    window_cap,
+)
 from app.services.job_domains import (
     classify_domains,
     domains_storage,
@@ -106,10 +111,14 @@ def load_discovery_settings(
         require_posted_at = bool(win["require_posted_at"])
         mode_norm = f"site_{win['id']}"
 
+    # A chosen window sets its own ceiling; the global cap is the backstop for
+    # the modes that pick no window at all.
+    ceiling = window_cap(window) if window else MAX_JOBS_CAP
     if max_jobs is not None:
-        insert_limit = max(1, min(MAX_JOBS_CAP, int(max_jobs)))
+        insert_limit = min(ceiling, int(max_jobs))
     else:
-        insert_limit = max(1, min(MAX_JOBS_CAP, insert_limit))
+        insert_limit = min(ceiling, insert_limit) if not window else ceiling
+    insert_limit = max(1, insert_limit)
 
     return {
         "mode": mode_norm,

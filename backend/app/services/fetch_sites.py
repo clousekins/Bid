@@ -41,9 +41,10 @@ FETCH_SITES: list[dict[str, Any]] = [
         "kind": "feed",
         "blurb": "Jobright remote jobs — searches every title you pick",
         # One search per job title, spaced 4s apart. Selecting every domain is
-        # 84 searches; the fetcher stops itself before this and returns what it
-        # has, so this is a ceiling rather than the expected run time.
-        "timeout": 600,
+        # 84 searches, measured at 559s; the fetcher stops itself 20s before
+        # this and returns what it has, so leave real headroom or a full sweep
+        # gets cut off near the end.
+        "timeout": 900,
     },
     {
         "id": "remoteok",
@@ -95,13 +96,36 @@ FETCH_SITES: list[dict[str, Any]] = [
     },
 ]
 
+# `max_jobs` is what a window may return. A narrow window is already bounded
+# by its own date filter -- a day of remote listings is a few hundred, not a
+# few thousand -- so capping it at 100 only threw away jobs that had been
+# fetched, filtered and asked for. "All time" still needs a real ceiling.
 WINDOWS: list[dict[str, Any]] = [
-    {"id": "24h", "label": "24h", "days": 1, "require_posted_at": True},
-    {"id": "7d", "label": "7 days", "days": 7, "require_posted_at": False},
-    {"id": "all", "label": "All time", "days": 3650, "require_posted_at": False},
+    {
+        "id": "24h",
+        "label": "24h",
+        "days": 1,
+        "require_posted_at": True,
+        "max_jobs": 1000,
+    },
+    {
+        "id": "7d",
+        "label": "7 days",
+        "days": 7,
+        "require_posted_at": False,
+        "max_jobs": 500,
+    },
+    {
+        "id": "all",
+        "label": "All time",
+        "days": 3650,
+        "require_posted_at": False,
+        "max_jobs": 100,
+    },
 ]
 
-MAX_JOBS_CAP = 100
+# The ceiling no window may exceed.
+MAX_JOBS_CAP = 1000
 
 
 def list_fetch_sites() -> dict[str, Any]:
@@ -122,6 +146,12 @@ def resolve_window(window: str | None) -> dict[str, Any]:
         if row["id"] == wid:
             return dict(row)
     return dict(WINDOWS[1])  # 7d default
+
+
+def window_cap(window: str | None) -> int:
+    """How many jobs a window may return, bounded by the absolute ceiling."""
+    win = resolve_window(window)
+    return max(1, min(MAX_JOBS_CAP, int(win.get("max_jobs") or MAX_JOBS_CAP)))
 
 
 def resolve_site(site: str | None) -> dict[str, Any] | None:
