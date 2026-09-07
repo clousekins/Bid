@@ -401,6 +401,11 @@ async def _run_job(job_id: int) -> None:
                 await session.commit()
 
 
+# How many fetched jobs the UI keeps in the progress payload. Every poll
+# carries these, so this trades bytes for how much of a run stays visible.
+DISCOVER_ITEMS_SHOWN = 400
+
+
 async def _bg_cancelled(bg_id: int) -> bool:
     factory = get_session_factory()
     async with factory() as session:
@@ -739,6 +744,10 @@ async def _exec_discover(session, row: BackgroundJob, *, mode: str = "standard")
             "company": listing.get("company"),
             "title": listing.get("title"),
             "source": listing.get("source"),
+            # What the window was judged on, and where to open the posting.
+            # A list of jobs you cannot date or click is not a result.
+            "posted_at": listing.get("posted_at"),
+            "url": listing.get("url"),
             "ok": False,
             "reason": "",
         }
@@ -781,7 +790,7 @@ async def _exec_discover(session, row: BackgroundJob, *, mode: str = "standard")
             progress["skipped"] = int(progress.get("skipped") or 0) + 1
         items.append(result_row)
         progress["done"] = len(items)
-        progress["items"] = items[-50:]
+        progress["items"] = items[-DISCOVER_ITEMS_SHOWN:]
         async with factory() as session2:
             row2 = await session2.get(BackgroundJob, bg_id)
             if not row2:

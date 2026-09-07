@@ -264,7 +264,13 @@ def test_discover_hands_the_selection_to_adapters_that_want_it():
     from app.services.discover import _adapter_kwargs
 
     sent = _adapter_kwargs(fetch_jobright, {"roles": ["de_senior"]}, ["de"], 600)
-    assert sent == {"domains": ["de"], "roles": ["de_senior"], "time_budget": 580.0}
+    assert sent == {
+        "domains": ["de"],
+        "roles": ["de_senior"],
+        # The window decides what comes back, not what a past run ingested.
+        "skip_seen": False,
+        "time_budget": 580.0,
+    }
 
 
 def test_adapters_without_those_parameters_are_left_alone():
@@ -272,3 +278,47 @@ def test_adapters_without_those_parameters_are_left_alone():
     from app.services.discover import _adapter_kwargs
 
     assert _adapter_kwargs(fetch_remoteok, {"roles": ["de_senior"]}, ["de"], 600) == {}
+
+
+class TestTickedTitlesAreTheSelection:
+    """The picker opens with every domain already on.
+
+    So ticking three titles arrives as twelve domains plus three roles. Read
+    as "those titles, plus everything in the other eleven domains" it became
+    70 searches and a six minute wait for a request meant to be small.
+    """
+
+    ALL_DOMAINS = ["ai", "de", "da", "ds", "fs", "be", "fe", "ce", "sq", "sf", "dv", "se"]
+
+    def test_ticked_titles_win_over_the_default_domains(self):
+        urls = jobright_search_urls(
+            self.ALL_DOMAINS, ["de_senior", "de_staff", "de_architect"]
+        )
+        assert len(urls) == 3
+        assert all("/remote-jobs/data-ai?" in u for u in urls)
+
+    def test_a_domain_with_no_ticked_title_is_not_searched(self):
+        urls = jobright_search_urls(["de", "sf"], ["de_senior"])
+        assert len(urls) == 1
+        assert "Senior%20Data%20Engineer" in urls[0]
+        assert not any("software-engineering" in u for u in urls)
+
+    def test_titles_from_several_domains_all_run(self):
+        urls = jobright_search_urls(self.ALL_DOMAINS, ["de_senior", "ai_mlops"])
+        assert len(urls) == 2
+        assert any("Senior%20Data%20Engineer" in u for u in urls)
+        assert any("MLOps%20Engineer" in u for u in urls)
+
+    def test_domains_alone_still_search_all_their_titles(self):
+        """No titles ticked means the whole domain, which is the wide case."""
+        assert len(jobright_search_urls(["de"], [])) > 10
+        assert len(jobright_search_urls(self.ALL_DOMAINS, [])) > 60
+
+    def test_a_role_finds_its_domain_without_the_domain_given(self):
+        urls = jobright_search_urls([], ["de_senior"])
+        assert len(urls) == 1 and "/remote-jobs/data-ai?" in urls[0]
+
+    def test_a_small_selection_stays_a_small_run(self):
+        """Three titles is seconds of requests; seventy is six minutes."""
+        urls = jobright_search_urls(self.ALL_DOMAINS, ["de_senior"])
+        assert len(urls) == 1

@@ -24,6 +24,7 @@ from app.services.fetch_sites import (
     resolve_site,
     resolve_window,
     window_cap,
+    window_cutoff,
 )
 from app.services.job_domains import (
     classify_domains,
@@ -170,6 +171,7 @@ def listing_to_dict(listing: RawListing) -> dict[str, Any]:
         "location": (listing.location_raw or "Remote").strip(),
         "description": (listing.description or "").strip() or None,
         "source": listing.source,
+        "posted_at": listing.posted_at,
         "external_id": listing.external_id,
         "staffing_firm": listing.staffing_firm,
         "domains": domains_storage(domain_ids),
@@ -613,6 +615,12 @@ def _adapter_kwargs(
         out["domains"] = list(domains)
     if "roles" in accepted and cfg.get("roles"):
         out["roles"] = list(cfg["roles"])
+    if "skip_seen" in accepted:
+        # The window is the answer. Hiding ids a previous run ingested made
+        # "last 24h" shrink every time it was clicked, until it reported
+        # nothing at all — when the honest answer was "these are today's, and
+        # you already have most of them".
+        out["skip_seen"] = False
     if "time_budget" in accepted and budget:
         # Leave the source room to finish its last request and return, rather
         # than being cancelled with everything still in hand.
@@ -647,7 +655,7 @@ async def collect_site_listings(
     # Site fetches try more company boards so one run is useful
     cfg["boards_per_run"] = max(cfg["boards_per_run"], 50 if site_meta["kind"].startswith("ats") else 0)
 
-    cutoff = datetime.now(timezone.utc) - timedelta(days=cfg["posted_within_days"])
+    cutoff = window_cutoff(window)
     factory = get_session_factory()
     raw: list[RawListing] = []
     ats_this_run: list[dict[str, Any]] = []
@@ -743,19 +751,6 @@ async def collect_site_listings(
         allowed_domains=allowed_domains or None,
         allowed_roles=cfg.get("roles") or None,
     )
-    # For 24h feed fetches, still prefer recent when dates exist but don't drop all
-    if kind == "feed" and window == "24h":
-        with_dates = [x for x in filtered if _parse_dt(x.posted_at) is not None]
-        if with_dates:
-            recent = [
-                x
-                for x in with_dates
-                if (_parse_dt(x.posted_at) or datetime.min.replace(tzinfo=timezone.utc))
-                >= cutoff
-            ]
-            if recent:
-                filtered = recent
-
     diversified = diversify_by_company(filtered)
     insert_limit = cfg["insert_limit"]
     candidates = diversified[: insert_limit * 3]

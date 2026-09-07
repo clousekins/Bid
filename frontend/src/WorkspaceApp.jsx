@@ -681,6 +681,7 @@ export default function WorkspaceApp({ onGoHome, theme, onToggleTheme }) {
         busy={batch.busy}
         prepItems={prep.items}
         workingPersonaId={ws.workingPersonaId}
+        onOpenJob={(id) => ws.selectJob({ id })}
         onStop={async () => {
           apply.stopApplyQueue();
           await batch.stopBatch();

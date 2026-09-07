@@ -1,6 +1,7 @@
 """Catalog of fetchable job sites for site-scoped discovery UI."""
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 # Public APIs / ATS boards only — no LinkedIn/Indeed/Dice scrapers.
@@ -103,7 +104,7 @@ FETCH_SITES: list[dict[str, Any]] = [
 WINDOWS: list[dict[str, Any]] = [
     {
         "id": "24h",
-        "label": "24h",
+        "label": "Last 24h",
         "days": 1,
         "require_posted_at": True,
         "max_jobs": 1000,
@@ -146,6 +147,18 @@ def resolve_window(window: str | None) -> dict[str, Any]:
         if row["id"] == wid:
             return dict(row)
     return dict(WINDOWS[1])  # 7d default
+
+
+def window_cutoff(window: str | None, now: datetime | None = None) -> datetime:
+    """The earliest posting time a window accepts, in UTC.
+
+    A rolling window: "last 24h" is the 24 hours before this moment, not the
+    calendar day. Every posting time is compared as an instant, so the answer
+    is the same wherever the user is — what changes is how the times read on
+    screen, and those are rendered in their own timezone.
+    """
+    moment = now or datetime.now(timezone.utc)
+    return moment - timedelta(days=int(resolve_window(window)["days"]))
 
 
 def window_cap(window: str | None) -> int:

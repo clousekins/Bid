@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { client, logPoong } from "../api.js";
+import { reasonLabel } from "../utils/outcomes.js";
 
 const KIND_LABELS = {
   discover: "Fetching jobs",
@@ -60,7 +61,7 @@ function buildProgress(job) {
   const detail =
     p.message ||
     job.error ||
-    lastFail?.reason ||
+    (lastFail?.reason ? reasonLabel(lastFail.reason) : "") ||
     (job.status === "queued" ? "Queued — waiting to start…" : "");
 
   return {
@@ -77,6 +78,24 @@ function buildProgress(job) {
     // Set when a source refused or timed out. Without it a blocked fetch
     // reported "Completed - 0 inserted", which reads as "no jobs today".
     sourceError: p.source_error || "",
+    // The jobs this run actually found. A fetch should end in a list you can
+    // read, not a count you have to take on trust. Newest first.
+    results: items
+      .filter((i) => i && (i.title || i.company))
+      .map((i, idx) => ({
+        key: `${i.job_id || i.url || i.title || "row"}-${idx}`,
+        jobId: i.job_id ?? null,
+        seqNo: i.seq_no ?? null,
+        company: i.company || "",
+        title: i.title || "",
+        url: i.url || "",
+        postedAt: i.posted_at || "",
+        ok: i.ok === true,
+        reason: i.reason || "",
+      }))
+      .reverse(),
+    resultsAdded: p.inserted ?? oks,
+    window: p.window || "",
     error: job.error || "",
     rawLine: null,
   };

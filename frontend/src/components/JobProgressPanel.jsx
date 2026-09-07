@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { shortPersona } from "../utils/persona.js";
+import { reasonLabel } from "../utils/outcomes.js";
 
 function statusTone(status, error) {
   if (error || status === "failed") return "failed";
@@ -7,6 +8,29 @@ function statusTone(status, error) {
   if (status === "cancelled") return "warn";
   if (status === "queued" || status === "running") return "running";
   return "info";
+}
+
+function postedLabel(value) {
+  if (!value) return { short: "", full: "" };
+  // Board timestamps are UTC and mostly arrive without a zone marker.
+  // "2026-09-06 23:22:36" read as local time is seven hours wrong here, which
+  // is the difference between a job posted today and one posted yesterday.
+  const iso = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}$/.test(value)
+    ? `${value.replace(" ", "T")}Z`
+    : value;
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return { short: "", full: "" };
+  const mins = Math.round((Date.now() - at.getTime()) / 60000);
+  const short =
+    mins < 1
+      ? "just now"
+      : mins < 60
+        ? `${mins}m ago`
+        : mins < 60 * 24
+          ? `${Math.round(mins / 60)}h ago`
+          : at.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  // Shown in the reader's own timezone, which is what "last 24h" means to them.
+  return { short, full: at.toLocaleString() };
 }
 
 function ProgressBar({ pct, indeterminate, tone }) {
@@ -29,6 +53,7 @@ export default function JobProgressPanel({
   onDismissJob,
   onOpenPrep,
   onDismissPrep,
+  onOpenJob,
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const prepRunning = prepItems.filter((r) => r.status === "queued" || r.status === "running");
@@ -160,6 +185,50 @@ export default function JobProgressPanel({
                 <p className={`job-progress-detail ${activeJob.error ? "error" : "muted"}`}>
                   {activeJob.detail}
                 </p>
+              ) : null}
+
+              {activeJob.results?.length ? (
+                <div className="fetch-results">
+                  <div className="fetch-results-head">
+                    <h4>Jobs found</h4>
+                    <span className="muted">
+                      {activeJob.results.length} found · {activeJob.resultsAdded} new
+                    </span>
+                  </div>
+                  <ol className="fetch-results-list">
+                    {activeJob.results.map((row) => {
+                      const posted = postedLabel(row.postedAt);
+                      return (
+                        <li key={row.key} className={row.ok ? "ok" : "past"}>
+                          <button
+                            type="button"
+                            className="fetch-result-row"
+                            disabled={!row.jobId}
+                            title={posted.full ? `Posted ${posted.full}` : undefined}
+                            onClick={() => row.jobId && onOpenJob?.(row.jobId)}
+                          >
+                            <span className="fetch-result-main">
+                              <strong>{row.title}</strong>
+                              <em>{row.company}</em>
+                            </span>
+                            <span className="fetch-result-meta">
+                              {posted.short ? (
+                                <span className="fetch-result-posted">{posted.short}</span>
+                              ) : null}
+                              <span className="fetch-result-state">
+                                {row.ok
+                                  ? row.seqNo
+                                    ? `#${row.seqNo}`
+                                    : "added"
+                                  : reasonLabel(row.reason)}
+                              </span>
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </div>
               ) : null}
             </section>
           ) : null}

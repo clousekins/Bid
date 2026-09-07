@@ -965,7 +965,13 @@ def jobright_search_urls(
     what actually reaches the whole list: ten title searches under data-ai
     returned 265 distinct jobs where the plain category page gave 30.
 
-    With nothing selected this falls back to the plain category pages.
+    Ticked titles are the selection. The picker opens with every domain
+    already on, so "three titles" arrives as twelve domains plus three roles —
+    read as "those titles, plus everything in the other eleven" it became 70
+    searches and a six minute wait for a request the user meant to be small.
+    Domains only contribute their own titles when nothing was ticked anywhere.
+
+    With nothing selected at all this falls back to the plain category pages.
     """
     from app.services.job_domains import (
         JOB_DOMAINS,
@@ -975,15 +981,14 @@ def jobright_search_urls(
     )
 
     wanted = [d for d in (domains or []) if d]
-    if not wanted and not roles:
+    chosen_roles = {r for r in (roles or []) if r}
+    if not wanted and not chosen_roles:
         return []
 
-    chosen_roles = set(roles or [])
+    domain_ids = wanted or [d["id"] for d in JOB_DOMAINS]
     urls: list[str] = []
-    for domain_id in wanted or [d["id"] for d in JOB_DOMAINS]:
+    for domain_id in domain_ids:
         category = JOBRIGHT_DOMAIN_CATEGORY.get(domain_id, "remote-jobs")
-        # Titles ticked inside this domain narrow it; the bare domain searches
-        # every title it knows.
         picked = [
             r["id"] for r in roles_for_domain(domain_id) if r["id"] in chosen_roles
         ]
@@ -993,6 +998,10 @@ def jobright_search_urls(
                 for query in role_queries(role_id):
                     if query not in queries:
                         queries.append(query)
+        elif chosen_roles:
+            # Titles were ticked, just not in this domain — so it was not asked
+            # for. Expanding it here is what turned 3 searches into 70.
+            continue
         else:
             queries = domain_queries(domain_id)
         for query in queries:
