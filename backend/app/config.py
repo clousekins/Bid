@@ -65,6 +65,12 @@ class Settings(BaseSettings):
     google_cse_cx: str = ""
     serpapi_key: str = ""
 
+    # Jobright's search endpoints answer 401 without a signed-in session. The
+    # cookie is a login and it expires, so it lives in .env rather than here —
+    # a session id committed to the repo follows it to everyone who clones it.
+    # Empty means the Jobright fetcher reads their public pages instead.
+    jobright_cookie: str = ""
+
     @property
     def root_dir(self) -> Path:
         return ROOT_DIR

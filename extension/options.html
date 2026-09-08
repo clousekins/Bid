@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Poong Job Clipper — settings</title>
+    <link rel="stylesheet" href="ui.css" />
+  </head>
+  <body>
+    <header class="head">
+      <h1>Poong Job Clipper</h1>
+      <p class="muted">Where to send clipped jobs.</p>
+    </header>
+
+    <section class="panel-block">
+      <div class="fields">
+        <label
+          >Backend URL
+          <input id="baseUrl" type="url" placeholder="http://127.0.0.1:8000" />
+        </label>
+        <label
+          >Access token
+          <input id="accessToken" type="password" autocomplete="off" />
+        </label>
+        <label
+          >Persona id <span class="muted">(optional — blank uses the active one)</span>
+          <input id="personaId" type="text" autocomplete="off" placeholder="brian_gou" />
+        </label>
+      </div>
+      <div class="actions">
+        <button type="button" id="btnTest">Test connection</button>
+        <button type="button" id="btnSave" class="primary">Save</button>
+      </div>
+      <p id="msg" class="message" hidden></p>
+    </section>
+
+    <p class="muted">
+      The token is <code>ACCESS_TOKEN</code> from the backend's <code>.env</code>; leave it blank
+      if that setting is empty. It is kept in this browser's local storage on this machine only —
+      never synced to your Google account.
+    </p>
+
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

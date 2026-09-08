@@ -1,2 +1,3 @@
-ats_max_attempts: 3
-min_ats_score: 85
+applied_counter_since: '2026-09-07T15:55:44.396515-07:00'
+ats_max_attempts: 2
+min_ats_score: 90

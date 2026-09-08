@@ -227,6 +227,18 @@ def parse_csv_jobs(raw: str | bytes) -> tuple[list[dict[str, Any]], dict[str, An
     sample = raw[:8192]
     try:
         dialect = csv.Sniffer().sniff(sample, delimiters=",;\t|")
+        # The sniffer reports doublequote=False unless a "" pair happens to fall
+        # inside the 8KB it looks at, and a description long enough to push the
+        # first quoted quote past that mark is ordinary here. Reading a file
+        # written with doubled quotes as though it had none does not fail — it
+        # ends the field early and splits one job across several rows, which
+        # arrives as extra listings rather than as an error. Our own exports
+        # read 4061 rows instead of 2221 that way.
+        #
+        # Every writer that reaches this — Python's csv, Excel, the extension —
+        # doubles quotes, because RFC 4180 has no other escape. So this is not a
+        # guess worth taking from a sample.
+        dialect.doublequote = True
     except csv.Error:
         dialect = csv.excel
 

@@ -1087,7 +1087,399 @@ def jobright_search_urls(
     return urls
 
 
+# --- Jobright: the session API ----------------------------------------------
+# Their own search, rather than the pages it renders. Two endpoints, and the
+# order matters. `count-search-filter-jobs` selects the search: it hands the
+# session the filter and answers with the count their UI shows above the
+# results. `search` then pages through what that selection matched.
+#
+# This is worth the cookie it costs. A public category page caps at thirty
+# jobs and has no second page, which is why the page fetcher sweeps six
+# seniorities across two employment pools — fourteen requests per title to
+# reach a few hundred jobs. Here `position` is a real offset, so a title
+# drains in one request per twenty jobs, and `daysAgo` asks the server for
+# today's postings instead of fetching a week and discarding most of it.
+#
+# The count is a teaser, not a total: the same filter answered "60+", then
+# "40+", then "0" within a few minutes. Paging stops on a short page instead.
+JOBRIGHT_API_COUNT = f"{JOBRIGHT_BASE}/swan/recommend/count-search-filter-jobs"
+JOBRIGHT_API_SEARCH = f"{JOBRIGHT_BASE}/swan/recommend/search"
+
+# Jobs per search call. Their UI asks for ten; twenty comes back in full and
+# halves the requests.
+JOBRIGHT_API_PAGE = 20
+
+# Between requests. Their protection is rate-based rather than a ban, and four
+# seconds is the spacing the page fetcher already reads at unchallenged.
+JOBRIGHT_API_DELAY = 4.0
+
+# A stop for a cursor that never shortens. Paging ends on a short page, which
+# every search observed did reach; this is the backstop if one does not.
+JOBRIGHT_API_MAX_PAGES = 40
+
+# A typed title rides under a placeholder taxonomy — the id their own UI sends
+# for a free-text search. The list cannot be empty: sending `[]` comes back
+# with `result` as a bare string where the job list should be.
+JOBRIGHT_TAXONOMY_ID = "00-00-00"
+
+# 41001 is no cookie, 41002 a cookie they will not take. Both mean the session
+# needs replacing, and neither is worth a retry.
+JOBRIGHT_AUTH_ERRORS = frozenset({41001, 41002})
+
+
+class JobrightNoSession(RuntimeError):
+    """Jobright would not accept the session cookie.
+
+    Unlike a bot challenge this does not clear by waiting — it takes a person
+    pasting a current cookie into JOBRIGHT_COOKIE. So the run stops and says
+    so rather than reporting a search that found nothing.
+    """
+
+
+def jobright_cookie() -> str:
+    """The configured session cookie, or "" to read the public pages."""
+    from app.config import get_settings
+
+    return (get_settings().jobright_cookie or "").strip()
+
+
+def _jobright_api_headers(cookie: str) -> dict[str, str]:
+    return {
+        "User-Agent": JOBRIGHT_UA,
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Content-Type": "application/json",
+        "Cookie": cookie,
+        "Origin": JOBRIGHT_BASE,
+        "Referer": f"{JOBRIGHT_BASE}/jobs/search",
+        "x-client-type": "web",
+    }
+
+
+def jobright_api_body(
+    title: str,
+    *,
+    days_ago: int = 1,
+    country: str = "US",
+    work_model: tuple[int, ...] = (JOBRIGHT_REMOTE,),
+    seniority: tuple[int, ...] = (),
+    job_types: tuple[int, ...] = (),
+    position: int = 0,
+    refresh: bool = False,
+) -> dict[str, Any]:
+    """The filter both endpoints take, as their site sends it.
+
+    Every key is spelled out even where the value is empty or null. Their
+    search reads the body as a whole rather than merging it over a stored
+    default, so a filter with keys missing is not the filter the browser sends.
+
+    Seniority and employment type are left open. The page fetcher had to sweep
+    them because thirty results was all one page would ever give; this one
+    pages, so asking for everything at once is both simpler and fewer requests.
+    """
+    return {
+        "value": title,
+        "jobTaxonomyList": [{"taxonomyId": JOBRIGHT_TAXONOMY_ID, "title": title}],
+        "country": country,
+        "jobTypes": list(job_types),
+        "seniority": list(seniority),
+        "workModel": list(work_model),
+        "locations": [],
+        "companies": [],
+        "daysAgo": days_ago,
+        "isH1BOnly": False,
+        "companyCategory": None,
+        "annualSalaryMinimum": None,
+        "roleType": None,
+        "companyStages": None,
+        "skills": [],
+        "excludedCompanies": [],
+        "excludedSkills": None,
+        "excludeStaffingAgency": False,
+        "minYearsOfExperienceRange": None,
+        "excludeCompanyCategory": [],
+        "excludeSecurityClearance": False,
+        "excludeUsCitizen": False,
+        "refresh": refresh,
+        "position": position,
+        "sortCondition": 0,
+    }
+
+
+async def _jobright_api_post(
+    client: httpx.AsyncClient, url: str, body: dict[str, Any]
+) -> dict[str, Any]:
+    """One call, with their error envelope read rather than assumed.
+
+    They answer 200 with `success: false` as readily as they answer 401, so
+    the status code alone does not say whether this worked.
+    """
+    resp = await client.post(url, json=body)
+    data: dict[str, Any] = {}
+    try:
+        parsed = resp.json()
+        if isinstance(parsed, dict):
+            data = parsed
+    except Exception:  # noqa: BLE001
+        data = {}
+
+    if resp.status_code == 401 or data.get("errorCode") in JOBRIGHT_AUTH_ERRORS:
+        detail = data.get("errorMsg") or f"HTTP {resp.status_code}"
+        raise JobrightNoSession(
+            f"Jobright rejected the session cookie ({detail}). Sign in at "
+            "jobright.ai, copy the Cookie header from a request in DevTools, "
+            "and put it in JOBRIGHT_COOKIE."
+        )
+    resp.raise_for_status()
+    if not data.get("success"):
+        raise RuntimeError(
+            f"Jobright search failed: {data.get('errorMsg') or 'unknown error'}"
+        )
+
+    result = data.get("result")
+    return result if isinstance(result, dict) else {}
+
+
+async def jobright_api_select(
+    client: httpx.AsyncClient, body: dict[str, Any]
+) -> str:
+    """Select the search, before asking it for any jobs.
+
+    This is how their UI opens a search: the count endpoint registers the
+    filter against the session and answers with the headline figure. The
+    number is the least of it — what the call is really for is putting the
+    session into the search that `search` then pages through.
+    """
+    result = await _jobright_api_post(
+        client,
+        f"{JOBRIGHT_API_COUNT}?searchType=job_title",
+        dict(body, refresh=True, position=0),
+    )
+    return str(result.get("display") or "").strip()
+
+
+async def jobright_api_entries(
+    client: httpx.AsyncClient,
+    title: str,
+    *,
+    days_ago: int = 1,
+    limit: int = 0,
+    delay: float = JOBRIGHT_API_DELAY,
+    deadline: float = 0.0,
+) -> list[dict[str, Any]]:
+    """Every job their search returns for one title, paged to the end.
+
+    `position` is an offset into the selected search and the pages do not
+    overlap — four pages of a 44-job search returned 44 distinct ids. A page
+    shorter than the one asked for is the end of the list.
+    """
+    body = jobright_api_body(title, days_ago=days_ago)
+    await jobright_api_select(client, body)
+
+    out: list[dict[str, Any]] = []
+    position = 0
+    for _ in range(JOBRIGHT_API_MAX_PAGES):
+        if deadline and time.monotonic() > deadline:
+            break
+        if delay:
+            await asyncio.sleep(delay)
+        url = (
+            f"{JOBRIGHT_API_SEARCH}?searchType=job_title&refresh=false"
+            f"&count={JOBRIGHT_API_PAGE}&position={position}&sortCondition=0"
+        )
+        result = await _jobright_api_post(
+            client, url, dict(body, refresh=False, position=position)
+        )
+        page = [e for e in (result.get("jobList") or []) if isinstance(e, dict)]
+        out.extend(page)
+        if len(page) < JOBRIGHT_API_PAGE:
+            break
+        if limit and len(out) >= limit:
+            break
+        position += JOBRIGHT_API_PAGE
+    return out[:limit] if limit else out
+
+
+def jobright_api_titles(
+    domains: list[str] | None = None,
+    roles: list[str] | None = None,
+) -> list[str]:
+    """The titles to search, from the picker's selection.
+
+    The same reading of the picker the page fetcher uses: ticked titles are
+    the selection, and a domain contributes its own titles only when nothing
+    was ticked anywhere. What this drops is the seniority and employment
+    sweep — those existed to work around a page that would not paginate.
+    """
+    from app.services.job_domains import (
+        JOB_DOMAINS,
+        domain_queries,
+        role_queries,
+        roles_for_domain,
+    )
+
+    wanted = [d for d in (domains or []) if d]
+    chosen_roles = {r for r in (roles or []) if r}
+    if not wanted and not chosen_roles:
+        return []
+
+    titles: list[str] = []
+    for domain_id in wanted or [d["id"] for d in JOB_DOMAINS]:
+        picked = [
+            r["id"] for r in roles_for_domain(domain_id) if r["id"] in chosen_roles
+        ]
+        if picked:
+            queries = [q for role_id in picked for q in role_queries(role_id)]
+        elif chosen_roles:
+            continue
+        else:
+            queries = domain_queries(domain_id)
+        for query in queries:
+            if query not in titles:
+                titles.append(query)
+    return titles
+
+
+async def fetch_jobright_api(
+    max_jobs: int = 0,
+    roles: list[str] | None = None,
+    domains: list[str] | None = None,
+    request_delay: float = JOBRIGHT_API_DELAY,
+    skip_seen: bool = False,
+    time_budget: float = 0.0,
+    days_ago: int = 1,
+) -> list[RawListing]:
+    """Jobright's remote US jobs, read through their own search.
+
+    One search per selected title, each paged to the end. The records come
+    back in the same jobResult/companyResult shape their pages embed, so the
+    same parser reads both.
+    """
+    titles = jobright_api_titles(domains, roles)
+    if not titles:
+        # A search API has to be asked for something — there is no equivalent
+        # of falling back to a category page.
+        from app.services.job_domains import domain_queries
+
+        titles = list(domain_queries("de"))
+    if not titles:
+        return []
+
+    cookie = jobright_cookie()
+    if not cookie:
+        raise JobrightNoSession(
+            "No Jobright session — put a signed-in Cookie header in JOBRIGHT_COOKIE."
+        )
+
+    seen_ids = await _jobright_already_seen() if skip_seen else set()
+    out: list[RawListing] = []
+    taken: set[str] = set()
+    started = time.monotonic()
+    deadline = started + time_budget if time_budget else 0.0
+
+    async with httpx.AsyncClient(
+        timeout=40.0, follow_redirects=True, headers=_jobright_api_headers(cookie)
+    ) as client:
+        for index, title in enumerate(titles):
+            if deadline and time.monotonic() > deadline:
+                log.info(
+                    "jobright api: stopped at %d/%d titles, %d jobs (budget %.0fs)",
+                    index,
+                    len(titles),
+                    len(out),
+                    time_budget,
+                )
+                break
+            if index and request_delay:
+                await asyncio.sleep(request_delay)
+            try:
+                entries = await jobright_api_entries(
+                    client,
+                    title,
+                    days_ago=days_ago,
+                    delay=request_delay,
+                    deadline=deadline,
+                )
+            except JobrightNoSession:
+                # An expired cookie will not come back on the next title, and
+                # keeping what earlier titles found beats losing the run.
+                if out:
+                    log.warning("jobright api: session lost after %d jobs", len(out))
+                    return out
+                raise
+            except Exception as exc:  # noqa: BLE001
+                log.warning("jobright api: %r failed: %s", title, exc)
+                continue
+
+            for entry in entries:
+                job = entry.get("jobResult") or {}
+                row = _jobright_row(job, entry.get("companyResult") or {})
+                if row is None:
+                    continue
+                job_id = row.external_id or ""
+                if not job_id or job_id in taken or job_id in seen_ids:
+                    continue
+                # The employer's own posting, which their search hands over and
+                # the public pages do not. Worth keeping: it is where an
+                # application actually gets made.
+                apply_link = str(job.get("applyLink") or job.get("originalUrl") or "")
+                if apply_link.strip():
+                    row.raw["apply_link"] = apply_link.strip()
+                taken.add(job_id)
+                out.append(row)
+                if max_jobs and len(out) >= max_jobs:
+                    return out
+            log.info(
+                "jobright api: %r -> %d jobs (%d total)", title, len(entries), len(out)
+            )
+    return out
+
+
 async def fetch_jobright(
+    max_jobs: int = 0,
+    roles: list[str] | None = None,
+    domains: list[str] | None = None,
+    request_delay: float = 4.0,
+    skip_seen: bool = True,
+    time_budget: float = 0.0,
+    days_ago: int = 0,
+) -> list[RawListing]:
+    """Jobright's remote US jobs, by whichever route this install can take.
+
+    With a session cookie configured this is their own search: it pages, so it
+    reaches the whole result set, and it filters by date server-side. Without
+    one it falls back to reading their public pages, which need no login and
+    return a fraction as much.
+
+    The fallback is deliberate rather than a failure mode — a cookie expires,
+    and a fetch that stops working the day it does would be worse than one
+    that quietly returns less and says which route it took.
+    """
+    if jobright_cookie():
+        log.info(
+            "jobright: reading the session API (%d titles)",
+            len(jobright_api_titles(domains, roles)),
+        )
+        return await fetch_jobright_api(
+            max_jobs=max_jobs,
+            roles=roles,
+            domains=domains,
+            request_delay=max(request_delay, JOBRIGHT_API_DELAY),
+            skip_seen=skip_seen,
+            time_budget=time_budget,
+            days_ago=days_ago or 1,
+        )
+    return await fetch_jobright_pages(
+        max_jobs=max_jobs,
+        roles=roles,
+        domains=domains,
+        request_delay=request_delay,
+        skip_seen=skip_seen,
+        time_budget=time_budget,
+    )
+
+
+async def fetch_jobright_pages(
     max_jobs: int = 0,
     roles: list[str] | None = None,
     domains: list[str] | None = None,

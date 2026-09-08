@@ -17,3 +17,9 @@ POONG_FULL_REQUIREMENTS.md
 .DS_Store
 Thumbs.db
 backups/
+
+# Chromium writes these when it packs an unpacked extension. The .pem is a
+# signing private key; neither belongs in the repo.
+extension.crx
+extension.pem
+*.pem

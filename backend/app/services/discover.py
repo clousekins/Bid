@@ -647,6 +647,11 @@ def _adapter_kwargs(
         # Leave the source room to finish its last request and return, rather
         # than being cancelled with everything still in hand.
         out["time_budget"] = max(15.0, budget - 20.0)
+    if "days_ago" in accepted and cfg.get("posted_within_days"):
+        # The window, asked of the source rather than applied to its answer.
+        # Jobright's search takes a date filter, so "today" can mean one page
+        # of today's jobs instead of a week of them cut down afterwards.
+        out["days_ago"] = int(cfg["posted_within_days"])
     return out
 
 

@@ -41,17 +41,23 @@ FETCH_SITES: list[dict[str, Any]] = [
         "label": "Jobright",
         "kind": "feed",
         "blurb": "Jobright remote jobs — searches every title you pick",
-        # Fourteen pages per job title, spaced 4s apart: two employment pools
-        # (full time, contract/part-time) across the bare search and six
-        # seniority levels. That is where the jobs are — one title alone
-        # reaches ~300 where a single page gives 30.
+        # Both routes read at 4s a request, so this is a request budget, and
+        # what it buys depends on which route the install can take.
         #
-        # 30 minutes buys about 336 pages, so a whole 17-title domain (238,
-        # near 21 minutes) now finishes instead of being cut off. Selecting
-        # every domain is 1176 and still will not fit; the fetcher stops
-        # itself 20s before the deadline and returns what it found, and pages
-        # are ordered so every title is read for both pools before any goes
-        # deeper — a truncated run comes back thin rather than lopsided.
+        # Signed in, a title costs one call to select the search plus one per
+        # twenty jobs it matched — four or five requests for a day of one
+        # title, so a 17-title domain lands in about five minutes and every
+        # domain at once still fits.
+        #
+        # Without a cookie it is fourteen pages per title: two employment
+        # pools (full time, contract/part-time) across the bare search and six
+        # seniority levels, because a public page shows thirty jobs and has no
+        # second page. A 17-title domain is 238 pages, near 21 minutes, and
+        # selecting every domain is 1176 and will not fit.
+        #
+        # 30 minutes covers the slow route. Either way the fetcher stops
+        # itself 20s before the deadline and returns what it found rather than
+        # being cancelled with everything still in hand.
         "timeout": 1800,
     },
     {

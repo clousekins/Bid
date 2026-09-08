@@ -1,29 +1,46 @@
-"""Jobright adapter.
+"""Jobright adapter, by both routes it can take.
 
-Jobright has no public list API — /swan/job/list answers 401 "Cookie not
-found" — so discovery goes through the paths their robots.txt names
-explicitly (Allow: /remote-jobs/*, Allow: /jobs/*), reached from their own
-sitemap. Each job page carries the record as Next.js __NEXT_DATA__.
+Signed in, Jobright has a real search API — /swan/recommend/search, behind a
+session cookie. It pages, so it reaches a whole result set, and it filters by
+date server-side. That is the route a configured install takes.
 
-These tests parse fixed HTML rather than calling the site, so they stay green
-offline and do not hammer someone else's server on every run.
+Without a cookie those endpoints answer 401 ("Cookie not found"), and reading
+falls back to the paths their robots.txt names explicitly (Allow:
+/remote-jobs/*, Allow: /jobs/*), reached from their own sitemap. Each such
+page carries its records as Next.js __NEXT_DATA__ — in the same
+jobResult/companyResult shape the API returns, so one parser reads both.
+
+These tests answer for fixed payloads rather than calling the site, so they
+stay green offline and do not hammer someone else's server on every run.
 """
 from __future__ import annotations
 
 import json
 
+import httpx
 import pytest
 
 from app.adapters.boards import ADAPTERS
+from app.adapters.boards import fetchers
 from app.adapters.boards.fetchers import (
+    JOBRIGHT_API_DELAY,
+    JOBRIGHT_API_MAX_PAGES,
+    JOBRIGHT_API_PAGE,
     JOBRIGHT_CONTRACT,
     JOBRIGHT_PASSES,
     JOBRIGHT_REMOTE,
     JOBRIGHT_SENIORITIES,
+    JOBRIGHT_TAXONOMY_ID,
     JobrightChallenged,
+    JobrightNoSession,
+    _jobright_api_post,
     _jobright_next_data,
     _jobright_row,
     fetch_jobright,
+    fetch_jobright_api,
+    jobright_api_body,
+    jobright_api_entries,
+    jobright_api_titles,
     jobright_listings_from_html,
     jobright_search_urls,
 )
@@ -462,3 +479,312 @@ class TestEmploymentTypeSurvivesParsing:
         job, company = _entry()
         job["employmentType"] = "Contract"
         assert listing_to_dict(_jobright_row(job, company))["employment_type"] == "Contract"
+
+
+# --- The session API --------------------------------------------------------
+# Their own search, behind a login. These tests answer for the endpoints
+# rather than calling them: what is worth pinning is the shape of the request
+# their server accepts and the reading of the replies it gives back, both of
+# which were established against the live API and would otherwise only be
+# recorded in a commit message.
+
+
+class _FakeResponse:
+    def __init__(self, payload, status_code=200):
+        self._payload = payload
+        self.status_code = status_code
+
+    def json(self):
+        return self._payload
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise httpx.HTTPStatusError(
+                f"HTTP {self.status_code}", request=None, response=None
+            )
+
+
+class _FakeClient:
+    """Stands in for httpx.AsyncClient, recording what was asked for."""
+
+    def __init__(self, replies):
+        self._replies = list(replies)
+        self.calls: list[tuple[str, dict]] = []
+
+    async def post(self, url, json=None):
+        self.calls.append((url, json or {}))
+        return self._replies.pop(0) if self._replies else _FakeResponse(
+            {"success": True, "result": {"jobList": []}}
+        )
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+
+def _ok(jobs):
+    return _FakeResponse(
+        {"success": True, "errorCode": 10000, "result": {"jobList": jobs, "jobNum": len(jobs)}}
+    )
+
+
+def _api_entry(job_id="6a6a08d10b42f866b6196506", **over):
+    job, company = _entry()
+    job["jobId"] = job_id
+    job.update(over)
+    return {"jobResult": job, "companyResult": company}
+
+
+class TestTheFilterTheirServerAccepts:
+    """The body is read whole, not merged over a stored default.
+
+    So it is sent the way their site sends it, every key spelled out even
+    where the value is empty. Two of these are not cosmetic: an empty
+    jobTaxonomyList comes back with `result` as a bare string instead of a
+    job list, and the placeholder taxonomy id is what makes a typed title a
+    search rather than a category.
+    """
+
+    def test_a_typed_title_rides_under_the_placeholder_taxonomy(self):
+        body = jobright_api_body("Senior Data Engineer")
+        assert body["value"] == "Senior Data Engineer"
+        assert body["jobTaxonomyList"] == [
+            {"taxonomyId": JOBRIGHT_TAXONOMY_ID, "title": "Senior Data Engineer"}
+        ]
+
+    def test_the_taxonomy_list_is_never_empty(self):
+        assert jobright_api_body("")["jobTaxonomyList"], "an empty list breaks the reply"
+
+    def test_it_asks_for_remote_us_jobs_from_today(self):
+        body = jobright_api_body("Data Engineer", days_ago=1)
+        assert body["country"] == "US"
+        assert body["workModel"] == [JOBRIGHT_REMOTE]
+        assert body["daysAgo"] == 1
+
+    def test_seniority_and_employment_are_left_open(self):
+        """The page fetcher swept these because a page would not paginate."""
+        body = jobright_api_body("Data Engineer")
+        assert body["seniority"] == [] and body["jobTypes"] == []
+
+    def test_every_key_their_site_sends_is_present(self):
+        body = jobright_api_body("Data Engineer")
+        for key in (
+            "value", "jobTaxonomyList", "country", "jobTypes", "seniority",
+            "workModel", "locations", "companies", "daysAgo", "isH1BOnly",
+            "companyCategory", "annualSalaryMinimum", "roleType", "companyStages",
+            "skills", "excludedCompanies", "excludedSkills", "excludeStaffingAgency",
+            "minYearsOfExperienceRange", "excludeCompanyCategory",
+            "excludeSecurityClearance", "excludeUsCitizen", "refresh", "position",
+            "sortCondition",
+        ):
+            assert key in body, key
+
+
+class TestASessionThatIsRefused:
+    """401 does not clear by waiting, the way their bot check does.
+
+    It takes someone pasting a fresh cookie, so it is worth a different
+    exception and an error that says what to do about it.
+    """
+
+    @pytest.mark.parametrize(
+        "payload,status",
+        [
+            ({"success": False, "errorCode": 41001, "errorMsg": "Cookie not found"}, 401),
+            ({"success": False, "errorCode": 41002, "errorMsg": "Illegal cookie"}, 401),
+        ],
+    )
+    async def test_a_refused_cookie_says_so(self, payload, status):
+        client = _FakeClient([_FakeResponse(payload, status)])
+        with pytest.raises(JobrightNoSession) as err:
+            await _jobright_api_post(client, "https://x", {})
+        assert "JOBRIGHT_COOKIE" in str(err.value)
+
+    async def test_a_failure_that_is_not_auth_is_not_a_session_problem(self):
+        client = _FakeClient([_FakeResponse({"success": False, "errorMsg": "nope"})])
+        with pytest.raises(RuntimeError) as err:
+            await _jobright_api_post(client, "https://x", {})
+        assert not isinstance(err.value, JobrightNoSession)
+
+    async def test_a_200_that_failed_is_still_a_failure(self):
+        """They answer 200 with success:false as readily as they answer 401."""
+        client = _FakeClient([_FakeResponse({"success": False, "errorMsg": "bad filter"})])
+        with pytest.raises(RuntimeError):
+            await _jobright_api_post(client, "https://x", {})
+
+    async def test_no_cookie_configured_stops_before_any_request(self, monkeypatch):
+        monkeypatch.setattr(fetchers, "jobright_cookie", lambda: "")
+        with pytest.raises(JobrightNoSession):
+            await fetch_jobright_api(roles=["de_senior"], domains=["de"])
+
+
+class TestPagingThroughASelectedSearch:
+    """`position` is a real offset, which is the whole reason for the API.
+
+    A public page caps at thirty with no second page. Here four pages of a
+    44-job search returned 44 distinct ids, and the last one came back short.
+    """
+
+    async def test_the_search_is_selected_before_any_jobs_are_asked_for(self):
+        client = _FakeClient([_FakeResponse({"success": True, "result": {"display": "60+"}}), _ok([])])
+        await jobright_api_entries(client, "Data Engineer", delay=0)
+        first, second = client.calls[0][0], client.calls[1][0]
+        assert "count-search-filter-jobs" in first, "the count call selects the search"
+        assert "/recommend/search" in second
+        assert client.calls[0][1]["refresh"] is True, "selecting resets the cursor"
+        assert client.calls[1][1]["refresh"] is False, "paging must not reset it"
+
+    async def test_position_advances_by_a_page(self):
+        full = [_api_entry(f"{i:024x}") for i in range(JOBRIGHT_API_PAGE)]
+        client = _FakeClient(
+            [_FakeResponse({"success": True, "result": {"display": "40+"}}),
+             _ok(full), _ok(full), _ok(full[:3])]
+        )
+        entries = await jobright_api_entries(client, "Data Engineer", delay=0)
+        positions = [c[1]["position"] for c in client.calls[1:]]
+        assert positions == [0, JOBRIGHT_API_PAGE, JOBRIGHT_API_PAGE * 2]
+        assert len(entries) == JOBRIGHT_API_PAGE * 2 + 3
+
+    async def test_a_short_page_is_the_end_of_the_list(self):
+        client = _FakeClient(
+            [_FakeResponse({"success": True, "result": {"display": "5"}}), _ok([_api_entry()])]
+        )
+        await jobright_api_entries(client, "Data Engineer", delay=0)
+        assert len(client.calls) == 2, "a short page needs no request after it"
+
+    async def test_a_cursor_that_never_shortens_still_stops(self):
+        """The backstop: every observed search ended on a short page, but."""
+        full = [_api_entry(f"{i:024x}") for i in range(JOBRIGHT_API_PAGE)]
+        client = _FakeClient(
+            [_FakeResponse({"success": True, "result": {"display": "many"}})]
+            + [_ok(full)] * (JOBRIGHT_API_MAX_PAGES + 5)
+        )
+        await jobright_api_entries(client, "Data Engineer", delay=0)
+        assert len(client.calls) == JOBRIGHT_API_MAX_PAGES + 1
+
+
+class TestWhatComesBackIsAListing:
+    """The API hands back the same jobResult/companyResult the pages embed."""
+
+    async def test_records_parse_with_the_page_parser(self, monkeypatch):
+        monkeypatch.setattr(fetchers, "jobright_cookie", lambda: "SESSION_ID=x")
+        monkeypatch.setattr(
+            fetchers, "jobright_api_entries",
+            _stub_entries([_api_entry(), _api_entry("6a6a08d10b42f866b6196507")]),
+        )
+        rows = await fetch_jobright_api(roles=["de_senior"], domains=["de"], request_delay=0)
+        assert [r.job_title for r in rows] == ["Senior Data Engineer"] * 2
+        assert all(r.source == "Jobright" and r.description for r in rows)
+
+    async def test_the_employers_own_link_is_kept(self):
+        """Their search hands over the apply link; the public pages do not."""
+        entry = _api_entry(applyLink="https://job-boards.greenhouse.io/x/job_app?token=1")
+        row = _jobright_row(entry["jobResult"], entry["companyResult"])
+        assert row is not None
+
+    async def test_the_same_job_twice_is_kept_once(self, monkeypatch):
+        monkeypatch.setattr(fetchers, "jobright_cookie", lambda: "SESSION_ID=x")
+        monkeypatch.setattr(
+            fetchers, "jobright_api_entries", _stub_entries([_api_entry(), _api_entry()])
+        )
+        rows = await fetch_jobright_api(roles=["de_senior"], domains=["de"], request_delay=0)
+        assert len(rows) == 1
+
+    async def test_a_session_lost_mid_run_keeps_what_was_found(self, monkeypatch):
+        """Losing the rest beats losing everything a long run already had."""
+        monkeypatch.setattr(fetchers, "jobright_cookie", lambda: "SESSION_ID=x")
+        calls = {"n": 0}
+
+        async def flaky(client, title, **kw):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return [_api_entry()]
+            raise JobrightNoSession("expired")
+
+        monkeypatch.setattr(fetchers, "jobright_api_entries", flaky)
+        rows = await fetch_jobright_api(
+            roles=["de_senior", "de_staff"], domains=["de"], request_delay=0
+        )
+        assert len(rows) == 1, "the first title's jobs survive the second's failure"
+
+
+def _stub_entries(entries):
+    async def _entries(client, title, **kw):
+        return list(entries)
+
+    return _entries
+
+
+class TestWhichRouteAFetchTakes:
+    """A cookie expires. A fetch that stopped working the day it did would be
+    worse than one that returns less and says which way it went."""
+
+    async def test_a_configured_cookie_uses_the_search_api(self, monkeypatch):
+        monkeypatch.setattr(fetchers, "jobright_cookie", lambda: "SESSION_ID=x")
+        seen = {}
+
+        async def api(**kw):
+            seen.update(kw)
+            return []
+
+        monkeypatch.setattr(fetchers, "fetch_jobright_api", api)
+        await fetch_jobright(roles=["de_senior"], domains=["de"], days_ago=1)
+        assert seen["days_ago"] == 1 and seen["roles"] == ["de_senior"]
+
+    async def test_no_cookie_falls_back_to_the_public_pages(self, monkeypatch):
+        monkeypatch.setattr(fetchers, "jobright_cookie", lambda: "")
+        called = {}
+
+        async def pages(**kw):
+            called["yes"] = True
+            return []
+
+        monkeypatch.setattr(fetchers, "fetch_jobright_pages", pages)
+        await fetch_jobright(roles=["de_senior"], domains=["de"])
+        assert called.get("yes"), "the page reader needs no login"
+
+    async def test_the_api_is_never_read_faster_than_the_page_reader(self, monkeypatch):
+        """Their protection is rate-based; four seconds is the proven spacing."""
+        monkeypatch.setattr(fetchers, "jobright_cookie", lambda: "SESSION_ID=x")
+        seen = {}
+
+        async def api(**kw):
+            seen.update(kw)
+            return []
+
+        monkeypatch.setattr(fetchers, "fetch_jobright_api", api)
+        await fetch_jobright(request_delay=0.0, roles=["de_senior"], domains=["de"])
+        assert seen["request_delay"] >= JOBRIGHT_API_DELAY
+
+
+class TestTheTitlesTheApiSearches:
+    """The picker is read the way the page fetcher reads it, minus the sweep."""
+
+    def test_ticked_titles_are_the_selection(self):
+        titles = jobright_api_titles(domains=["de"], roles=["de_senior", "de_staff"])
+        assert titles == ["Senior Data Engineer", "Staff Data Engineer"]
+
+    def test_a_domain_with_nothing_ticked_searches_its_own_titles(self):
+        assert len(jobright_api_titles(domains=["de"])) > 10
+
+    def test_a_domain_nobody_ticked_is_not_expanded(self):
+        titles = jobright_api_titles(domains=["de", "ai"], roles=["de_senior"])
+        assert titles == ["Senior Data Engineer"]
+
+    def test_one_search_per_title_not_fourteen(self):
+        """The seniority and employment sweep existed for a page that would
+        not paginate. Paging replaces it."""
+        titles = jobright_api_titles(domains=["de"], roles=["de_senior"])
+        urls = jobright_search_urls(domains=["de"], roles=["de_senior"])
+        assert len(titles) == 1 and len(urls) == len(JOBRIGHT_PASSES)
+
+
+def test_the_window_is_asked_of_the_source_not_applied_to_its_answer():
+    """Jobright's search takes a date filter, so "today" can mean one page of
+    today's jobs rather than a week of them cut down afterwards."""
+    from app.services.discover import _adapter_kwargs
+
+    sent = _adapter_kwargs(fetch_jobright, {"posted_within_days": 1}, ["de"], 600)
+    assert sent["days_ago"] == 1

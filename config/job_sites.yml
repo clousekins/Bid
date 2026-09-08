@@ -15,7 +15,7 @@ sites:
     enabled: true
     adapter: jobright
     base_url: https://jobright.ai
-    notes: No public list API (401 without a cookie); reads the public remote-jobs pages their robots.txt allows
+    notes: Their own search API when JOBRIGHT_COOKIE is set (it pages, and filters by date server-side); otherwise the public remote-jobs pages their robots.txt allows
 
   - id: remoteok
     name: Remote OK
