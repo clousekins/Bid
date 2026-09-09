@@ -199,6 +199,8 @@ export default function JobDetail({
   onOpenJd,
   onDeepScan,
   onSkip,
+  onReject,
+  onUnreject,
   onMarkApplied,
   onBlock,
   onDelete,
@@ -399,6 +401,19 @@ export default function JobDetail({
           <button type="button" onClick={onSkip}>
             Skip
           </button>
+          {job.status === "rejected" ? (
+            <button type="button" onClick={onUnreject} title="Put this job back in the pipeline">
+              Un-reject
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onReject}
+              title="Keep the job on the list but out of the pipeline, and free its company for other jobs"
+            >
+              Make rejected
+            </button>
+          )}
         </div>
         <div className="action-group danger-group-inline">
           <button type="button" className="danger" onClick={onBlock}>

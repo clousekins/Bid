@@ -22,6 +22,7 @@ export const PIPELINE_OPTIONS = [
   { value: "scan_failed", label: "Scan failed" },
   { value: "needs_manual", label: "Needs manual" },
   { value: "skipped", label: "Skipped" },
+  { value: "rejected", label: "Rejected" },
   { value: "blocked", label: "Blocked" },
   { value: "expired", label: "Expired" },
 ];
@@ -35,6 +36,7 @@ export const PIPELINE_INLINE = new Set([
   "scan_failed",
   "needs_manual",
   "skipped",
+  "rejected",
   "blocked",
   "expired",
 ]);

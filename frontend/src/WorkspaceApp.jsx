@@ -631,6 +631,33 @@ export default function WorkspaceApp({ onGoHome, theme, onToggleTheme }) {
                 ws.setError(String(e.message || e));
               }
             }}
+            onReject={async () => {
+              if (!ws.selected) return;
+              try {
+                // Same stop as Skip: an apply already running on this job has
+                // to end with it, or a rejected job could still be submitted.
+                if (apply.applySession?.job_id === ws.selected.id) {
+                  await apply.clearApplySession(true);
+                }
+                await client.patchStatus(ws.selected.id, "rejected");
+                await ws.refresh();
+              } catch (e) {
+                ws.setError(String(e.message || e));
+              }
+            }}
+            onUnreject={async () => {
+              if (!ws.selected) return;
+              try {
+                // Back to where the pipeline can pick it up: with a usable JD
+                // that is jd_ready, without one it needs fetching again.
+                const back =
+                  (ws.selected.description || "").length >= 50 ? "jd_ready" : "new";
+                await client.patchStatus(ws.selected.id, back);
+                await ws.refresh();
+              } catch (e) {
+                ws.setError(String(e.message || e));
+              }
+            }}
             onMarkApplied={markSelectedApplied}
             onBlock={async () => {
               if (!ws.selected) return;

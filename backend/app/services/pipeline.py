@@ -47,15 +47,38 @@ async def _get_or_create_company(session: AsyncSession, company: str, normalized
 
 
 async def company_is_applied(session: AsyncSession, persona_id: str, normalized: str) -> bool:
+    """Has this persona already applied at this company?
+
+    Three places record it, because an apply can be logged from three: an
+    Application row, the listing's own status, and a per-persona package.
+
+    A rejected listing counts for none of them. That is the point of rejecting
+    one — it says this application is written off, so the company should be
+    open again for the next job that comes from there. Without the exclusions
+    below, marking a job rejected would change how it looks and nothing else:
+    the Application row and the applied package would still hold the door shut.
+    """
+    rejected = JobStatus.REJECTED.value
+
+    # An Application either names the listing it came from or predates the
+    # link. One tied to a rejected listing is written off with it; a free
+    # standing one is all the record there is, so it still counts.
     result = await session.execute(
-        select(Application.id).where(
+        select(Application.id)
+        .outerjoin(Job, Job.id == Application.job_id)
+        .where(
             Application.persona_id == persona_id,
             Application.normalized_company == normalized,
             Application.status == "applied",
+            or_(Application.job_id.is_(None), Job.status != rejected),
         )
+        .limit(1)
     )
     if result.scalar_one_or_none() is not None:
         return True
+
+    # The listing's own status needs no exclusion: a job is applied or
+    # rejected, never both.
     result = await session.execute(
         select(Job.id)
         .where(
@@ -67,6 +90,7 @@ async def company_is_applied(session: AsyncSession, persona_id: str, normalized:
     )
     if result.scalar_one_or_none() is not None:
         return True
+
     pkg = await session.execute(
         select(JobPackage.id)
         .join(Job, Job.id == JobPackage.job_id)
@@ -74,6 +98,7 @@ async def company_is_applied(session: AsyncSession, persona_id: str, normalized:
             JobPackage.persona_id == persona_id,
             JobPackage.status == PackageStatus.APPLIED.value,
             Job.normalized_company == normalized,
+            Job.status != rejected,
         )
         .limit(1)
     )

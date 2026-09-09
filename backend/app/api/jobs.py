@@ -187,6 +187,9 @@ def _listing_pipeline_status(job: Job) -> str:
         JobStatus.SKIPPED.value,
         JobStatus.EXPIRED.value,
         JobStatus.REJECTED_ONSITE.value,
+        # Without this, a rejected job that still carries a resume package
+        # would be re-derived as jd_ready and look ready to work on again.
+        JobStatus.REJECTED.value,
         JobStatus.SCAN_FAILED.value,
         JobStatus.NEEDS_MANUAL.value,
     }
@@ -936,7 +939,9 @@ async def patch_status(job_id: int, body: StatusPatch, db: AsyncSession = Depend
     if not can_transition(job.status, target):
         raise HTTPException(400, detail=f"cannot_transition:{job.status}->{target}")
     job.status = target
-    if target == JobStatus.SKIPPED.value:
+    # Both take the job out of the pipeline, so an apply already under way on
+    # it has to stop with it — otherwise a rejected job could still submit.
+    if target in {JobStatus.SKIPPED.value, JobStatus.REJECTED.value}:
         await stop_apply_for_job(db, job, revert_packages=True)
     if job.seq_no:
         sync_job_folder(

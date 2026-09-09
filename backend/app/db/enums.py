@@ -12,6 +12,13 @@ class JobStatus(str, Enum):
     APPLIED = "applied"
     EXPIRED = "expired"
     REJECTED_ONSITE = "rejected_onsite"
+    # Set by hand, and the only status that says so. A rejected listing stays
+    # in the list and stays readable, but it is out of the pipeline: no batch
+    # picks it up, and it no longer holds its company against the next job
+    # that comes from there. Distinct from REJECTED_ONSITE, which is a gate's
+    # verdict on the location, and from ApplicationOutcome.REJECTED, which is
+    # the employer's answer after applying.
+    REJECTED = "rejected"
     SKIPPED = "skipped"
     BLOCKED = "blocked"
     NEEDS_MANUAL = "needs_manual"
@@ -139,6 +146,13 @@ JOB_TRANSITIONS: dict[JobStatus, set[JobStatus]] = {
     JobStatus.APPLIED: set(),
     JobStatus.EXPIRED: {JobStatus.NEW, JobStatus.JD_READY, JobStatus.SCAN_FAILED},
     JobStatus.REJECTED_ONSITE: set(),
+    # Undoing a rejection puts the listing back where the pipeline can see it.
+    # Without a way back, one misplaced click would need a database edit.
+    JobStatus.REJECTED: {
+        JobStatus.NEW,
+        JobStatus.JD_READY,
+        JobStatus.SCAN_FAILED,
+    },
     JobStatus.SKIPPED: {
         JobStatus.NEW,
         JobStatus.JD_READY,
@@ -161,6 +175,12 @@ def can_transition(current: JobStatus | str, target: JobStatus | str) -> bool:
     cur = JobStatus(current) if not isinstance(current, JobStatus) else current
     tgt = JobStatus(target) if not isinstance(target, JobStatus) else target
     if cur == tgt:
+        return True
+    # Rejecting is a person overruling the pipeline, so it is reachable from
+    # anywhere — including the statuses that are otherwise terminal. Listing it
+    # in each of the eleven sets above would say the same thing eleven times,
+    # and would be one edit away from being wrong for a new status.
+    if tgt == JobStatus.REJECTED:
         return True
     allowed = JOB_TRANSITIONS.get(cur)
     if allowed is None:
