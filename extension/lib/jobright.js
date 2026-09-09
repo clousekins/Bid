@@ -62,6 +62,12 @@ function rowOf(entry) {
     where = `${where} (${workModel})`;
   }
 
+  // Jobright's own match score, which sits on the entry beside the job rather
+  // than inside it. Roughly 40–90 in practice. Absent when a payload came from
+  // somewhere that does not rank — kept as null so "unscored" stays tellable
+  // apart from "scored zero".
+  const score = Number(entry.displayScore);
+
   return {
     company: employer,
     title,
@@ -73,6 +79,7 @@ function rowOf(entry) {
     employment_type: clean(job.employmentType),
     remote: job.isRemote === true || workModel.toLowerCase() === "remote" ? "yes" : "",
     salary: clean(job.salaryDesc),
+    score: Number.isFinite(score) ? Math.round(score * 10) / 10 : null,
     source: "Jobright",
     external_id: id,
     description: descriptionOf(job, company),

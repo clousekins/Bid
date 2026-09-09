@@ -50,10 +50,22 @@ async function request(path, options = {}) {
   return payload;
 }
 
-/** The backend answers, at all? Used to show a live status line. */
+/**
+ * The backend answers, at all? Used to show a live status line.
+ *
+ * `maxSeq` is the highest sequence number on file. Pushing reads it first and
+ * compares afterwards: POST /api/jobs answers a duplicate with the same 200
+ * and the same job body as a fresh insert, but a row that already existed
+ * keeps its old, lower number. That is how a push can report what it actually
+ * added without asking about every job twice.
+ */
 export async function ping() {
   const stats = await request("/api/jobs/meta/stats");
-  return { total: Number(stats?.total || 0), appliedToday: Number(stats?.applied_today || 0) };
+  return {
+    total: Number(stats?.total || 0),
+    appliedToday: Number(stats?.applied_today || 0),
+    maxSeq: Number(stats?.max_seq || 0),
+  };
 }
 
 /**

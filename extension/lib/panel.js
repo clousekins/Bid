@@ -8,7 +8,7 @@
 // The privileged work — reaching the backend, writing a file — is asked of the
 // service worker. See background.js for why a content script cannot do either.
 
-import { addToBasket, clearBasket, readBasket } from "./basket.js";
+import { addToBasket, clearBasket, markPushed, readBasket, unpushed } from "./basket.js";
 import { csvFilename, toCsv } from "./csv.js";
 import { extractJobFromPage } from "./extract.js";
 import { parseJobsJson } from "./jobright.js";
@@ -53,9 +53,18 @@ const TEMPLATE = `
       </div>
       <textarea id="jsonInput" rows="4" spellcheck="false"
         placeholder='Paste a /swan/recommend/search reply, then Add. Paste as many as you like — they accumulate.'></textarea>
+
+      <label class="slider">
+        <span>Keep matches scoring at least <b id="minScoreOut">1</b></span>
+        <input id="minScore" type="range" min="1" max="100" step="1" value="1" />
+      </label>
+
       <div class="actions">
         <button type="button" id="btnAddJson">Add to list</button>
-        <button type="button" id="btnCsv" class="primary">Download CSV</button>
+        <button type="button" id="btnPush" class="primary">Push jobs</button>
+      </div>
+      <div class="actions">
+        <button type="button" id="btnCsv">Download CSV</button>
         <button type="button" id="btnClear" class="ghost">Clear</button>
       </div>
       <p id="jsonMsg" class="message" hidden></p>
@@ -308,14 +317,35 @@ function wireClip(root, $, host) {
 
 // --- Pasted JSON ------------------------------------------------------------
 
+const MIN_SCORE_KEY = "minScore";
+
 async function refreshBasket($) {
   const rows = await readBasket();
-  $("basketCount").textContent = `${rows.length} job${rows.length === 1 ? "" : "s"} collected`;
+  const waiting = unpushed(rows).length;
+  const pushed = rows.length - waiting;
+  $("basketCount").textContent =
+    `${rows.length} collected` + (pushed ? `, ${pushed} pushed` : "");
   $("btnCsv").disabled = rows.length === 0;
   $("btnClear").disabled = rows.length === 0;
+  $("btnPush").disabled = waiting === 0;
+  return rows;
 }
 
 function wireJson(root, $) {
+  // The slider, and its remembered position.
+  const out = $("minScoreOut");
+  const slider = $("minScore");
+  chrome.storage.local.get({ [MIN_SCORE_KEY]: 1 }).then((stored) => {
+    slider.value = String(stored[MIN_SCORE_KEY] || 1);
+    out.textContent = slider.value;
+  });
+  slider.addEventListener("input", () => {
+    out.textContent = slider.value;
+  });
+  slider.addEventListener("change", () =>
+    chrome.storage.local.set({ [MIN_SCORE_KEY]: Number(slider.value) })
+  );
+
   $("btnAddJson").addEventListener("click", async () => {
     say($("jsonMsg"), "");
     await whileBusy($("btnAddJson"), "Adding…", async () => {
@@ -330,14 +360,110 @@ function wireJson(root, $) {
         say($("jsonMsg"), `No jobs in that payload (${parsed.found} entries seen).`, "warn");
         return;
       }
-      const { added, duplicates, total } = await addToBasket(parsed.rows);
+
+      // The score gate. A job with no score at all is kept and counted
+      // separately — silently dropping it would be judging it by a number it
+      // never had.
+      const floor = Number(slider.value);
+      const keep = [];
+      let belowScore = 0;
+      let unscored = 0;
+      for (const row of parsed.rows) {
+        if (row.score === null || row.score === undefined) {
+          unscored += 1;
+          keep.push(row);
+        } else if (row.score < floor) {
+          belowScore += 1;
+        } else {
+          keep.push(row);
+        }
+      }
+
+      if (!keep.length) {
+        say($("jsonMsg"), `All ${belowScore} scored below ${floor}.`, "warn");
+        return;
+      }
+
+      const { added, duplicates, total } = await addToBasket(keep);
       const notes = [`${added} added`];
+      if (belowScore) notes.push(`${belowScore} below ${floor}`);
+      if (unscored) notes.push(`${unscored} unscored, kept`);
       if (duplicates) notes.push(`${duplicates} already collected`);
       if (parsed.unusable) notes.push(`${parsed.unusable} unusable`);
       say($("jsonMsg"), `${notes.join(", ")} — ${total} in total.`, added ? "ok" : "warn");
       $("jsonInput").value = "";
       await refreshBasket($);
     });
+  });
+
+  $("btnPush").addEventListener("click", async () => {
+    say($("jsonMsg"), "");
+    await whileBusy($("btnPush"), "Pushing…", async () => {
+      const waiting = unpushed(await readBasket());
+      if (!waiting.length) {
+        say($("jsonMsg"), "Every collected job has been pushed already.", "warn");
+        return;
+      }
+
+      // Read the high-water mark first. A job the backend already had comes
+      // back with its original, lower sequence number, which is how "added"
+      // and "already on file" are told apart without a second request each.
+      let baseline = 0;
+      try {
+        baseline = (await ask("api:ping")).maxSeq;
+      } catch (err) {
+        say($("jsonMsg"), err.message, "bad");
+        return;
+      }
+
+      const outcomes = {};
+      let added = 0;
+      let already = 0;
+      const refused = [];
+
+      for (const [index, row] of waiting.entries()) {
+        try {
+          const saved = await ask("api:createJob", {
+            company: row.company,
+            title: row.title,
+            url: row.url,
+            location: row.location,
+            source: row.source || "Jobright",
+            description: row.description,
+            external_id: row.external_id,
+          });
+          const seq = Number(saved.seq_no ?? saved.id ?? 0);
+          outcomes[row.external_id || row.url] = seq || -1;
+          if (seq > baseline) added += 1;
+          else already += 1;
+        } catch (err) {
+          // A gate turned it away — an employer already applied to, a blocked
+          // company. Recorded so it is not offered again, and named so the
+          // count is not a silent loss.
+          outcomes[row.external_id || row.url] = -1;
+          refused.push(`${row.company}: ${String(err.message).replace(/_/g, " ")}`);
+        }
+        if (index % 5 === 0 || index === waiting.length - 1) {
+          say($("jsonMsg"), `Pushing ${index + 1}/${waiting.length} — ${added} new…`);
+        }
+      }
+
+      await markPushed(outcomes);
+      await refreshStatus($);
+
+      const notes = [`${added} added`];
+      if (already) notes.push(`${already} already on file`);
+      if (refused.length) notes.push(`${refused.length} refused`);
+      say(
+        $("jsonMsg"),
+        `${notes.join(", ")}.` + (refused.length ? ` First: ${refused[0]}` : ""),
+        added ? "ok" : "warn"
+      );
+    });
+    // After whileBusy, not inside it: its finally re-enables the button it was
+    // given, which would undo the disabling this does when nothing is left to
+    // push.
+    await refreshBasket($);
   });
 
   $("btnCsv").addEventListener("click", async () => {

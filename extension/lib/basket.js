@@ -38,6 +38,29 @@ export async function clearBasket() {
   await chrome.storage.local.set({ [KEY]: [] });
 }
 
+/**
+ * Record what the backend did with each row.
+ *
+ * `outcomes` maps a row's identity to the sequence number it now has on file,
+ * so a second press of Push skips it instead of asking the backend again. The
+ * backend would refuse the duplicate anyway; this is about not making a
+ * hundred pointless requests to be told so.
+ */
+export async function markPushed(outcomes) {
+  const rows = await readBasket();
+  for (const row of rows) {
+    const seq = outcomes[identity(row)];
+    if (seq !== undefined) row.pushed_seq = seq;
+  }
+  await chrome.storage.local.set({ [KEY]: rows });
+  return rows;
+}
+
+/** Rows that have not yet been accepted by the backend. */
+export function unpushed(rows) {
+  return rows.filter((row) => !row.pushed_seq);
+}
+
 function identity(row) {
   return String(row.external_id || row.url || "").trim();
 }

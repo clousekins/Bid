@@ -15,6 +15,9 @@ export const COLUMNS = [
   "employment_type",
   "remote",
   "salary",
+  // Jobright's match score. The importer ignores columns it does not know, so
+  // carrying it costs nothing and it is the number the filter acted on.
+  "score",
   "source",
   "external_id",
   "description",

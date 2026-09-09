@@ -93,12 +93,37 @@ safe: the second copy of a posting is counted and dropped, not stored twice. The
 collected list lives in `chrome.storage.local`, so it survives closing the panel
 and closing the browser — **Clear** is the only thing that empties it.
 
+**The score slider** sets a floor on Jobright's own match score, which rides on
+each entry as `displayScore` — roughly 40–98 in practice, so most of the 1–100
+range is headroom. Anything below the floor is dropped as it is added, and the
+count says how many. A job with *no* score is kept and counted separately:
+dropping it would be judging it by a number it never had.
+
+The floor applies at the moment of adding. Raising it does not remove jobs
+already collected — Clear and paste again for that.
+
+**Push jobs** sends everything collected to the backend, one at a time, and
+reports what it did:
+
+- *added* — new to the backend.
+- *already on file* — it was there before. `POST /api/jobs` deduplicates by
+  URL, but answers a duplicate with the same `200` and the same job body as a
+  fresh insert. So the push reads the highest sequence number first and
+  compares afterwards: a row that already existed keeps its old, lower number.
+  That distinction costs no extra requests.
+- *refused* — a gate turned it away, usually a company already applied to.
+
+Pushed rows are marked, so a second press sends only what is new rather than
+asking the backend about everything again. The mark survives with the basket;
+Clear forgets it, and a re-push of the same jobs is then reported honestly as
+*already on file*.
+
 The CSV columns are the ones `manual_ingest.FIELD_ALIASES` recognises, so the
 file can be handed straight back to `POST /api/jobs/import`:
 
 ```
 company, title, url, apply_url, location, posted_at, seniority,
-employment_type, remote, salary, source, external_id, description
+employment_type, remote, salary, score, source, external_id, description
 ```
 
 It is written with CRLF endings and a UTF-8 BOM, because Excel renders the
