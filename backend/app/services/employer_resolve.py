@@ -9,6 +9,7 @@ from openai import AsyncOpenAI
 
 from app.config import get_settings
 from app.validators.dedupe import normalize_company
+from app.services.openai_compat import chat_completion
 
 
 # Job boards / marketplaces / aggregators — not the hiring employer
@@ -222,7 +223,8 @@ async def extract_employer_llm(
     }
     client = AsyncOpenAI(api_key=settings.openai_api_key)
     try:
-        resp = await client.chat.completions.create(
+        resp = await chat_completion(
+            client,
             model=settings.openai_model,
             messages=[
                 {

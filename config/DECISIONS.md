@@ -4,7 +4,7 @@
 2. Folder naming: `{seq}-{Company}`
 3. Same company skipped only if status=applied — the constraint is per
    (persona, company), so each profile has its own pool
-4. LLM: OpenAI gpt-4.1 (configurable)
+4. LLM: OpenAI gpt-5.6-luna (configurable)
 5. Auto-submit OFF by default
 6. Hybrid rejected on non-manual deep-scan paths
 7. Associate/junior titles rejected

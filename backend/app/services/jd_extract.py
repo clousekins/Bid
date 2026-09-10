@@ -7,6 +7,7 @@ from typing import Any
 from openai import AsyncOpenAI
 
 from app.config import get_settings
+from app.services.openai_compat import chat_completion
 
 _URL_RE = re.compile(r"https?://[^\s<>\"']+", re.I)
 _TITLE_HINTS = re.compile(
@@ -90,7 +91,8 @@ async def extract_job_fields_from_jd(jd: str) -> dict[str, Any]:
     }
     try:
         client = AsyncOpenAI(api_key=settings.openai_api_key, timeout=60.0, max_retries=1)
-        resp = await client.chat.completions.create(
+        resp = await chat_completion(
+            client,
             model=settings.openai_model,
             messages=[
                 {"role": "system", "content": system},

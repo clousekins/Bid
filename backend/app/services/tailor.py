@@ -22,6 +22,7 @@ from app.services import runtime_settings
 from app.services.ats_score import extract_terms, persona_corpus, score_resume
 from app.services.resume_credibility import score_credibility
 from app.services.resume_style import polish_flat_resume_html, replace_document_css
+from app.services.openai_compat import chat_completion
 
 log = logging.getLogger("poong.tailor")
 
@@ -120,7 +121,8 @@ async def _chat(system: str, user: str, *, attempts: int = 6) -> str:
     last_exc: Exception | None = None
     for attempt in range(1, attempts + 1):
         try:
-            resp = await client.chat.completions.create(
+            resp = await chat_completion(
+                client,
                 model=settings.openai_model,
                 messages=[
                     {"role": "system", "content": system},

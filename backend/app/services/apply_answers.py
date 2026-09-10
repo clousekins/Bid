@@ -9,6 +9,7 @@ from openai import AsyncOpenAI
 
 from app.config import get_settings
 from app.services.persona import Persona, ground_truth_payload, strip_name_parentheticals
+from app.services.openai_compat import chat_completion
 
 
 class PersonaIdentityError(RuntimeError):
@@ -696,7 +697,8 @@ async def _gpt_answer_fields(
     }
 
     client = AsyncOpenAI(api_key=settings.openai_api_key)
-    resp = await client.chat.completions.create(
+    resp = await chat_completion(
+        client,
         model=settings.openai_model,
         messages=[
             {"role": "system", "content": system},

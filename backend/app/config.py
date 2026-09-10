@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     )
 
     openai_api_key: str = ""
-    openai_model: str = "gpt-4.1"
+    openai_model: str = "gpt-5.6-luna"
 
     database_url: str = "sqlite:///./data/remote_apply.db"
     persona_output_root: str = "./data/applications"
@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     apply_login_password: str = ""
 
     # Batch concurrency (OpenAI / network bound)
-    # Keep low if TPM is ~30k (gpt-4.1 resume calls are large).
+    # Keep low if TPM is ~30k (a resume call is a large one).
     tailor_concurrency: int = 2
     deep_scan_concurrency: int = 3
 
