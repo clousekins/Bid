@@ -400,8 +400,26 @@ def _role_alignment(persona: Any, job_title: str | None) -> tuple[float, str]:
         return 0.5, ""
     mine = _persona_role_words(persona)
     known = persona_terms(persona)
-    known_words = {part for term in known for part in re.split(r"[ /]", term)}
-    hits = [w for w in words if w in mine or w in known or w in known_words]
+
+    # A term made of several words only counts when the title carries the
+    # whole thing. Splitting them apart let one ordinary English word answer
+    # for a tool: "power", taken out of "Power BI", matched "Power Generation
+    # Electrical Engineer" and stopped that posting reading as another field.
+    #
+    # Nothing is lost by being strict here — the tools a title actually names
+    # (spark, airflow, databricks, snowflake, kafka, tableau) are single words
+    # already, so they still match on their own.
+    solo = {term for term in known if not re.search(r"[ /]", term)}
+    compound = [term for term in known if term not in solo and term in title]
+
+    # Score by how much of the title is accounted for, counting each word once.
+    # A compound term earns every word it covers — "Machine Learning Engineer"
+    # is fully explained by knowing machine learning, not half explained.
+    covered = {w for w in words if w in mine or w in solo}
+    for term in compound:
+        covered.update(part for part in re.split(r"[ /]", term) if part)
+
+    hits = [w for w in words if w in covered]
     if not hits:
         return 0.0, f"title is a different field: {' '.join(words[:4])}"
     return len(hits) / len(words), ""

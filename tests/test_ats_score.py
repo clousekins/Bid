@@ -265,3 +265,55 @@ def test_scoring_a_page_of_jobs_stays_fast():
         technical_feasibility(persona, job)
     elapsed = time.perf_counter() - start
     assert elapsed < 1.0, f"50 uncached jobs took {elapsed:.2f}s"
+
+
+class TestATitleWordIsNotAToolFragment:
+    """A word inside a tool's name is not, on its own, evidence of the tool.
+
+    The persona knows Power BI. Splitting that into words let "power" answer
+    for "Power Generation Electrical Engineer", which then read as a partial
+    match instead of another discipline entirely — the exact thing the
+    feasibility gate exists to catch.
+
+    Matching whole terms fixes it, but only if a compound term still earns
+    every title word it covers: counting "machine learning" as one hit against
+    two words rated a Machine Learning Engineer at half, which is worse than
+    the bug.
+    """
+
+    @staticmethod
+    def _score(title: str) -> float:
+        from app.services.ats_score import _role_alignment
+
+        return _role_alignment(load_persona("brian_gou"), title)[0]
+
+    @staticmethod
+    def _note(title: str) -> str:
+        from app.services.ats_score import _role_alignment
+
+        return _role_alignment(load_persona("brian_gou"), title)[1]
+
+    def test_a_fragment_of_a_tool_name_is_not_a_match(self):
+        assert self._score("Power Generation Electrical Engineer") == 0.0
+        assert "different field" in self._note("Power Generation Electrical Engineer")
+
+    def test_but_the_whole_tool_name_is(self):
+        assert self._score("Power BI Developer") == 1.0
+        assert self._note("Power BI Developer") == ""
+
+    def test_a_compound_term_covers_every_word_it_spans(self):
+        """Otherwise knowing the tool scores worse than not naming it."""
+        assert self._score("Machine Learning Engineer") == 1.0
+        assert self._score("CI/CD Engineer") == 1.0
+
+    def test_single_word_tools_still_match_alone(self):
+        for title in ("Spark Engineer", "Databricks Architect", "Snowflake Developer"):
+            assert self._score(title) == 1.0, title
+
+    def test_the_persona_s_own_discipline_still_matches(self):
+        assert self._score("Senior Data Engineer") == 1.0
+
+    def test_other_disciplines_are_still_turned_away(self):
+        for title in ("Registered Nurse", "Mechanical Design Engineer", "Civil Site Engineer"):
+            assert self._score(title) == 0.0, title
+            assert "different field" in self._note(title)
