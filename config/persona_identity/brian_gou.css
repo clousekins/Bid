@@ -169,3 +169,32 @@ b {
   color: #0B2B68;
   font-style: italic;
 }
+
+/* --- Wrappers the HTML skeleton introduces -------------------------------
+ *
+ * .resume, .header and .section are containers the prompt's markup wraps the
+ * document in. They are deliberately plain: the universal reset above already
+ * zeroes margins, and the spacing this resume has always had comes from
+ * .section-title's own margins. Giving these boxes padding or margins of
+ * their own would move everything.
+ *
+ * .header-dotted is the one new mark on the page — the rule under the contact
+ * line. It uses the same navy the headings and dates already use, dotted so it
+ * reads as lighter than the solid rule under each .section-title. */
+
+.resume {
+  display: block;
+}
+
+.header {
+  display: block;
+}
+
+.section {
+  display: block;
+}
+
+.header-dotted {
+  border-bottom: 1px dotted #0B2B68;
+  margin: 0 0 2px 0;
+}

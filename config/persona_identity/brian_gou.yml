@@ -4,8 +4,8 @@ default_professional_title: Senior Data Engineer
 total_experience: "10+ years"
 
 identity:
-  legal_name: Brian Gou (Yi)
-  preferred_name: Brian(Yi) Gou
+  legal_name: Brian (Yi) Gou
+  preferred_name: Brian (Yi) Gou
   email: briangou9@gmail.com
   phone: "(929) 547 6426"
   location_city: Tustin
@@ -16,6 +16,8 @@ identity:
   salary_expectation: "150000-180000 USD per year"
 
 screening_answers:
+  - question: "Your resume's ATS score for this job description(only score, ex: 40%)?"
+    answer: ""
   - question: "Are you authorized to work in the United States?"
     answer: "Yes"
   - question: "Do you now or will you in the future require sponsorship?"
@@ -51,7 +53,7 @@ tailor:
       location: Menlo Park, California
       start: "Aug 2022"
       end: "Feb 2023"
-      bullets: 5
+      bullets: 6
       focus: Distributed systems, big data at scale, analytics readiness, Spark pipelines/streaming per JD
       allowed_tech: Modern data stack aligned to JD
     - company: Amazon
@@ -59,7 +61,7 @@ tailor:
       location: San Francisco, California
       start: "Oct 2021"
       end: "May 2022"
-      bullets: 4
+      bullets: 6
       focus: Cloud-first pipelines, automation, large-scale data, performance, Spark introduction
       allowed_tech: AWS Glue, Lambda, S3, Redshift, Athena, Step Functions, Python, Spark, Terraform, plus modern stack per JD
     - company: UnitedHealth Group
@@ -75,7 +77,7 @@ tailor:
       location: Dallas, Texas
       start: "Sep 2016"
       end: "Aug 2017"
-      bullets: 3
+      bullets: 4
       focus: SQL fundamentals, ETL basics, legacy systems, reporting, stored procedures, healthcare
       allowed_tech: SQL Server, SSIS, SSRS, Stored Procedures, Excel, on-prem databases
   education_ground_truth:
