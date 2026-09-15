@@ -30,6 +30,8 @@ class RangeBody(BaseModel):
     limit: int = 50
     job_ids: list[int] | None = None
     domains: list[str] | None = None  # e.g. ["de","ai","sf"] — filter discover/fresh
+    # Regenerate even when this persona already has a resume package for the job.
+    force: bool = False
 
 
 class DiscoverSiteBody(BaseModel):
@@ -215,8 +217,15 @@ async def sync_tailor(body: RangeBody):
         seq_to=body.seq_to,
         job_ids=ids,
         generate_as=gen_pid,
+        force=bool(body.force),
     )
-    return {"job_id": row.id, "kind": row.kind, "status": row.status, "persona_id": gen_pid}
+    return {
+        "job_id": row.id,
+        "kind": row.kind,
+        "status": row.status,
+        "persona_id": gen_pid,
+        "force": bool(body.force),
+    }
 
 
 @router.post("/apply-preview")

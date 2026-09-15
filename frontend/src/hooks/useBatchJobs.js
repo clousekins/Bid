@@ -68,7 +68,10 @@ function buildProgress(job) {
   return {
     jobId: job.id ?? job.job_id,
     kind: job.kind,
-    title: KIND_LABELS[job.kind] || String(job.kind || "Background job"),
+    title:
+      p.force && job.kind === "tailor"
+        ? "Regenerating resumes"
+        : KIND_LABELS[job.kind] || String(job.kind || "Background job"),
     status: job.status,
     done,
     total: hasTotal ? total : null,
@@ -176,13 +179,15 @@ export function useBatchJobs(refresh) {
 
   const startBg = async (kind, body) => {
     setBusy(true);
+    const kindLabel =
+      (kind === "tailor" && body?.force ? "Regenerating resumes" : KIND_LABELS[kind]) || kind;
     // Asked here because this runs from the click on Fetch — browsers refuse
     // the prompt outside a user gesture. Ignored once answered either way.
     askNotifyPermission();
     setActiveJob({
       jobId: null,
       kind,
-      title: KIND_LABELS[kind] || kind,
+      title: kindLabel,
       status: "queued",
       done: 0,
       total: null,
@@ -208,7 +213,7 @@ export function useBatchJobs(refresh) {
                   : await client.tailorRange(body);
       logPoong("enqueued", kind, res);
       setBgJobId(res.job_id);
-      setBatchProgress(`${KIND_LABELS[kind] || kind} queued #${res.job_id}`);
+      setBatchProgress(`${kindLabel} queued #${res.job_id}`);
       setActiveJob((prev) => ({
         ...(prev || {}),
         jobId: res.job_id,

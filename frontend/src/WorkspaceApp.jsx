@@ -506,6 +506,22 @@ export default function WorkspaceApp({ onGoHome, theme, onToggleTheme }) {
             })
           );
         }}
+        onRegenerateSelected={() => {
+          const n = ws.checkedIds.size;
+          if (!n) return;
+          // Overwrites resumes that are already done, so it asks first.
+          const msg =
+            `Regenerate ${n} selected job(s) as ${ws.workingPersonaId}?\n` +
+            "Resumes already generated for this persona are tailored again and overwritten.";
+          if (!window.confirm(msg)) return;
+          runOrError(() =>
+            batch.startBg("tailor", {
+              job_ids: [...ws.checkedIds],
+              persona_id: ws.workingPersonaId,
+              force: true,
+            })
+          );
+        }}
         onDeleteSelected={async () => {
           const ids = [...ws.checkedIds];
           if (!ids.length) return;

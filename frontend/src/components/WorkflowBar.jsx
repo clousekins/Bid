@@ -39,6 +39,7 @@ export default function WorkflowBar({
   onClearSelection,
   onDeepScanSelected,
   onTailorSelected,
+  onRegenerateSelected,
   onDeleteSelected,
   busy,
   workingLabel,
@@ -241,6 +242,14 @@ export default function WorkflowBar({
             </button>
             <button type="button" className="primary" disabled={!hasSelection || busy} onClick={onTailorSelected}>
               Generate (selected)
+            </button>
+            <button
+              type="button"
+              disabled={!hasSelection || busy}
+              onClick={onRegenerateSelected}
+              title="Tailor every selected job again, overwriting resumes already generated"
+            >
+              Regenerate (selected)
             </button>
             <p className="stage-hint muted">
               Tailors HTML resume bundles for <strong>{workingLabel}</strong>. Watch the bottom activity panel while it runs.

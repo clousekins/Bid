@@ -97,6 +97,7 @@ async def enqueue(
     seq_to: int | None = None,
     job_ids: list[int] | None = None,
     generate_as: str | None = None,
+    force: bool = False,
     options: dict[str, Any] | None = None,
 ) -> BackgroundJob:
     factory = get_session_factory()
@@ -106,6 +107,8 @@ async def enqueue(
         progress["job_ids"] = ids
     if generate_as:
         progress["generate_as"] = generate_as
+    if force:
+        progress["force"] = True
     if options:
         progress["options"] = options
         progress.update({k: v for k, v in options.items() if k in {"site", "window", "max_jobs", "domains", "roles"}})
@@ -204,6 +207,15 @@ async def _filter_jobs_needing_persona_package(
         )
     }
     return [j for j in jobs if j.id not in done_ids]
+
+
+def _force_regenerate(row: BackgroundJob) -> bool:
+    """True when this run must retailor jobs that already have a package."""
+    try:
+        data = json.loads(row.progress or "{}")
+    except json.JSONDecodeError:
+        return False
+    return bool(data.get("force"))
 
 
 def _generate_persona_id(row: BackgroundJob) -> str | None:
@@ -518,6 +530,7 @@ async def _exec_tailor(session, row: BackgroundJob) -> None:
 
     # Capture generation persona BEFORE rebuilding progress
     gen_pid = _generate_persona_id(row) or row.persona_id
+    force = _force_regenerate(row)
 
     # Listing ownership/status does not decide whether this persona needs a package.
     jobs = await _load_jobs_for_bg(
@@ -535,7 +548,9 @@ async def _exec_tailor(session, row: BackgroundJob) -> None:
         ],
         match_listing_persona=False,
     )
-    jobs = await _filter_jobs_needing_persona_package(session, jobs, persona_id=gen_pid)
+    # A forced run retailors everything picked, overwriting packages this persona already has.
+    if not force:
+        jobs = await _filter_jobs_needing_persona_package(session, jobs, persona_id=gen_pid)
     # Still need a usable JD
     jobs = [j for j in jobs if j.description and len(j.description) >= 50]
     job_ids = [j.id for j in jobs]
@@ -547,6 +562,7 @@ async def _exec_tailor(session, row: BackgroundJob) -> None:
         "items": items,
         "generate_as": gen_pid,
         "concurrency": concurrency,
+        "force": force,
     }
     ids = _progress_job_ids(row)
     if ids is not None:
