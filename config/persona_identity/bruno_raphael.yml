@@ -1,0 +1,96 @@
+persona_id: bruno_raphael
+display_name: Bruno Raphael
+default_professional_title: Senior Data Engineer
+total_experience: "over 7 years"
+
+identity:
+  legal_name: Bruno Raphael
+  preferred_name: Bruno Raphael
+  email: brunoraph.97@gmail.com
+  # Phone and LinkedIn were not supplied. The placeholders print on the resume
+  # on purpose, so a draft cannot be submitted with a wrong contact line by
+  # accident. Replace them here and in bruno_raphael.prompt.md.
+  phone: "+55 81995616866"
+  location_city: Paulista
+  location_state: Pernambuco
+  location_country: BR
+  linkedin_url: "https://www.linkedin.com/in/bruno-raphael-705a34207/"
+  # CONFIRM THIS. He is based in Brazil, while the Ohio roles and the
+  # University of Cincinnati degree are US-based. The answer decides how every
+  # screening form is filled in.
+  work_authorization: "Authorized to work in the US"
+  salary_expectation: "150000-180000 USD per year"
+
+screening_answers:
+  - question: "Your resume's ATS score for this job description(only score, ex: 40%)?"
+    answer: ""
+  - question: "Are you authorized to work in the United States?"
+    answer: "Yes"
+  - question: "Do you now or will you in the future require sponsorship?"
+    answer: "No"
+  - question: "Are you willing to work remotely in the United States?"
+    answer: "Yes"
+  - question: "How many years of experience do you have?"
+    answer: "7"
+  - question: "What is your expected salary?"
+    answer: "150000-180000 USD per year"
+  - question: "Current Employer"
+    answer: "UnitedHealth Group"
+  - question: "Current Job Title"
+    answer: "Senior Data Engineer"
+  - question: "Were you referred for this position?"
+    answer: "No"
+
+tailor:
+  mode: html_resume_bundle
+  prompt_file: bruno_raphael.prompt.md
+  css_file: bruno_raphael.css
+  # The accent bruno_raphael.css is written in, so the colour picker can repaint it.
+  accent_color: "#1D6E93"
+  # Fill in <strong> on any bullet the model left without emphasis.
+  enforce_bullet_emphasis: true
+  experience_ground_truth:
+    - company: UnitedHealth Group
+      title: Senior Data Engineer | Data Platform Engineer
+      location: Remote
+      start: "Feb 2025"
+      end: Present
+      bullets: 8
+      focus: The strongest evidence for the target JD. One healthcare project chosen from the domain catalogue in the prompt, built out across ingestion, transformation, modelling, quality, governance and delivery, carrying the most impact on the resume
+      allowed_tech: Modern data stack aligned to the JD, within what the chosen healthcare project credibly needs
+    - company: Ohio Department of Health
+      title: Cloud Data Engineer
+      location: Remote
+      start: "Jan 2023"
+      end: "Dec 2024"
+      bullets: 5
+      focus: Cloud data engineering on Azure Databricks and ETL, the technical run-up to the UnitedHealth Group role and the second strongest source of impact
+      allowed_tech: Azure Databricks, ETL tooling, SQL, Python, plus stack aligned to the JD where the period supports it
+    - company: Ohio Department of Health
+      title: Data Engineer
+      location: Columbus, Ohio
+      start: "May 2021"
+      end: "Dec 2022"
+      bullets: 4
+      focus: Foundational data engineering, dashboards and service integration including SOAP, forming the base the later cloud work is built on
+      allowed_tech: SQL, Python, ETL, dashboards, SOAP and REST service integration, relational databases
+    - company: Intelivix
+      title: Python Developer
+      location: Recife, Pernambuco, Brazil
+      start: "Feb 2019"
+      end: "Mar 2021"
+      bullets: 6
+      focus: Python development, SQL and dashboards; the earliest role and the origin of the engineering habits the later roles extend
+      allowed_tech: Python, SQL, dashboards, REST APIs, relational databases
+  education_ground_truth:
+    - degree: Master of Technology (Information Technology)
+      school: University of Cincinnati
+      location: Cincinnati, Ohio
+      year: "2022"
+    - degree: Bachelor's Degree (Computer Science)
+      school: Universidade Federal de Pernambuco
+      location: Recife, Pernambuco, Brazil
+      # No dates were recorded for this degree. The year column prints empty.
+      year: ""
+  # None recorded. The resume omits the Certification section entirely.
+  certifications_ground_truth: []

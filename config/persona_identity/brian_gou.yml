@@ -1,11 +1,11 @@
 persona_id: brian_gou
 display_name: Brian Gou
 default_professional_title: Senior Data Engineer
-total_experience: "10+ years"
+total_experience: "over 10 years"
 
 identity:
   legal_name: Brian (Yi) Gou
-  preferred_name: Brian (Yi) Gou
+  preferred_name: Brian(Yi) Gou
   email: briangou9@gmail.com
   phone: "(929) 547 6426"
   location_city: Tustin
@@ -16,8 +16,6 @@ identity:
   salary_expectation: "150000-180000 USD per year"
 
 screening_answers:
-  - question: "Your resume's ATS score for this job description(only score, ex: 40%)?"
-    answer: ""
   - question: "Are you authorized to work in the United States?"
     answer: "Yes"
   - question: "Do you now or will you in the future require sponsorship?"
