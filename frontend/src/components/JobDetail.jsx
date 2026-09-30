@@ -201,6 +201,8 @@ export default function JobDetail({
   onSkip,
   onReject,
   onUnreject,
+  onMakeInterview,
+  onUnmakeInterview,
   onMarkApplied,
   onBlock,
   onDelete,
@@ -226,6 +228,12 @@ export default function JobDetail({
   const workingPackage = packages.find((pkg) => pkg.persona_id === workingPersonaId);
   const workingLabel = personaLabel(workingPersonaId);
   const myStatus = workingPackage?.status || "need_resume";
+  // Tailoring needs a JD to work from: the backend refuses anything under 50
+  // characters with "not_jd_ready", so offering the button without one would
+  // only produce an error. Rejected jobs are shown but not acted on.
+  const hasResume = myStatus === "resume_ready" || myStatus === "applying";
+  const canGenerate =
+    job.status !== "rejected" && (job.description || "").trim().length >= 50;
 
   const saveField = async (field, next) => {
     if (!onUpdateFields) return;
@@ -319,6 +327,14 @@ export default function JobDetail({
           onSave={saveField}
           busy={saving}
         />
+        <EditableField
+          label="Apply URL"
+          field="apply_url"
+          value={job.apply_url || job.url}
+          href
+          onSave={saveField}
+          busy={saving}
+        />
         <div className="detail-row">
           <span className="detail-label">Folder</span>
           <span className="detail-mono cell-ellipsis" title={job.folder_path || ""}>
@@ -367,9 +383,25 @@ export default function JobDetail({
               Continue apply
             </button>
           ) : null}
-          {myStatus === "need_resume" || job.status === "jd_ready" ? (
-            <button type="button" className="primary" onClick={onGenerate} disabled={generating}>
-              Generate for {workingLabel}
+          {canGenerate ? (
+            // Stays available after a resume exists, so it can be regenerated —
+            // a new JD paste, a persona edit, or simply a better roll. Tailoring
+            // overwrites the package for this job and persona rather than adding
+            // one, so pressing it twice costs a generation, not a duplicate.
+            // Primary only until the first resume lands; after that it sits
+            // quietly beside Assisted apply instead of competing with it.
+            <button
+              type="button"
+              className={hasResume ? "" : "primary"}
+              onClick={onGenerate}
+              disabled={generating}
+              title={
+                hasResume
+                  ? `Replace the ${workingLabel} resume and cover letter for this job`
+                  : undefined
+              }
+            >
+              {generating ? "Generating…" : `Generate for ${workingLabel}`}
             </button>
           ) : null}
           {myStatus === "resume_ready" || myStatus === "applying" ? (
@@ -401,6 +433,23 @@ export default function JobDetail({
           <button type="button" onClick={onSkip}>
             Skip
           </button>
+          {job.status === "interview" ? (
+            <button
+              type="button"
+              onClick={onUnmakeInterview}
+              title="Undo the interview stage and put this job back where its packages say it is"
+            >
+              Un-interview
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onMakeInterview}
+              title="Record that this job reached an interview, and hold that stage against anything the pipeline would re-derive"
+            >
+              Make interview
+            </button>
+          )}
           {job.status === "rejected" ? (
             <button type="button" onClick={onUnreject} title="Put this job back in the pipeline">
               Un-reject

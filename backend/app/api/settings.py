@@ -20,6 +20,11 @@ class AtsFloorPatch(BaseModel):
     ats_max_attempts: int | None = Field(default=None, ge=1, le=6)
 
 
+class AccentPatch(BaseModel):
+    # "" clears the choice and returns each persona to its own stylesheet.
+    accent: str = ""
+
+
 @router.get("")
 async def get_settings_api():
     from app.services.company_discovery import search_provider_status
@@ -58,6 +63,30 @@ async def activate_persona(body: PersonaActivate):
     except ValueError as exc:
         raise HTTPException(400, detail=str(exc)) from exc
     return {"active": get_active_persona_id()}
+
+
+def _accent_payload() -> dict:
+    from app.services.resume_accent import PALETTE
+
+    return {
+        "palette": [dict(swatch) for swatch in PALETTE],
+        "accent": runtime_settings.resume_accent(),
+    }
+
+
+@router.get("/resume-accent")
+async def get_resume_accent():
+    """The colours on offer, and which one generated resumes currently use."""
+    return _accent_payload()
+
+
+@router.post("/resume-accent")
+async def set_resume_accent(body: AccentPatch):
+    try:
+        runtime_settings.update(resume_accent=body.accent)
+    except ValueError as exc:
+        raise HTTPException(400, detail=str(exc)) from exc
+    return _accent_payload()
 
 
 @router.post("/ats-floor")

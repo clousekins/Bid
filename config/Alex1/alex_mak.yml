@@ -1,0 +1,301 @@
+persona_id: alex_mak
+display_name: Alexander C Mak
+default_professional_title: Senior Data Engineer
+total_experience: "12 years"
+
+identity:
+  legal_name: Alexander C Mak
+  preferred_name: Alex Mak
+  email: alexandermak1992@outlook.com
+  phone: "(301) 857-9736"
+  location_city: Columbia
+  location_state: MD
+  location_country: US
+  linkedin_url: https://www.linkedin.com/in/alexander-m-695908140
+  work_authorization: "Authorized to work in the US"
+  salary_expectation: "150000-180000 USD per year"
+
+screening_answers:
+  - question: "Your resume's ATS score for this job description(only score, ex: 40%)?"
+    answer: ""
+  - question: "Are you authorized to work in the United States?"
+    answer: "Yes"
+  - question: "Do you now or will you in the future require sponsorship?"
+    answer: "No"
+  - question: "Are you willing to work remotely in the United States?"
+    answer: "Yes"
+  - question: "How many years of experience do you have?"
+    answer: "12"
+  - question: "What is your expected salary?"
+    answer: "150000-180000 USD per year"
+  - question: "Current Employer"
+    answer: "American Express"
+  - question: "Current Job Title"
+    answer: "Data Engineer III"
+  - question: "Were you referred for this position?"
+    answer: "No"
+
+tailor:
+  mode: html_resume_bundle
+  prompt_file: alex_mak.prompt.md
+  css_file: alex_mak.css
+  # The accent alex_mak.css is written in. Declaring it lets the colour picker
+  # repaint the sheet at generation time; without it the picker leaves this
+  # persona alone.
+  accent_color: "#1D6E93"
+  # Fill in <strong> on any bullet the model left without emphasis, and trim any
+  # that ran past three. Only this persona; the others are untouched.
+  enforce_bullet_emphasis: true
+
+  # Verbatim from Alex's master resume. persona_corpus() in ats_score.py reads
+  # skills, titles, focus and allowed_tech to decide which missing JD terms the
+  # retry loop may chase, so the wording here is the boundary of what this
+  # persona is allowed to claim.
+  skills_ground_truth:
+    "Programming & Scripting": "Python, SQL, PySpark, Spark SQL, C, C++, Bash, Shell Scripting, PowerShell"
+    "Data Engineering & ETL": "Apache Spark, PySpark, Hadoop, Hive, ETL, ELT, Batch Processing, Stream Processing, Distributed Data Processing, Data Ingestion, Data Transformation, Incremental Processing, Data Integration, Data Pipelines, Pipeline Orchestration, Source-to-Target Mapping, Data Reconciliation, Data Validation, Schema Validation, Schema Evolution, Data Standardization, Data Cleansing, Deduplication, Entity Resolution, Idempotent Processing, Retry & Replay, Backfills"
+    "Google Cloud Platform": "GCP, BigQuery, Cloud Storage, Dataproc, Dataflow, Cloud Composer, BigQuery Partitioning, BigQuery Clustering, Distributed Spark Processing, Batch Data Processing, Streaming Data Processing, Cloud Data Warehousing"
+    "Amazon Web Services": "AWS, Amazon S3, Cloud Storage, Cloud-Based ETL, Data Lake Storage, Batch Processing, Streaming Workloads, Cloud Monitoring"
+    "Streaming & Event Processing": "Apache Kafka, Kafka Producers/Consumers, Kafka Topics, Event-Driven Processing, Streaming Pipelines, Windowed Processing, Event Aggregation, Late-Arriving Data, Duplicate Event Handling, Real-Time Data Processing, Network Telemetry Processing"
+    "Databases & Warehousing": "BigQuery, Hive, SQL, Relational Databases, Analytical Data Models, Data Warehousing, Data Lakes, Structured Data, Semi-Structured Data, Dimensional Data Modeling, Partitioning, Clustering, Query Optimization, Performance Tuning"
+    "Workflow Orchestration": "Apache Airflow, Google Cloud Composer, DAGs, Workflow Dependencies, Scheduling, Retries, Backfills, Failure Handling, Dependency Management, Pipeline Recovery, Production Job Monitoring"
+    "Data Modeling & Architecture": "Relational Data Modeling, Analytical Data Modeling, Canonical Data Models, Data Platform Architecture, Data Lake Architecture, Data Warehouse Architecture, Raw/Processed/Curated Layers, Reusable Frameworks, Shared Data Services, Metadata Management, Schema Design, Data Contracts"
+    "Data Quality & Governance": "Data Quality, Data Profiling, Data Validation, Source-to-Target Reconciliation, Completeness Checks, Schema Checks, Record-Count Validation, Business-Rule Validation, Data Lineage, Traceability, Metadata, Data Observability, Data Reliability, Governed Datasets"
+    "Performance Engineering": "Spark Optimization, PySpark Optimization, Query Optimization, Partition Optimization, Shuffle Optimization, Broadcast Joins, Caching, Parallel Processing, Incremental Processing, BigQuery Partitioning, BigQuery Clustering, Runtime Optimization, Resource Optimization"
+    "APIs & Data Formats": "REST APIs, JSON, CSV, Flat Files, Structured Data, Semi-Structured Data, API Integration, File-Based Integration, Data Serialization, API Testing, Request/Response Validation"
+    "DevOps & SDLC": "Git, CI/CD, Version Control, Automated Testing, Unit Testing, Integration Testing, Regression Testing, Deployment Validation, Release Validation, Production Support, Root Cause Analysis, Technical Documentation"
+    "Observability & Reliability": "Pipeline Monitoring, Data Observability, Structured Logging, Error Handling, Failure Recovery, SLA Monitoring, Job Monitoring, Data Freshness Monitoring, Volume Monitoring, Schema Monitoring, Incident Investigation, Root Cause Analysis, Production Troubleshooting"
+    "Cybersecurity & Vulnerability Data": "Cyber Supply-Chain Risk, Vulnerability Management, Vendor Risk Data, Asset Intelligence, Security Telemetry, Vulnerability Data, Asset Discovery, Vulnerability Scanning, Risk Assessments, Intrusion Detection Data, Security Event Processing, Tenable, Nessus"
+    "Systems & Infrastructure": "Linux, Windows Server, Active Directory, Server Monitoring, Application Monitoring, Infrastructure Monitoring, Log Collection, Health Checks, Service Validation, Systems Troubleshooting, Operations Automation"
+    "Networking": "TCP/IP, DNS, DHCP, VLANs, LAN/WAN, Cisco Networking, Network Troubleshooting, Network Telemetry, Network Protocols, Connectivity Diagnostics, Endpoint Configuration"
+    "Engineering Practices": "Object-Oriented Programming, Data Structures, Reusable Components, Modular Development, Coding Standards, Design Reviews, Code Reviews, Performance Tuning, Debugging, Technical Troubleshooting, Documentation, Agile Development, Cross-Functional Collaboration, Technical Mentoring"
+    "Domain Experience": "Financial Services, Card Transactions, Merchant Data, Account Data, Risk Analytics, Cybersecurity, Cyber Supply-Chain Risk, Network Telemetry, Media Metadata, Digital Content, Infrastructure Operations, Vulnerability Management"
+
+  # Each role carries its real project, its real scope, and the master resume's
+  # own bullets verbatim under real_bullets. Those verbatim bullets are what
+  # makes "use authentic metrics, never invent numbers" enforceable: every
+  # figure a generated resume may quote is already on this list.
+  #
+  # bullets is the count the generated resume must emit for that role. The
+  # source counts (12/10/8/7/6/5/4/3/3/3 = 61) were scaled to 42 so the
+  # document still lands on two pages under alex_mak.css. The relative
+  # weighting between roles is unchanged.
+  experience_ground_truth:
+    - company: American Express
+      title: Data Engineer III
+      location: Remote
+      start: "Jan 2025"
+      end: Present
+      bullets: 8
+      project: Enterprise Next-Generation Big Data Engineering Platform
+      project_summary: "Enterprise-scale cloud data platform providing reusable ingestion, transformation, orchestration, validation, and observability capabilities across American Express business teams, delivering scalable, governed analytical data products."
+      focus: "Platform architecture and ownership of reusable ingestion, transformation, validation and observability frameworks; distributed Spark and warehouse optimization through partitioning, clustering and incremental processing; orchestration with dependency checks, retries and controlled backfills; idempotent processing and controlled replay; CI/CD with automated testing and deployment validation; design review leadership across an eight-engineer group; mentoring on optimization, cloud design patterns, automated testing and production troubleshooting; coordinating shared platform capabilities across engineering, analytics and governance stakeholders"
+      allowed_tech: "GCP, BigQuery, Cloud Storage, Dataproc, Dataflow, PySpark, Spark, Python, SQL, Cloud Composer, Airflow, Git, CI/CD. The cloud provider is selected from the JD and shared with Data Engineer II"
+      real_bullets:
+        - "Architect PySpark and Dataproc transformation frameworks within the American Express GCP data platform, processing 40+ daily datasets while reducing end-to-end runtime from 95 to 62 minutes for six business teams."
+        - "Standardize Python and PySpark validation components across more than 30 production datasets, detecting schema, completeness, and reconciliation failures before publication and reducing recurring data-quality incidents from eight per month to three."
+        - "Optimize BigQuery analytical models within the enterprise data platform using partitioning, clustering, and incremental processing, cutting scanned data by 35% while supporting more than 20 downstream reporting, finance, and risk workloads."
+        - "Engineer reusable Python, Dataflow, and Cloud Storage ingestion components across enterprise data domains, onboarding 15 source feeds and shortening typical pipeline implementation cycles from 10 business days to six."
+        - "Orchestrate Cloud Composer production workflows using dependency checks, retries, and controlled backfills, sustaining 99.9% scheduled-job completion while eliminating five to six hours of recurring manual recovery work each week."
+        - "Tune Spark and Dataproc workloads through partition sizing, caching, broadcast joins, and shuffle optimization, cutting three resource-intensive transformation jobs from 70-minute runtimes to under 45 minutes during peak processing windows."
+        - "Establish BigQuery and Python observability controls across critical data products, tracking freshness, volume, schema, and execution metrics for 50+ pipeline stages and shortening production failure investigation time by nearly 30%."
+        - "Implement idempotent PySpark processing and controlled replay mechanisms across distributed ingestion workflows, enabling recovery of 12 critical pipelines without duplicate publication and limiting expensive historical reloads during production incidents."
+        - "Develop CI/CD controls with Git, automated testing, and deployment validation across shared data-engineering repositories, supporting 25+ recurring production jobs while reducing manual release procedures from seven activities to three automated gates."
+        - "Lead Spark, SQL, BigQuery, and orchestration design reviews across an eight-engineer group, identifying performance and reliability concerns before deployment and reducing repeated remediation across four reusable enterprise platform capabilities."
+        - "Mentor data engineers on PySpark optimization, GCP design patterns, automated testing, and production troubleshooting through regular technical sessions, accelerating contributor onboarding and improving engineering consistency across six actively maintained data domains."
+        - "Coordinate shared platform capabilities across engineering, analytics, and governance stakeholders, translating requirements from seven partner teams into reusable ingestion and validation patterns that reduce duplicated development and strengthen enterprise engineering standards."
+
+    - company: American Express
+      title: Data Engineer II
+      location: Remote
+      start: "Oct 2021"
+      end: "Jan 2025"
+      bullets: 7
+      project: Card Transaction & Merchant Analytics Data Platform
+      project_summary: "Financial data platform integrating card transactions, merchant, account, and reference data into governed analytical datasets supporting risk, finance, operational reporting, and downstream business analytics."
+      focus: "Batch and distributed pipelines over card, merchant and account data; ingestion workflows across recurring financial feeds; standardization rules over millions of recurring records; automated source-to-target reconciliation on record counts, monetary totals and critical attributes; incremental processing with date partitions and change-based logic; Spark join, partition, caching and shuffle tuning; Airflow orchestration with retry, dependency and failure handling; governed analytical tables and SQL models; transformation, schema and regression testing inside CI/CD; production monitoring and failure diagnosis"
+      allowed_tech: "Python, PySpark, Spark, SQL, GCP, BigQuery, Cloud Storage, Dataproc, Airflow, Hadoop, Hive, Git, CI/CD. Same cloud provider as Data Engineer III"
+      real_bullets:
+        - "Developed PySpark and SQL pipelines within the transaction analytics platform, transforming 25+ daily card, merchant, and account datasets while reducing end-to-end processing time from nearly 110 minutes to 78 minutes."
+        - "Built Python and Dataproc ingestion workflows across financial data sources, integrating more than 12 recurring feeds into standardized processing layers and delivering consistently structured data to nine downstream risk and reporting workloads."
+        - "Implemented PySpark standardization rules across transaction and merchant datasets containing millions of recurring records, resolving inconsistent formats and reducing transformation exceptions by 28% across nine production analytical data products."
+        - "Automated SQL source-to-target reconciliation within production financial pipelines, comparing record counts, monetary totals, and critical attributes across 20+ datasets and eliminating nearly eight hours of manual validation work each week."
+        - "Designed incremental Spark processing within high-volume transaction workflows using date partitions and change-based logic, reducing daily processing volumes by 40% while preserving historical completeness across more than two years of retained data."
+        - "Tuned PySpark jobs within Dataproc by optimizing joins, partitioning, caching, and shuffle behavior, reducing three resource-intensive workloads from 85 minutes to 55 minutes and improving consistency during peak processing windows."
+        - "Orchestrated Airflow workflows across 18 dependent pipeline tasks, introducing retry, dependency, and failure-handling controls that increased scheduled processing reliability to 99.5% and substantially reduced overnight manual intervention."
+        - "Created BigQuery analytical tables and SQL models within governed reporting layers, organizing transaction, merchant, and account measures for 15+ downstream workloads while improving frequently executed query response times by nearly 25%."
+        - "Strengthened Python and PySpark testing within CI/CD workflows through transformation, schema, and regression checks, covering more than 30 critical processing scenarios and preventing recurring mapping defects from reaching production analytical datasets."
+        - "Monitored Spark, Airflow, and BigQuery workloads across daily financial processing, diagnosing failures and data anomalies affecting 20+ recurring pipelines and reducing average production investigation time from 50 minutes to 32 minutes."
+
+    - company: Fortress Information Security
+      title: Data Engineer
+      location: Remote
+      start: "Nov 2020"
+      end: "Oct 2021"
+      bullets: 6
+      project: Asset-to-Vendor (A2V) Cyber Supply-Chain Risk Data Platform
+      project_summary: "Cyber supply-chain data platform integrating vendor assessments, technology assets, product metadata, and vulnerability information into standardized, traceable risk datasets used by critical-infrastructure organizations for security analysis and remediation."
+      focus: "Ingestion pipelines across vendor, asset, product and vulnerability feeds; relational models for vendor, product, asset, assessment and vulnerability entities; entity resolution over supplier and technology records using normalized identifiers and matching rules; REST API, JSON and CSV integration inside automated ETL; SQL risk datasets spanning standardized risk dimensions; data-quality controls over critical fields catching missing identifiers, malformed values and inconsistent mappings; lineage and transformation documentation; AWS monitoring and failure diagnostics across scheduled pipelines"
+      allowed_tech: "Python, SQL, AWS, REST APIs, JSON, CSV, ETL/ELT, Relational Databases, Data Quality, Cybersecurity Data. AWS only, regardless of the JD"
+      real_bullets:
+        - "Engineered Python and SQL ingestion pipelines within the cyber supply-chain platform, integrating 10+ vendor, asset, product, and vulnerability feeds into standardized datasets supporting security assessment and third-party risk-analysis workflows."
+        - "Designed relational models for vendor, product, asset, assessment, and vulnerability entities within the A2V data environment, consolidating more than 15 source structures and strengthening relationship consistency for downstream cybersecurity analysis."
+        - "Implemented Python entity-resolution routines across supplier and technology records using normalized identifiers and matching rules, reducing duplicate vendor and product entities by nearly 30% while improving linkage across six recurring sources."
+        - "Integrated REST API, JSON, and CSV sources within automated ETL workflows, processing hundreds of thousands of recurring cybersecurity records and replacing several manually prepared imports with repeatable scheduled ingestion processes."
+        - "Produced SQL-based risk datasets combining vendor assessments, technology assets, and vulnerability attributes across cybersecurity workflows, enabling analysts to evaluate eight standardized risk dimensions without repeatedly reconciling information from underlying source systems."
+        - "Established Python and SQL data-quality controls across 20+ critical fields, identifying missing identifiers, malformed values, and inconsistent mappings before publication and reducing recurring downstream data corrections by nearly 25%."
+        - "Documented lineage and transformation rules across 12 recurring ingestion workflows, improving traceability from external security sources through curated risk tables and saving analysts several hours when investigating questionable vendor or asset records."
+        - "Automated AWS-based monitoring and failure diagnostics across scheduled cybersecurity pipelines, centralizing validation and processing exceptions for production support and reducing recurring investigation cycles from more than 45 minutes to under 30."
+
+    - company: Comcast
+      title: Data Engineer
+      location: Philadelphia, PA
+      start: "May 2020"
+      end: "Nov 2020"
+      bullets: 5
+      project: Xfinity Network Telemetry Analytics Platform
+      project_summary: "Large-scale telemetry platform processing Xfinity network and device events through streaming and batch pipelines, turning raw operational signals into reliable network-health datasets used for service monitoring, infrastructure analysis, and production troubleshooting."
+      focus: "Kafka and PySpark streaming pipelines over device and network events; Kafka consumer logic across telemetry topics with message validation; windowing and aggregation producing minute-level infrastructure health measures; Spark batch optimization over historical telemetry with partitioning and parallel execution; S3 raw, processed and curated layers with consistent partitioning and retention; handling of late, duplicate and schema-changing events; production diagnosis across telemetry workflows alongside operations and engineering teams"
+      allowed_tech: "Kafka, Python, PySpark, Spark, SQL, AWS, S3, Streaming Data, ETL, Network Telemetry. AWS only, regardless of the JD"
+      real_bullets:
+        - "Developed Kafka and PySpark streaming pipelines within the Xfinity telemetry environment, processing millions of recurring device and network events while delivering standardized operational records with 20% lower end-to-end processing latency."
+        - "Implemented Kafka consumer logic for multiple telemetry topics within production ingestion services, handling eight distinct event categories while strengthening message validation and reducing malformed records entering downstream Spark processing by 25%."
+        - "Created PySpark windowing and aggregation transformations across network telemetry streams, producing minute-level infrastructure health measures for large device populations and reducing raw event volumes by 60% for downstream monitoring workloads."
+        - "Optimized Spark batch jobs across historical telemetry datasets stored in AWS, improving partitioning and parallel execution for 30+ daily processing tasks and reducing selected overnight workloads from 75 minutes to 48 minutes."
+        - "Organized S3-based raw, processed, and curated telemetry datasets across production processing layers, applying consistent partitioning and retention patterns that simplified engineering access to more than 90 days of historical network information."
+        - "Strengthened Python and Spark handling for late, duplicate, and schema-changing telemetry events within streaming workflows, reducing recurring processing failures by 22% while preserving consistent network-health metrics during irregular data arrival."
+        - "Diagnosed SQL, Kafka, and Spark production issues across 15+ recurring telemetry workflows, collaborating with operations and engineering teams to resolve data gaps and cut average pipeline recovery time by nearly 30 minutes."
+
+    - company: Discovery Inc.
+      title: Python Developer
+      location: Silver Spring, MD
+      start: "Dec 2018"
+      end: "May 2020"
+      bullets: 5
+      project: Digital Content Metadata Processing Platform
+      project_summary: "Python media data platform integrating program, series, episode, schedule, availability, and digital-content metadata from APIs, files, and databases, producing validated and standardized information for Discovery's downstream streaming, operational, and analytical systems."
+      focus: "Python processing services over program, series, episode and schedule metadata; parsers for JSON, CSV and structured media feeds standardizing metadata attributes; REST API integration and validation across external and internal endpoints; SQL validation queries over relational metadata stores checking identifiers, availability dates, relationships and required attributes; automated Python and AWS workflows for recurring metadata deliveries; unit tests, structured logging and exception handling across content-processing services"
+      allowed_tech: "Python, SQL, REST APIs, JSON, AWS, S3, Relational Databases, Git, Automated Testing"
+      real_bullets:
+        - "Developed Python processing services within Discovery's media data environment, transforming program, series, episode, and schedule metadata from eight recurring sources and eliminating nearly 20 hours of manual data preparation each month."
+        - "Built Python parsers for JSON, CSV, and structured media feeds within content-processing workflows, standardizing more than 25 metadata attributes and reducing formatting-related ingestion failures by 30% across downstream systems."
+        - "Integrated REST APIs with Python services across digital-content workflows, retrieving and validating metadata from six external and internal endpoints while replacing repetitive manual transfers with consistent automated deliveries to downstream consumers."
+        - "Created SQL validation queries within relational metadata stores, checking identifiers, availability dates, relationships, and required attributes across thousands of content records while reducing recurring publication corrections by more than 20%."
+        - "Automated Python and AWS workflows for recurring metadata deliveries, coordinating 12 scheduled processing tasks and reducing a multi-step daily operational process from 90 minutes of manual work to roughly 30 minutes."
+        - "Strengthened Python unit tests, structured logging, and exception handling across content-processing services, covering 40+ transformation scenarios and shortening typical troubleshooting cycles from an hour to 35 minutes during failed metadata deliveries."
+
+    - company: Minerva Engineering
+      title: Software Engineer
+      location: Hanover, MD
+      start: "Feb 2018"
+      end: "Nov 2018"
+      bullets: 3
+      project: Cyber Intrusion & Network Telemetry Processing Platform
+      project_summary: "Cybersecurity processing platform ingesting network events, system logs, and security telemetry, converting heterogeneous technical data into standardized, searchable records supporting intrusion detection, vulnerability investigation, event correlation, and intelligence analysis workflows."
+      focus: "Python and C/C++ processing components parsing network and system event formats into standardized records; normalization routines standardizing technical attributes across security logs and network events; event-correlation logic connecting timestamps, hosts and identifiers across large record sets; Linux preparation and validation utilities replacing manual steps in recurring security-analysis workflows; defect diagnosis across recurring test scenarios alongside engineers"
+      allowed_tech: "Python, C/C++, Linux, SQL, Network Protocols, Security Telemetry, APIs, Git. No cloud platform"
+      real_bullets:
+        - "Developed Python and C/C++ processing components within cybersecurity telemetry workflows, parsing seven network and system event formats into standardized records and saving analysts several hours of preprocessing during recurring technical investigations."
+        - "Implemented Python normalization routines across security logs and network events, standardizing more than 20 technical attributes and reducing inconsistent field mappings by 25% before records entered downstream intrusion-analysis workflows."
+        - "Created event-correlation logic using Python and SQL within cybersecurity processing services, connecting related timestamps, hosts, and identifiers across thousands of records and helping investigators trace multi-stage activity through fewer manual queries."
+        - "Automated Linux-based preparation and validation utilities across recurring security-analysis workflows, replacing six manual processing steps and cutting typical dataset preparation time from nearly 45 minutes to roughly 20 minutes."
+        - "Diagnosed Python, C/C++, SQL, and network-processing defects across 15+ recurring test scenarios, collaborating with engineers to reproduce failures and improve reliability of components supporting security telemetry and intrusion analysis."
+
+    - company: General Dynamics Information Technology
+      title: Software Developer / Infrastructure & Operations
+      location: Columbia, MD
+      start: "Mar 2017"
+      end: "Feb 2018"
+      bullets: 3
+      project: Secure Infrastructure Monitoring & Operations Automation
+      project_summary: "Infrastructure operations platform automating server and application health checks, log collection, service validation, and recurring support tasks, giving government-oriented operations teams consistent visibility into system status, failures, and troubleshooting information."
+      focus: "Python and Bash automation utilities performing recurring health, log and service checks; Linux and Windows monitoring scripts across infrastructure components collecting application and service status; PowerShell and Python automation of repetitive validation and configuration procedures across development, testing and operational environments; troubleshooting of Linux, Windows Server, SQL and network connectivity issues with resolutions documented for operations teams"
+      allowed_tech: "Python, Bash, PowerShell, Linux, Windows Server, SQL, Networking, REST APIs, Git. No cloud platform"
+      real_bullets:
+        - "Developed Python and Bash automation utilities within infrastructure operations environments, performing 10 recurring health, log, and service checks automatically and eliminating more than seven hours of repetitive administrator work each week."
+        - "Implemented Linux and Windows monitoring scripts across 25+ infrastructure components, collecting application and service status information while reducing time required to identify common operational failures from 40 minutes to 25 minutes."
+        - "Automated PowerShell and Python operational tasks across server-support workflows, replacing five repetitive validation and configuration procedures while improving consistency of recurring maintenance activities across development, testing, and operational environments."
+        - "Troubleshot Linux, Windows Server, SQL, and network connectivity issues across 20+ recurring infrastructure scenarios, documenting resolutions for operations teams and reducing repeated escalation of common technical problems by more than 20%."
+
+    - company: Tenable
+      title: Cloud Services QA Intern
+      location: Columbia, MD
+      start: "Jun 2017"
+      end: "Aug 2017"
+      bullets: 2
+      project: Tenable.io Cloud Vulnerability Management QA Automation
+      project_summary: "Automated QA framework for Tenable's cloud vulnerability-management services, validating asset discovery, scanning workflows, REST APIs, and vulnerability results across end-to-end test scenarios to improve release confidence, service reliability, and defect detection."
+      focus: "Automated Python test cases across asset, scan and vulnerability scenarios in place of manual regression runs; REST API and JSON response verification across cloud-service endpoints covering expected status, schema and error behaviour; reproduction of Linux and vulnerability-scanning defects across boundary and failure scenarios with documented inputs, execution steps and expected results"
+      allowed_tech: "Python, REST APIs, JSON, Linux, AWS, Automated Testing, Vulnerability Management, Tenable/Nessus. The cloud services were the product under test"
+      real_bullets:
+        - "Automated Python test cases within cloud vulnerability-management workflows, validating 30+ asset, scan, and vulnerability scenarios and reducing repetitive regression execution from several hours of manual testing to less than one hour."
+        - "Tested REST API and JSON responses across 15+ cloud-service endpoints, verifying expected status, schema, and error behavior while identifying reproducible defects before selected functionality advanced into broader regression and release testing."
+        - "Reproduced Linux and vulnerability-scanning defects across 20+ boundary and failure scenarios, documenting inputs, execution steps, and expected results for engineers while shortening repeated investigation of reported QA issues by nearly 25%."
+
+    - company: Envieta Systems LLC
+      title: Software Developer Intern
+      location: Columbia, MD
+      start: "Dec 2016"
+      end: "Mar 2017"
+      bullets: 1
+      project: Secure Communications & Cryptographic Protocol Validation
+      project_summary: "Security-focused development and testing project validating secure communications and cryptographic protocol behavior through automated test cases, structured inputs, and repeatable result comparisons, helping engineers identify implementation defects and reproduce security-sensitive failure conditions."
+      focus: "Python and C/C++ test utilities exercising protocol input combinations in place of repetitive manual checks; automated boundary, invalid-input and failure-path testing across security-sensitive scenarios with systematic capture of expected and actual results; investigation of Linux-based protocol test failures using logs, controlled inputs and debugging tools, with documented reproduction steps for development engineers"
+      allowed_tech: "Python, C/C++, Linux, Git, Automated Testing, Secure Protocols. No cloud platform"
+      real_bullets:
+        - "Developed Python and C/C++ test utilities within secure communications workflows, exercising more than 20 protocol input combinations and replacing repetitive manual checks with repeatable executions that improved consistency during engineering validation."
+        - "Automated boundary, invalid-input, and failure-path testing across 25+ security-sensitive scenarios, capturing expected and actual results systematically and helping engineers reproduce implementation problems without manually rebuilding complex test conditions."
+        - "Investigated Linux-based protocol test failures using logs, controlled inputs, and debugging tools across 10+ recurring scenarios, documenting reproduction steps and reducing handoff time between testing and development engineers by nearly 20%."
+
+    - company: Advantage Technical Resourcing
+      title: Computer Network Technician
+      location: ""
+      start: "Feb 2014"
+      end: "Apr 2015"
+      bullets: 1
+      project: Enterprise Network Infrastructure Deployment & Support
+      project_summary: "Client infrastructure project supporting deployment, configuration, and troubleshooting of enterprise workstations and network-connected equipment, covering endpoint provisioning, TCP/IP connectivity, DNS, DHCP, VLANs, Active Directory, and escalation of higher-level network or server issues."
+      focus: "Installation and configuration of Windows workstations and network-connected equipment across client environments to consistent TCP/IP, security and organizational standards; troubleshooting of TCP/IP, DNS, DHCP, VLAN and LAN connectivity across recurring support cases, escalating unresolved switching or server problems with documented diagnostics; Windows and Active Directory administration covering account, workstation and connectivity requests, with documented procedures that reduced repeated first-level troubleshooting"
+      allowed_tech: "TCP/IP, DNS, DHCP, VLANs, LAN/WAN, Windows, Active Directory, network troubleshooting, endpoint configuration. No cloud platform"
+      real_bullets:
+        - "Installed and configured Windows workstations and network-connected equipment across client environments, completing 15-20 endpoint deployments during active rollout periods while maintaining consistent TCP/IP, security, and organizational configuration standards."
+        - "Troubleshot TCP/IP, DNS, DHCP, VLAN, and LAN connectivity issues across 25+ recurring support cases monthly, restoring user connectivity and escalating unresolved switching or server problems with documented diagnostic information."
+        - "Supported Windows and Active Directory administration across client infrastructure, resolving account, workstation, and connectivity requests for dozens of users while documenting common procedures and reducing repeated first-level troubleshooting effort by 15%."
+
+  education_ground_truth:
+    - degree: Master of Science (Computer Science)
+      school: The Johns Hopkins University
+      location: Baltimore, Maryland
+      year: "2019"
+    - degree: Bachelor of Science (Computer Science)
+      school: Towson University
+      location: Towson, Maryland
+      year: "2017"
+
+  # Credential IDs are kept here for application forms that ask for them. The
+  # resume prints name, issuer and year only; the four undated ones print with
+  # an empty year column. ground_truth_payload() does not forward this list to
+  # the model, so the printed rows are repeated in alex_mak.prompt.md.
+  certifications_ground_truth:
+    - name: AWS Certified Solutions Architect - Associate
+      issuer: Amazon Web Services
+      year: "2025"
+    - name: AWS Certified Developer - Associate
+      issuer: Amazon Web Services
+      year: "2024"
+      credential_id: AWS04315857
+    - name: AWS Certified Cloud Practitioner
+      issuer: Amazon Web Services
+      year: "2019"
+    - name: Offensive Security Certified Professional (OSCP)
+      issuer: OffSec
+      year: ""
+    - name: Offensive Security Wireless Professional (OSWP)
+      issuer: OffSec
+      year: ""
+    - name: CompTIA Security+
+      issuer: CompTIA
+      year: ""
+    - name: CompTIA Network+
+      issuer: CompTIA
+      year: ""

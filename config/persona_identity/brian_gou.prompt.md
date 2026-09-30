@@ -633,11 +633,49 @@ JD, use it. Never increase the number merely to satisfy the JD.
 
 Describe seniority, data engineering background, ownership, business impact, and collaboration in plain language.
 
-Do not list technologies or a keyword stack in the summary.
+Do not list technologies or a keyword stack in the summary. Technology paired
+with outcome belongs in the Technical summary, immediately below.
+
+-------------- Technical summary -------------------------------
+
+Write 6 to 10 bullets, between the Professional summary and Work Experience.
+
+Every bullet is an impact sentence. It says what Brian delivered and what
+changed because of it. A line that names technology without an outcome does not
+belong here, and neither does a line that claims an outcome without naming the
+work that produced it.
+
+Each bullet must:
+
+- run 30 to 40 words
+- open on the work itself, never on a label or a category name
+- name the technology the JD cares about most in that area
+- land on a concrete outcome: scale reached, runtime or cost cut, reliability,
+  freshness or SLA gained, claims or members processed, rework or denials
+  removed, consumers served, time recovered
+- stand on its own, so a recruiter who reads only this section understands what
+  Brian is worth to this posting
+- contain at least one <strong> term
+
+Order the bullets by how much the JD cares about the area, strongest first.
+
+Across the set, cover the JD's most important areas rather than spending
+several lines on one of them.
+
+This section follows the Human writing rule and the Impact show rule: the
+strongest impact belongs to the UnitedHealth Group Senior Data Engineer work,
+and every number must stay defensible against the immutable work history.
+
+Do not restate a Work Experience bullet. The same achievement may appear in
+both places, but here it is stated as delivered capability and outcome, and
+there it carries the situation, the mechanism and the engineering detail.
+
+Do not restate the Skills section. Skills is a list of terms. This section is
+evidence.
 
 -------------- Keyword emphasis -------------------------------
 
-Every experience bullet must contain at least one <strong> term.
+Every experience bullet and every Technical summary bullet must contain at least one <strong> term.
 
 Use normally 1 to 3 emphasized terms per bullet.
 
@@ -703,7 +741,7 @@ No resume claim may exceed the supported experience.
 
 -------------- Skills -------------------------------
 
-Build Experience first, then build Skills from the JD's required skills and what the Experience actually shows.
+Build Experience first, then the Technical summary, then build Skills from the JD's required skills and what the Experience actually shows.
 
 Use at least 30 skills.
 
@@ -765,6 +803,11 @@ any draft that shows:
 - two consecutive bullets built on the same shape
 - a lead verb repeated inside one role
 - bullets of near-identical length inside one role
+- a Technical summary that is not 6 to 10 bullets, each 30 to 40 words
+- a Technical summary bullet that is a technology list, or that claims an
+  outcome without naming the work behind it
+- a Technical summary bullet that restates a Work Experience bullet or the
+  Skills list
 
 Pick the draft that covers the JD skills best AND passes this check. If all
 five fail, repair the strongest one before returning it.
@@ -807,6 +850,13 @@ Never name a platform the JD does not mention and the resume does not use.
 This pipe belongs to the header title only. The role lines inside Work
 Experience still carry two spans and never a pipe.
 
+
+-------------- THE MOST IMPORTANT RULE -------------------------------
+After resume draft was completed, analyze the resume based on the JD.
+If the resume have a some important weakness and you can modify it, REWRITE the resume.
+The recruiter must feels that the man is a best fit for the role.
+BUT DON'T ADD CONTAINS THAT NOT MATCHING TERMS OF TIMING OR IMPOSSIBLE SKILLS OR IMPOSSIBLE ROLES.
+
 -------------- HTML output -------------------------------
 
 Return complete valid HTML using EXACTLY the structure below.
@@ -842,6 +892,13 @@ Do NOT wrap the HTML in markdown fences.
   <div class="section">
     <div class="section-title">Professional Summary</div>
     <p class="summary">Write summary here.</p>
+  </div>
+  <div class="section">
+    <div class="section-title">Technical Summary</div>
+    <!-- 6 to 10 impact sentences. Same list markup as a role's bullets. -->
+    <ul>
+      <li>Impact sentence with <strong>tech keywords</strong> in strong tags.</li>
+    </ul>
   </div>
   <div class="section">
     <div class="section-title">Work Experience</div>

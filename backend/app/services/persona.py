@@ -137,6 +137,8 @@ def _load_persona_uncached(persona_id: str | None = None) -> Persona:
             "You are a senior technical resume strategist. Output ONLY the final resume."
         )
 
+    system_prompt = fill_identity_placeholders(system_prompt, raw.get("identity") or {})
+
     tailor = raw.get("tailor") or {}
     return Persona(
         persona_id=raw.get("persona_id") or pid,
@@ -159,6 +161,23 @@ def _load_persona_uncached(persona_id: str | None = None) -> Persona:
         system_prompt=system_prompt,
         raw=raw,
     )
+
+
+# {{phone}} in a prompt file is filled from the persona's identity, so the
+# number lives in one place: the yml. With no number on record, the
+# placeholder goes together with the separator in front of it — " | " in a
+# prose contact line, the &nbsp; run in the HTML one — so the header never
+# shows an empty slot. Prompts without a placeholder are untouched.
+_PHONE_SLOT_RE = re.compile(r"(?:[ \t]*\|[ \t]*|[ \t]*(?:&nbsp;)+[ \t]*)?\{\{phone\}\}")
+
+
+def fill_identity_placeholders(prompt: str, identity: dict[str, Any]) -> str:
+    phone = str(identity.get("phone") or "").strip()
+    if "{{phone}}" not in prompt:
+        return prompt
+    if phone:
+        return prompt.replace("{{phone}}", phone)
+    return _PHONE_SLOT_RE.sub("", prompt)
 
 
 def ground_truth_payload(persona: Persona, *, for_resume: bool = False) -> dict[str, Any]:

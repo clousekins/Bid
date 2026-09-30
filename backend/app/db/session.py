@@ -132,6 +132,35 @@ async def _heal_datetime_failed_packages(session: AsyncSession) -> int:
     return int(result.rowcount or 0)
 
 
+def _backfill_country(conn) -> None:
+    """Give existing rows a country, read from the location they already have.
+
+    Runs once, immediately after the column is added. The DEFAULT 'US' on the
+    ALTER already made every row valid, so this only moves the rows whose
+    location names somewhere else — a couple of dozen out of a thousand-odd.
+    """
+    from sqlalchemy import text
+
+    from app.services.job_country import DEFAULT, country_code
+
+    import logging
+
+    rows = conn.execute(text("SELECT id, location FROM jobs")).fetchall()
+    moved = 0
+    for row_id, location in rows:
+        code = country_code(location)
+        if code == DEFAULT:
+            continue
+        conn.execute(
+            text("UPDATE jobs SET country = :code WHERE id = :id"),
+            {"code": code, "id": row_id},
+        )
+        moved += 1
+    logging.getLogger("poong.country").info(
+        "country backfill: %s of %s rows are not US", moved, len(rows)
+    )
+
+
 def _ensure_sqlite_columns(conn) -> None:
     """Add columns that create_all will not alter on existing SQLite DBs."""
     from sqlalchemy import text
@@ -152,6 +181,12 @@ def _ensure_sqlite_columns(conn) -> None:
         conn.execute(text("ALTER TABLE jobs ADD COLUMN domains VARCHAR(64)"))
     if "feasibility_score" not in cols:
         conn.execute(text("ALTER TABLE jobs ADD COLUMN feasibility_score INTEGER"))
+    if "country" not in cols:
+        conn.execute(
+            text("ALTER TABLE jobs ADD COLUMN country VARCHAR(2) NOT NULL DEFAULT 'US'")
+        )
+        _backfill_country(conn)
+    conn.execute(text("CREATE INDEX IF NOT EXISTS ix_jobs_country ON jobs (country)"))
 
     if "job_packages" not in tables:
         return

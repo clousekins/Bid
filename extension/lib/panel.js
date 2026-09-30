@@ -1,17 +1,13 @@
-// The panel, as it sits on the page.
-//
-// Everything lives in a shadow root. That is not tidiness — the panel opens on
-// pages whose stylesheets set things like `div { position: static !important }`
-// or a global `input { width: 100% }`, and without a shadow boundary the panel
-// inherits all of it. The boundary also keeps our selectors off the page.
-//
-// The privileged work — reaching the backend, writing a file — is asked of the
-// service worker. See background.js for why a content script cannot do either.
+// The clipper panel: clip the page in front of you, collect Jobright JSON,
+// read a Greenhouse board. The frame it sits in — shadow root, dragging,
+// closing — is lib/shell.js, shared with the ChatGPT panel.
 
 import { addToBasket, clearBasket, markPushed, readBasket, unpushed } from "./basket.js";
 import { csvFilename, toCsv } from "./csv.js";
 import { extractJobFromPage } from "./extract.js";
-import { parseJobsJson } from "./jobright.js";
+import { boardSlugFromUrl, rowsFromBoard } from "./greenhouse.js";
+import { isLinkedInRow, parseJobsJson } from "./jobright.js";
+import { ask, mountShell, say, whileBusy } from "./shell.js";
 
 const TEMPLATE = `
   <div class="panel" part="panel">
@@ -71,153 +67,39 @@ const TEMPLATE = `
       <p id="downloadLine" class="download" hidden></p>
     </section>
 
+    <section class="card">
+      <div class="card-head">
+        <h2>Greenhouse board</h2>
+        <span class="muted" id="ghBoard"></span>
+      </div>
+
+      <p id="ghOffSite" class="notice" hidden>
+        Open a greenhouse.io board or job page, or type the board name below.
+      </p>
+
+      <div class="row">
+        <label>Board<input id="ghSlug" type="text" autocomplete="off" placeholder="gomotive" /></label>
+        <label>Titles containing<input id="ghTitles" type="text" autocomplete="off" placeholder="data, engineer" /></label>
+      </div>
+
+      <div class="actions">
+        <button type="button" id="btnGhRead" class="primary">Read every job on this board</button>
+      </div>
+      <p id="ghMsg" class="message" hidden></p>
+    </section>
+
     <footer class="foot"><a href="#" id="openOptions">Backend settings</a></footer>
   </div>
 `;
 
-// The host element's own box is styled by the page, not by the shadow root: a
-// shadow boundary contains what is inside it, and `:host` rules lose to the
-// outer document at normal weight. A site with `div { position: static
-// !important }` — and they exist — lays the panel out as a full-width block in
-// the document flow. Inline `!important` is the one declaration nothing in the
-// page outranks, so the handful of properties that decide where the panel sits
-// are set here rather than in the stylesheet.
-const PINNED = {
-  position: "fixed",
-  top: "16px",
-  right: "16px",
-  left: "auto",
-  bottom: "auto",
-  width: "400px",
-  "max-width": "calc(100vw - 32px)",
-  height: "auto",
-  margin: "0",
-  padding: "0",
-  float: "none",
-  transform: "none",
-  "z-index": "2147483647",
-  display: "block",
-  visibility: "visible",
-  opacity: "1",
-  "pointer-events": "auto",
-};
-
-function pin(host, overrides = {}) {
-  for (const [property, value] of Object.entries({ ...PINNED, ...overrides })) {
-    host.style.setProperty(property, value, "important");
-  }
-}
-
-/** Ask the service worker to do something a content script may not. */
-async function ask(type, payload = {}) {
-  const reply = await chrome.runtime.sendMessage({ type, payload });
-  if (!reply) throw new Error("The extension's background worker did not answer.");
-  if (!reply.ok) {
-    const error = new Error(reply.error || "Unknown failure");
-    error.status = reply.status;
-    throw error;
-  }
-  return reply.result;
-}
-
 export async function mountPanel(hostId) {
-  const host = document.createElement("div");
-  host.id = hostId;
-  pin(host);
-  const root = host.attachShadow({ mode: "open" });
-
-  // The stylesheet is fetched rather than inlined so it stays one file shared
-  // with the options page.
-  const css = await fetch(chrome.runtime.getURL("ui.css")).then((r) => r.text());
-  const style = document.createElement("style");
-  style.textContent = css;
-  root.append(style);
-
-  const wrap = document.createElement("div");
-  wrap.innerHTML = TEMPLATE;
-  root.append(wrap);
-  document.documentElement.append(host);
-
-  const $ = (id) => root.getElementById(id);
-
-  // Pages bind their own keyboard shortcuts — j/k to move through results, "/"
-  // to focus their search. Typing a job title should not trigger them.
-  for (const event of ["keydown", "keyup", "keypress"]) {
-    wrap.addEventListener(event, (e) => e.stopPropagation());
-  }
-
-  const close = () => host.remove();
-  $("btnClose").addEventListener("click", close);
-  wrap.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") close();
-  });
-
-  makeDraggable(host, root.querySelector(".bar"));
+  const { root, $, host } = await mountShell(hostId, TEMPLATE);
   wireClip(root, $, host);
   wireJson(root, $);
+  wireGreenhouse(root, $);
 
   refreshStatus($);
   refreshBasket($);
-}
-
-// --- Dragging ---------------------------------------------------------------
-
-function makeDraggable(host, handle) {
-  let startX = 0;
-  let startY = 0;
-  let originLeft = 0;
-  let originTop = 0;
-
-  handle.addEventListener("pointerdown", (event) => {
-    if (event.target.closest("button")) return;
-    const box = host.getBoundingClientRect();
-    // Switch from the right-anchored default to explicit coordinates, once, so
-    // the first drag does not jump. Still !important, for the same reason the
-    // panel is pinned that way in the first place.
-    pin(host, { left: `${box.left}px`, top: `${box.top}px`, right: "auto" });
-    startX = event.clientX;
-    startY = event.clientY;
-    originLeft = box.left;
-    originTop = box.top;
-    handle.setPointerCapture(event.pointerId);
-
-    const move = (e) => {
-      const width = host.offsetWidth;
-      // Kept on screen: a panel dragged off the edge cannot be dragged back.
-      const left = clamp(originLeft + (e.clientX - startX), 8 - width + 60, window.innerWidth - 60);
-      const top = clamp(originTop + (e.clientY - startY), 0, window.innerHeight - 40);
-      host.style.setProperty("left", `${left}px`, "important");
-      host.style.setProperty("top", `${top}px`, "important");
-    };
-    const drop = () => {
-      handle.removeEventListener("pointermove", move);
-      handle.removeEventListener("pointerup", drop);
-    };
-    handle.addEventListener("pointermove", move);
-    handle.addEventListener("pointerup", drop);
-  });
-}
-
-const clamp = (value, low, high) => Math.min(Math.max(value, low), high);
-
-// --- Shared bits ------------------------------------------------------------
-
-function say(node, text, tone = "") {
-  node.textContent = text;
-  node.className = `message ${tone}`.trim();
-  node.hidden = !text;
-}
-
-async function whileBusy(button, label, work) {
-  const original = button.textContent;
-  button.disabled = true;
-  button.textContent = label;
-  try {
-    return await work();
-  } finally {
-    button.disabled = false;
-    button.textContent = original;
-  }
 }
 
 async function refreshStatus($) {
@@ -368,8 +250,13 @@ function wireJson(root, $) {
       const keep = [];
       let belowScore = 0;
       let unscored = 0;
+      let linkedIn = 0;
       for (const row of parsed.rows) {
-        if (row.score === null || row.score === undefined) {
+        // Dropped before the score gate: a LinkedIn listing is refused whatever
+        // it scores, so counting it as "below floor" would misname the reason.
+        if (isLinkedInRow(row)) {
+          linkedIn += 1;
+        } else if (row.score === null || row.score === undefined) {
           unscored += 1;
           keep.push(row);
         } else if (row.score < floor) {
@@ -380,12 +267,16 @@ function wireJson(root, $) {
       }
 
       if (!keep.length) {
-        say($("jsonMsg"), `All ${belowScore} scored below ${floor}.`, "warn");
+        const why = [];
+        if (linkedIn) why.push(`${linkedIn} on LinkedIn`);
+        if (belowScore) why.push(`${belowScore} below ${floor}`);
+        say($("jsonMsg"), `Nothing kept — ${why.join(", ") || "no usable rows"}.`, "warn");
         return;
       }
 
       const { added, duplicates, total } = await addToBasket(keep);
       const notes = [`${added} added`];
+      if (linkedIn) notes.push(`${linkedIn} on LinkedIn`);
       if (belowScore) notes.push(`${belowScore} below ${floor}`);
       if (unscored) notes.push(`${unscored} unscored, kept`);
       if (duplicates) notes.push(`${duplicates} already collected`);
@@ -427,6 +318,9 @@ function wireJson(root, $) {
             company: row.company,
             title: row.title,
             url: row.url,
+            // Jobright points the posting page and the application at different
+            // places. Every other source has one link, so both carry it.
+            apply_url: row.apply_url || row.url,
             location: row.location,
             source: row.source || "Jobright",
             description: row.description,
@@ -493,6 +387,67 @@ function wireJson(root, $) {
     $("downloadLine").hidden = true;
     say($("jsonMsg"), "Collected jobs cleared.", "ok");
     await refreshBasket($);
+  });
+}
+
+// --- A whole Greenhouse board -----------------------------------------------
+//
+// The board API is asked for by the service worker; see greenhouse.js for why
+// the panel cannot call it itself.
+
+const GH_TITLES_KEY = "greenhouseTitles";
+
+function wireGreenhouse(root, $) {
+  const slug = boardSlugFromUrl(location.href);
+  $("ghSlug").value = slug;
+  $("ghOffSite").hidden = Boolean(slug);
+  $("ghBoard").textContent = slug ? `board: ${slug}` : "";
+
+  chrome.storage.local.get({ [GH_TITLES_KEY]: "" }).then((stored) => {
+    $("ghTitles").value = stored[GH_TITLES_KEY] || "";
+  });
+  $("ghTitles").addEventListener("change", () =>
+    chrome.storage.local.set({ [GH_TITLES_KEY]: $("ghTitles").value })
+  );
+
+  $("btnGhRead").addEventListener("click", async () => {
+    say($("ghMsg"), "");
+    const board = $("ghSlug").value.trim();
+    if (!board) {
+      say($("ghMsg"), "Which board? Open one, or type its name.", "warn");
+      return;
+    }
+
+    await whileBusy($("btnGhRead"), "Reading…", async () => {
+      let payload;
+      try {
+        payload = await ask("greenhouse:board", { slug: board });
+      } catch (err) {
+        say($("ghMsg"), err.message, "bad");
+        return;
+      }
+
+      const titles = $("ghTitles").value.split(",");
+      const { rows, found, filtered, unusable } = rowsFromBoard(payload, { titles });
+      if (!rows.length) {
+        say(
+          $("ghMsg"),
+          found
+            ? `${found} openings on the board, none matching those titles.`
+            : "That board has no openings listed.",
+          "warn"
+        );
+        return;
+      }
+
+      const { added, duplicates, total } = await addToBasket(rows);
+      const notes = [`${added} added of ${found} on the board`];
+      if (filtered) notes.push(`${filtered} other titles`);
+      if (duplicates) notes.push(`${duplicates} already collected`);
+      if (unusable) notes.push(`${unusable} unusable`);
+      say($("ghMsg"), `${notes.join(", ")} — ${total} in total.`, added ? "ok" : "warn");
+      await refreshBasket($);
+    });
   });
 }
 

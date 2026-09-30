@@ -1357,6 +1357,13 @@ button.ats-catalog-hint.linkish:hover {
 .pill.expired { color: var(--muted); }
 .pill.needs_manual,
 .pill.rejected_onsite { color: var(--danger); }
+/* Same accent the Interview outcome uses, so the two readings of the same
+   event look like the same thing. */
+.pill.interview {
+  color: var(--accent-2);
+  border-color: color-mix(in srgb, var(--accent-2) 45%, var(--border));
+  font-weight: 600;
+}
 .pill.generating {
   color: #7dd3fc;
   border-color: color-mix(in srgb, #38bdf8 55%, var(--border));

@@ -27,6 +27,7 @@ from app.services.apply import mark_job_applied, stop_apply_for_job
 from app.services.artifacts import KINDS, folder_is_allowed, resolve_artifacts, resolve_kind
 from app.services.apply_session import apply_sessions
 from app.services.deep_scan import deep_scan_job
+from app.services.job_country import country_name
 from app.services.folder_writer import (
     job_folder_name,
     remove_all_persona_outputs,
@@ -58,6 +59,10 @@ class JobCreate(BaseModel):
     company: str
     title: str
     url: str
+    # Where the application actually lives. Aggregator listings point elsewhere
+    # than the posting page; everything else leaves this unset and the pipeline
+    # falls back to url.
+    apply_url: str | None = None
     location: str | None = None
     external_id: str | None = None
     source: str = "manual"
@@ -192,6 +197,10 @@ def _listing_pipeline_status(job: Job) -> str:
         JobStatus.REJECTED.value,
         JobStatus.SCAN_FAILED.value,
         JobStatus.NEEDS_MANUAL.value,
+        # An interview outranks anything the packages can say. Deriving from
+        # them would put the listing back to jd_ready the moment a resume is
+        # regenerated, and the stage a person set by hand would be gone.
+        JobStatus.INTERVIEW.value,
     }
     if job.status in terminal:
         return job.status
@@ -257,6 +266,8 @@ def _job_dict(
         "url": job.url,
         "apply_url": job.apply_url,
         "location": job.location,
+        "country": job.country or "US",
+        "country_name": country_name(job.country),
         "source": job.source,
         "external_id": job.external_id,
         "description": job.description,
@@ -280,6 +291,29 @@ def _job_dict(
     }
 
 
+@router.get("/countries")
+async def job_countries(db: AsyncSession = Depends(get_db)):
+    """Countries that actually have listings, with a count each.
+
+    Only what is present is offered, so the filter can never select an empty
+    set. Ordered by count so the busiest country sits at the top.
+    """
+    rows = (
+        await db.execute(
+            select(Job.country, func.count(Job.id))
+            .group_by(Job.country)
+            .order_by(func.count(Job.id).desc())
+        )
+    ).all()
+    total = 0
+    countries = []
+    for code, count in rows:
+        code = (code or "US").upper()
+        total += int(count)
+        countries.append({"code": code, "name": country_name(code), "count": int(count)})
+    return {"countries": countries, "total": total}
+
+
 @router.get("")
 async def list_jobs(
     status: str | None = None,
@@ -293,6 +327,9 @@ async def list_jobs(
     persona_id: str | None = None,
     profile: str | None = None,
     profile_status: str | None = None,
+    country: str | None = Query(
+        None, description="Two-letter country code; empty shows every country"
+    ),
     hide_own_employers: bool = Query(
         True, description="Hide jobs at companies this profile claims to work for"
     ),
@@ -307,6 +344,13 @@ async def list_jobs(
     filters = []
     if persona_id:
         filters.append(Job.persona_id == persona_id)
+
+    # Empty means every country, which is the default the operator asked for.
+    # Rows written before the column existed carry the 'US' the migration gave
+    # them, so no NULL handling is needed here.
+    wanted_country = (country or "").strip().upper()
+    if wanted_country:
+        filters.append(Job.country == wanted_country)
 
     # A resume claiming to work at UnitedHealth cannot be sent to UnitedHealth,
     # and an Optum posting is the same employer. Hidden per profile, never
@@ -361,6 +405,11 @@ async def list_jobs(
             search_clauses = [
                 Job.company.ilike(like),
                 Job.title.ilike(like),
+                # Where the listing lives and where the application is made.
+                # Searching "dice" or "greenhouse" finds jobs by their host,
+                # which no other searchable field carries.
+                Job.url.ilike(like),
+                Job.apply_url.ilike(like),
                 Job.packages.any(JobPackage.persona_id.ilike(like)),
                 Job.persona_id.ilike(like),
             ]
@@ -390,6 +439,7 @@ async def list_jobs(
     order_cols = {
         "seq": Job.seq_no,
         "domains": Job.domains,
+        "country": Job.country,
         "company": Job.company,
         "title": Job.title,
         "status": Job.status,

@@ -1,4 +1,4 @@
-active_option: brian_gou
+active_option: chuan_mao
 options:
 - id: phong_v_cao
   option_number: 1
@@ -35,4 +35,28 @@ options:
   label: Albert Liu
   persona_file: persona_identity/albert_liu.yml
   prompt_file: persona_identity/albert_liu.prompt.md
+  enabled: true
+- id: alex_mak
+  option_number: 7
+  label: Alex Mak
+  persona_file: persona_identity/alex_mak.yml
+  prompt_file: persona_identity/alex_mak.prompt.md
+  enabled: true
+- id: andrew_kong
+  option_number: 8
+  label: Andrew Kong
+  persona_file: persona_identity/andrew_kong.yml
+  prompt_file: persona_identity/andrew_kong.prompt.md
+  enabled: true
+- id: bruno_raphael
+  option_number: 9
+  label: Bruno Raphael
+  persona_file: persona_identity/bruno_raphael.yml
+  prompt_file: persona_identity/bruno_raphael.prompt.md
+  enabled: true
+- id: chuan_mao
+  option_number: 10
+  label: Chuan Mao
+  persona_file: persona_identity/chuan_mao.yml
+  prompt_file: persona_identity/chuan_mao.prompt.md
   enabled: true

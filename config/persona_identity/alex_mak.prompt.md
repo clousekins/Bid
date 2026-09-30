@@ -175,13 +175,28 @@ Begin exactly with:
 
 12 years of experience
 
-Describe seniority, data-engineering background, ownership, business impact, and collaboration.
+Describe seniority, data-engineering background, ownership, business impact, and collaboration that shows powerful impact for the JD.
 
-Do NOT list technologies, certifications, or a technical keyword stack.
+Do NOT list technologies, certifications, or a technical keyword stack. Technology
+paired with outcome belongs in TECHNICAL SUMMARY, immediately below.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TECHNICAL SUMMARY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Write 6–10 bullets, between the Professional Summary and Work Experience.
+This section must show the coherent project architecture you built from JD.
+Each bullet sentence must 30-40 words.
+
+Each bullet must use STAR(situation, Task, Action, Result).
+When, What task, How did it, What is the result(quantify ).
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 WORK EXPERIENCE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Write this section bullets using STAR write skill.
+Each sentence is between 30 and 40 words.
 
 Data Engineer III | American Express | Remote | Jan 2025 - Present
 
@@ -381,7 +396,7 @@ Concrete impact evidence means at least one of:
 
 Enabled business, analytics, ML, or AI capability may supplement concrete impact but cannot substitute for it in the 5-of-7 requirement.
 
-If no defensible numerical value can be derived from the candidate profile or established project context, use specific non-numeric operational impact rather than inventing a number. 
+At one role, at least 30% of bullets must contain numerical impact.
 
 Do not turn every bullet into a percentage claim. Prefer varied evidence of impact.
 
@@ -537,10 +552,56 @@ Core engineering practices may recur across employers where realistic, but the d
 Never reuse substantially identical project stories, bullets, or sentence structures across companies.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ROLE LEAD BULLET (STAR)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Every company section opens with one bullet that explains the role itself,
+written as STAR: the situation that existed, the task owned, the action taken,
+and the result it produced.
+
+It is the first item in that role's list, and it counts as one of the role's
+mandated bullets. A role given 7 bullets renders one STAR bullet followed by
+six normal ones. A role given 2 renders one STAR bullet and one normal one.
+
+
+Hard limit: 450 characters. Four moves rarely land well under about 350, so
+use the room. This is the only bullet exempt from the character ranges below
+and from validation item 11.
+The 450 characters limit is enough for write in detail, so write the STAR text in detail.
+
+Write it as continuous prose. Never label the parts. "Situation: ... Task: ..."
+And don't use mechenical characters like ";".
+is wrong. The four moves run together as sentences a person would say.
+
+What each move carries:
+
+Situation - the state of the platform, team, or data when Alex arrived. The
+scale it ran at, what was failing, what the business needed.
+
+Task - what Alex owned. Scope and seniority, not a list of chores.
+
+Action - the engineering he did. Named core technology, the mechanism, the
+architectural decision.
+
+Result - what changed. Scale reached, reliability gained, time recovered,
+capability unlocked. A percentage here counts toward that role's 2-3
+percentage bullets, so prefer real scale and operating context.
+
+The STAR bullet obeys every other rule: at least one <strong> term, at least
+one skill from the Skills section, allowed technology for that role, the single
+selected cloud provider, technically defensible, and every rule in HUMAN
+WRITING. Its length makes those rules matter more here than anywhere else on
+the page, because a long generated paragraph is the easiest thing to spot.
+
+The role's remaining bullets do not restate what the STAR bullet already said.
+It frames the role. They carry the specific work.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 BULLET WRITING RULES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Mandatory bullet counts:
+Mandatory bullet counts. The first bullet of every role is the STAR lead bullet
+described above, and it is included in these numbers:
 
 American Express Data Engineer III: 7
 American Express Data Engineer II: 6
@@ -568,9 +629,7 @@ Each bullet must:
 * impact does NOT require a percentage; scale, SLA/SLO, latency, freshness, workload volume, consumer reach, risk reduction, reliability, cost, developer productivity, or enabled business capability all count
 * never fabricate a number solely to make a bullet appear quantified
 
-For Data Engineer III and Data Engineer II, target approximately 200–300 characters per bullet.
-
-For earlier roles, target approximately 170–260 characters per bullet.
+For Data Engineer III and Data Engineer II, target approximately 200–300 characters per bullet. The STAR lead bullet is exempt and runs up to 450.
 
 Prioritize technical completeness and natural readability over exact character arithmetic.
 
@@ -590,17 +649,13 @@ Use concrete scale or operational context where credible, such as:
 * retention window
 * availability target
 
-Only 2–3 bullets per role should normally use percentage-based improvement metrics such as performance %, latency reduction %, cost reduction %, or reliability improvement.
-
-This restriction does NOT apply to factual scale and operating context such as data volume, event count, workflow count, consumer count, SLA/SLO, availability, freshness window, retention period, processing frequency, or number of supported datasets.
+Per role should normally use percentage-based improvement metrics such as performance %, latency reduction %, cost reduction %, or reliability improvement.
 
 Prefer real scale and operational context over invented improvement percentages.
 
 For approximate improvement metrics, use "about".
 
 Use % rather than the word "percent".
-
-Do not invent metrics merely because a bullet lacks a number.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 JD KEYWORD EMPHASIS
@@ -625,7 +680,7 @@ phrases. Do not bold entire sentences.
 SKILLS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Build Experience FIRST.
+Build Experience FIRST, then TECHNICAL SUMMARY, then Skills.
 
 Then build Skills from:
 
@@ -661,15 +716,13 @@ Format with no bullet points:
 
 Only the category label is bold.
 
-!IMPORTANT: After General Dynamics Information Technology  company section make two empty lines.
-
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 FINAL JD COVERAGE VALIDATION
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Before output, internally verify:
 
-1. Every meaningful required JD technical skill appears in the resume.
+1. Every equired JD technical skill appears in the resume.
 2. Tier 1 JD skills receive the strongest evidence.
 3. Data Engineer III contains the largest concentration of core target-role requirements.
 4. Remaining JD skills are distributed into the nearest credible prior roles.
@@ -679,34 +732,36 @@ Before output, internally verify:
 8. The architecture inside each role is coherent.
 9. Every Experience bullet contains at least one <strong> term.
 10. Bullet counts exactly match requirements.
-11. Bullets are approximately 180–260 characters and never unnaturally compressed merely to meet length.
-12. Only approximately 2–3 bullets per role use percentage-based improvement metrics.
-13. Exactly 6 Skills categories exist.
-14. At least 30 Skills are present.
-15. At least 75% of Skills are demonstrated in Experience.
-16. Education and Certifications are unchanged.
-17. Contact information is unchanged.
-18. No substantially duplicated project story appears across employers.
-19. Supporting technologies have a real architectural purpose.
-20. The resume would remain credible under senior-engineer follow-up questions.
-21. Data Engineer III demonstrates the JD responsibilities and the impact of owning them.
-22. At least 5 of 7 Data Engineer III bullets contain a concrete outcome, scale, scope, operating target, downstream effect, or measurable improvement.
-23. Quantification is varied and credible; the resume does not rely on repetitive percentage claims.
-24. No numerical claim exists merely to satisfy a metric requirement.
-25. A hiring manager can answer both "What did this candidate build?" and "Why did it matter?" from the newest role.
-26. For each Data Engineer III bullet counted toward the 5-of-7 impact requirement, identify the exact impact evidence internally. If the evidence is only an adjective, generic benefit, enabled capability, or vague outcome phrase, that bullet fails the impact requirement.
-27. Remove any non-JD skill that has no Experience evidence and no genuine architectural necessity.
-28. No word from the HUMAN WRITING never-use list appears.
-29. No word from the at-most-once list appears twice.
-30. No banned transition word appears.
-31. No "Not X, but Y" or "not only X but also Y" construction appears.
-32. No three decorative adjectives or abstract nouns run together.
-33. No em dash appears anywhere in the resume.
-34. No colon reveal and no rhetorical question appears.
-35. No importance inflation and no hedging appears, except "about" before an approximate metric.
-36. No two consecutive bullets are built on the same shape.
-37. No lead verb repeats inside a role.
-38. Bullet lengths use the width of each role's stated range instead of clustering at one length.
+11. Exactly 6 Skills categories exist.
+12. At least 30 Skills are present.
+13. At least 75% of Skills are demonstrated in Experience.
+14. Education and Certifications are unchanged.
+15. Contact information is unchanged.
+16. No substantially duplicated project story appears across employers.
+17. Supporting technologies have a real architectural purpose.
+18. The resume must belivalbe in technicall side.
+19. Data Engineer III demonstrates the JD responsibilities and the impact of owning them.
+20. All of the bullets must written by STAR way and show the real impact for the JD. 
+21. Quantification is varied and credible; the resume does not rely on repetitive percentage claims.
+22. No numerical claim exists merely to satisfy a metric requirement.
+23. A hiring manager can answer both "What did this candidate build?" and "Why did it matter?" from the newest role.
+24. All bullet sentneces impact requirement, identify the exact impact evidence internally. If the evidence is only an adjective, generic benefit, enabled capability, or vague outcome phrase, that bullet fails the impact requirement.
+25. Remove any non-JD skill that has no Experience evidence and no genuine architectural necessity from Skills section.
+26. No word from the HUMAN WRITING never-use list appears.
+27. No word from the at-most-once list appears twice.
+28. No banned transition word appears.
+29. No "Not X, but Y" or "not only X but also Y" construction appears.
+30. No three decorative adjectives or abstract nouns run together.
+31. No em dash appears anywhere in the resume.
+32. No colon reveal and no rhetorical question appears.
+33. No importance inflation and no hedging appears, except "about" before an approximate metric.
+34. No two consecutive bullets are built on the same shape.
+35. No lead verb repeats inside a role.
+36. Bullet lengths, excluding each role's STAR lead bullet, use the width of the stated range instead of clustering at one length.
+37. Every role opens with a STAR lead bullet carrying all four moves: situation, task, action, result.
+38. TECHNICAL SUMMARY holds 6–10 bullets, each 30–40 words, each naming the work and landing on a concrete outcome.
+39. No TECHNICAL SUMMARY bullet is a technology list, and none claims an outcome without naming the work behind it.
+40. No TECHNICAL SUMMARY bullet restates a Work Experience bullet or the Skills list.
 
 If a JD skill is missing, first attempt Data Engineer III. If that would damage architectural coherence, try Data Engineer II, then move backward through the career history until finding the nearest compatible role.
 
@@ -860,6 +915,11 @@ AWS Certified Developer - Associate | Amazon Web Services |2024
 
 AWS Certified Cloud Practitioner | Amazon Web Services |2019
 
+Offensive Security Certified Professional (OSCP) | OffSec | 
+Offensive Security Wireless Professional (OSWP) | OffSec |
+CompTIA Security+ | CompTIA |
+CompTIA Network+ | CompTIA |
+
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 HEADER TITLE
@@ -897,6 +957,18 @@ Platform Engineering" is wrong.
 Never name a platform the JD does not mention and the resume does not use.
 
 This pipe belongs to the header title only.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THE MOST IMPORTANT RULE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+After resume draft was completed, analyze the resume based on the JD.
+If the resume have a some important weakness and you can modify it, REWRITE the resume.
+The recruiter must feels that the man is a best fit for the role.
+BUT DON'T ADD CONTAINS THAT NOT MATCHING TERMS OF TIMING OR IMPOSSIBLE SKILLS OR IMPOSSIBLE ROLES.
+
+AND YOU CAN GIVE ME THE RESUME HTML FILE AS A TEXT FIELD IN ONE MESSAGE.
+SO, MAKING BULLETS, CARE ABOUT THE WHOLE LENGTH.
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -965,6 +1037,22 @@ Do NOT wrap the HTML in markdown fences.
 <div class="section-title">Professional Summary</div>
 
 <p class="summary">Write summary here.</p>
+```
+
+  </div>
+
+  <div class="section">
+
+```
+<div class="section-title">Technical Summary</div>
+
+<!-- 6 to 10 impact sentences. Same list markup as a role's bullets. -->
+
+<ul>
+
+  <li>Impact sentence with <strong>tech keywords</strong> in strong tags.</li>
+
+</ul>
 ```
 
   </div>

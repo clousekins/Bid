@@ -1,4 +1,13 @@
-mode: us_remote_strict
+# Which listings are allowed in.
+#
+#   us_remote_strict    remote, and eligible to work in the US
+#   remote_any_country  remote, wherever it is  <- current
+#   off                 no gate at all
+#
+# The board fetchers read this too, so the switch governs both what is fetched
+# and what is kept. Every job still gets a country, derived from its location by
+# services/job_country.py; a listing that names no country is treated as US.
+mode: remote_any_country
 
 # Location / remote_restricted_to are authoritative for named countries.
 # Bare "Remote" with no non-US geo passes (US-focused job sources).

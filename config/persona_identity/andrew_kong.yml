@@ -1,0 +1,101 @@
+persona_id: andrew_kong
+display_name: Andrew Kong
+default_professional_title: Data Analyst
+total_experience: "8 years"
+
+identity:
+  legal_name: Andrew Kong
+  # CONTACT DETAILS WERE NOT SUPPLIED. These placeholders print on the resume
+  # on purpose, so a draft cannot be submitted with the wrong contact line by
+  # accident. Replace all four, here and in andrew_kong.prompt.md.
+  preferred_name: Andrew Kong
+  email: "SET-EMAIL"
+  phone: "SET-PHONE"
+  location_city: San Mateo
+  location_state: CA
+  location_country: US
+  linkedin_url: "SET-LINKEDIN-URL"
+  work_authorization: "Authorized to work in the US"
+  salary_expectation: "110000-140000 USD per year"
+
+screening_answers:
+  - question: "Your resume's ATS score for this job description(only score, ex: 40%)?"
+    answer: ""
+  - question: "Are you authorized to work in the United States?"
+    answer: "Yes"
+  - question: "Do you now or will you in the future require sponsorship?"
+    answer: "No"
+  - question: "Are you willing to work remotely in the United States?"
+    answer: "Yes"
+  - question: "How many years of experience do you have?"
+    answer: "8"
+  - question: "What is your expected salary?"
+    answer: "110000-140000 USD per year"
+  - question: "Current Employer"
+    answer: "Apple"
+  - question: "Current Job Title"
+    answer: "Data Analyst"
+  - question: "Were you referred for this position?"
+    answer: "No"
+
+tailor:
+  mode: html_resume_bundle
+  prompt_file: andrew_kong.prompt.md
+  css_file: andrew_kong.css
+  # The accent andrew_kong.css is written in, so the colour picker can repaint it.
+  accent_color: "#1D6E93"
+  # Fill in <strong> on any bullet the model left without emphasis.
+  enforce_bullet_emphasis: true
+  experience_ground_truth:
+    - company: Apple
+      title: Data Analyst
+      location: ""
+      start: "Sep 2021"
+      end: Present
+      bullets: 7
+      focus: Pattern recognition and statistical analysis over large product and location datasets, data quality investigation, reporting and dashboards for non-technical partners, SQL and Python analysis, recommendations that change a product decision
+      allowed_tech: SQL, Python, Excel, spreadsheet and BI reporting, statistical analysis, plus tooling the JD names where an analyst would credibly use it
+    - company: Tesla
+      title: Data Annotation Specialist
+      location: San Mateo, California
+      start: "Apr 2020"
+      end: Present
+      bullets: 5
+      focus: Labelling and quality control of perception and sensor data at volume, annotation guidelines and edge-case adjudication, inter-annotator agreement and audit passes, throughput and accuracy tracking, feedback to the teams consuming the labels
+      allowed_tech: Annotation and review tooling, SQL, Python, Excel, QA sampling and agreement measurement
+    - company: Apple via Apex Systems
+      title: Lead GIS Technician
+      location: Sunnyvale, California
+      start: "Sep 2019"
+      end: "Feb 2020"
+      bullets: 5
+      focus: Led a team of 10 GIS technicians improving Apple Maps in high-traffic areas; 30+ projects completed with user-reported issues down about 13%; tracked, escalated and resolved data issues within the team; proprietary GIS software, QGIS, Terminal and Excel for project creation and management; completed an 8-week leadership development course
+      allowed_tech: Proprietary GIS software, QGIS, Terminal and shell, Excel, SQL where credible
+    - company: Apple via Apex Systems
+      title: GIS Technician
+      location: San Francisco Bay Area, California
+      start: "Aug 2018"
+      end: "Sep 2019"
+      bullets: 4
+      focus: Created maps and customised GIS applications with proprietary software; read and interpreted digital maps and processed GIS digital information; managed the map application's GIS database by analysing, validating and enhancing data content; created new content for the map application; performed QA/QC on GIS datasets
+      allowed_tech: Proprietary GIS software, QGIS, Terminal and shell, Excel
+  education_ground_truth:
+    - degree: Bachelor of Science (Geographic Information Science and Cartography)
+      school: University of Washington
+      location: Seattle, Washington
+      year: "2018"
+    - degree: Associate in Applied Science (Network Services and Computing Systems)
+      school: Bellevue College
+      location: Bellevue, Washington
+      year: "2015"
+  # Credential IDs are kept for application forms that ask. The resume prints
+  # name, issuer and year only.
+  certifications_ground_truth:
+    - name: The Complete Python Bootcamp From Zero to Hero in Python
+      issuer: Udemy
+      year: "2023"
+      credential_id: UC-fba0f409-ac14-46d9-b977-125b61599fae
+    - name: "The Ultimate MySQL Bootcamp: Go from SQL Beginner to Expert"
+      issuer: Udemy
+      year: "2023"
+      credential_id: UC-67ab4af6-2e62-467f-9592-7c6256ffca09

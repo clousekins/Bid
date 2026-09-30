@@ -200,6 +200,61 @@ export function extractJobFromPage() {
     return null;
   };
 
+  // --- 2b. Greenhouse job boards -------------------------------------------
+  //
+  // job-boards.greenhouse.io/<company>/jobs/<id> — the employer is the first
+  // path segment, and on these pages it is the one thing always available.
+  // They publish no JobPosting markup at all and leave og:site_name empty, so
+  // the generic reading below ran out of places to look and fell back to the
+  // hostname, filing every one of them under "job-boards.greenhouse.io".
+  //
+  // The same board also serves an embedded form, .../embed/job_app?for=<company>
+  // — that is the link Jobright hands out for Greenhouse employers, so it is
+  // worth reading too.
+  const greenhouseFromUrl = () => {
+    if (!/(^|\.)greenhouse\.io$/i.test(location.hostname)) return null;
+
+    const params = new URLSearchParams(location.search);
+    const embedded = params.get("for");
+    if (embedded) {
+      return {
+        company: clean(embedded),
+        id: clean(params.get("token")),
+        url: location.href,
+      };
+    }
+
+    const match = /^\/([^/]+)\/jobs\/([0-9]+)/.exec(location.pathname);
+    if (!match || match[1].toLowerCase() === "embed") return null;
+    return {
+      company: clean(match[1]),
+      id: clean(match[2]),
+      url: `https://${location.hostname}/${match[1]}/jobs/${match[2]}`,
+    };
+  };
+
+  const greenhouseRecord = () => {
+    const board = greenhouseFromUrl();
+    if (!board || !board.company) return null;
+    // The heading is the role. og:title carries it too, and og:description is
+    // where these boards put the location.
+    const title = firstText(["h1"]) || meta('meta[property="og:title"]');
+    if (!title) return null;
+
+    const main = document.querySelector("main, article, [role=main]") || document.body;
+    return {
+      company: board.company,
+      title,
+      url: board.url || location.href,
+      apply_url: "",
+      location: meta('meta[property="og:description"]'),
+      description: clean(main.innerText).slice(0, MAX_DESCRIPTION),
+      external_id: board.id,
+      source: "Greenhouse",
+      readAs: "Greenhouse board (employer from the URL)",
+    };
+  };
+
   // --- 3. The page as a reader sees it -------------------------------------
   const visibleRecord = () => {
     // og:title is usually "Senior Data Engineer at Acme" or "… - Acme"; the
@@ -240,7 +295,23 @@ export function extractJobFromPage() {
   };
 
   const found =
-    jobrightRecord() || jobrightDomRecord() || jsonLdRecord() || visibleRecord();
+    jobrightRecord() ||
+    jobrightDomRecord() ||
+    jsonLdRecord() ||
+    greenhouseRecord() ||
+    visibleRecord();
+
+  // A board's hostname is not an employer. Where the URL names one — and on
+  // Greenhouse it always does — prefer it over the fallback that files the job
+  // under the site it was posted on. This runs whichever reading won, so a
+  // page that gains JobPosting markup later still gets a company either way.
+  const board = greenhouseFromUrl();
+  if (board && board.company) {
+    if (!found.company || /greenhouse\.io$/i.test(found.company)) {
+      found.company = board.company;
+    }
+    found.external_id = found.external_id || board.id;
+  }
 
   // The address bar is the job's URL unless the record named a better one, and
   // it is the only field that is always right — everything else is a reading.

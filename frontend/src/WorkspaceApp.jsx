@@ -331,6 +331,9 @@ export default function WorkspaceApp({ onGoHome, theme, onToggleTheme }) {
         onProfileStatusChange={ws.setProfileStatusFilter}
         statusFilter={ws.statusFilter}
         onStatusFilterChange={ws.setStatusFilter}
+        countryFilter={ws.countryFilter}
+        onCountryFilterChange={ws.setCountryFilter}
+        countryOptions={ws.countryOptions}
         stats={ws.stats}
         workingPersonaId={ws.workingPersonaId}
       />
@@ -602,13 +605,19 @@ export default function WorkspaceApp({ onGoHome, theme, onToggleTheme }) {
             onContinueManual={() => ws.selected && openManual(ws.selected)}
             onGenerate={async () => {
               if (!ws.selected || !ws.workingPersonaId) return;
+              const job = ws.selected;
               try {
                 batch.setBusy(true);
-                await client.tailorOne(ws.selected.id, {
+                const res = await client.tailorOne(job.id, {
                   persona_id: ws.workingPersonaId,
                 });
+                // The endpoint answers a failed tailor with 200 and ok:false;
+                // without this the bar said "Generated" over a failure.
+                if (res && res.ok === false) {
+                  throw new Error(res.reason || "Resume generation failed");
+                }
                 batch.setBatchProgress(
-                  `Generated resume as ${ws.workingPersonaId} for #${ws.selected.seq_no}`
+                  `Generated resume as ${ws.workingPersonaId} for #${job.seq_no}`
                 );
                 await ws.refresh();
               } catch (e) {
@@ -666,6 +675,30 @@ export default function WorkspaceApp({ onGoHome, theme, onToggleTheme }) {
               try {
                 // Back to where the pipeline can pick it up: with a usable JD
                 // that is jd_ready, without one it needs fetching again.
+                const back =
+                  (ws.selected.description || "").length >= 50 ? "jd_ready" : "new";
+                await client.patchStatus(ws.selected.id, back);
+                await ws.refresh();
+              } catch (e) {
+                ws.setError(String(e.message || e));
+              }
+            }}
+            onMakeInterview={async () => {
+              if (!ws.selected) return;
+              try {
+                await client.patchStatus(ws.selected.id, "interview");
+                await ws.refresh();
+              } catch (e) {
+                ws.setError(String(e.message || e));
+              }
+            }}
+            onUnmakeInterview={async () => {
+              if (!ws.selected) return;
+              try {
+                // Same landing as Un-reject. Going back to "applied" would run
+                // the mark-applied path, which needs a package this job may
+                // never have had — an interview can be recorded by hand for an
+                // application made outside the tool.
                 const back =
                   (ws.selected.description || "").length >= 50 ? "jd_ready" : "new";
                 await client.patchStatus(ws.selected.id, back);

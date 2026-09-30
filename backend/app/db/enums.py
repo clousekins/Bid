@@ -19,6 +19,13 @@ class JobStatus(str, Enum):
     # verdict on the location, and from ApplicationOutcome.REJECTED, which is
     # the employer's answer after applying.
     REJECTED = "rejected"
+    # Set by hand once an employer takes the application further. Like
+    # REJECTED it is a person recording what happened outside the tool, so it
+    # is reachable from any status: an application made by hand may never have
+    # passed through APPLIED here. Distinct from ApplicationOutcome.INTERVIEW,
+    # which records the same event against one persona's package; this is the
+    # listing's own stage, and it is what the Pipeline filter shows.
+    INTERVIEW = "interview"
     SKIPPED = "skipped"
     BLOCKED = "blocked"
     NEEDS_MANUAL = "needs_manual"
@@ -143,7 +150,17 @@ JOB_TRANSITIONS: dict[JobStatus, set[JobStatus]] = {
         JobStatus.NEEDS_MANUAL,
         JobStatus.BLOCKED,
     },
-    JobStatus.APPLIED: set(),
+    JobStatus.APPLIED: {JobStatus.INTERVIEW},
+    # Undoing an interview puts the listing back where the pipeline can see it,
+    # the way undoing a rejection does. APPLIED stays reachable for the case
+    # where the application really did go through this tool. The employer's
+    # verdict belongs on the package as an ApplicationOutcome, not here.
+    JobStatus.INTERVIEW: {
+        JobStatus.APPLIED,
+        JobStatus.JD_READY,
+        JobStatus.NEW,
+        JobStatus.SCAN_FAILED,
+    },
     JobStatus.EXPIRED: {JobStatus.NEW, JobStatus.JD_READY, JobStatus.SCAN_FAILED},
     JobStatus.REJECTED_ONSITE: set(),
     # Undoing a rejection puts the listing back where the pipeline can see it.
@@ -180,7 +197,10 @@ def can_transition(current: JobStatus | str, target: JobStatus | str) -> bool:
     # anywhere — including the statuses that are otherwise terminal. Listing it
     # in each of the eleven sets above would say the same thing eleven times,
     # and would be one edit away from being wrong for a new status.
-    if tgt == JobStatus.REJECTED:
+    # Marking an interview is the same kind of act: a person recording what an
+    # employer did, for an application that may have been made outside this
+    # tool and so never reached APPLIED here.
+    if tgt in {JobStatus.REJECTED, JobStatus.INTERVIEW}:
         return True
     allowed = JOB_TRANSITIONS.get(cur)
     if allowed is None:

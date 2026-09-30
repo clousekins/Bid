@@ -573,6 +573,9 @@ async def mark_job_applied(
         JobStatus.SKIPPED.value,
         JobStatus.EXPIRED.value,
         JobStatus.REJECTED_ONSITE.value,
+        # Applying with a second persona must not walk the listing back from
+        # an interview already reached with the first.
+        JobStatus.INTERVIEW.value,
     }:
         job.status = (
             JobStatus.JD_READY.value

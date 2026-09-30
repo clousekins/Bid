@@ -203,6 +203,7 @@ export default function JobsTable({
             <col className="col-seq" />
             <col className="col-company" />
             <col className="col-title" />
+            <col className="col-country" />
             <col className="col-domain" />
             <col className="col-score" />
             <col className="col-my-status" />
@@ -230,6 +231,9 @@ export default function JobsTable({
               </SortTh>
               <SortTh col="title" title="Sort by title">
                 Title
+              </SortTh>
+              <SortTh col="country" title="Sort by country">
+                Country
               </SortTh>
               <SortTh col="domains" title="Sort by domain codes (AI, DE, FS, SF, …)">
                 Dom
@@ -296,6 +300,16 @@ export default function JobsTable({
                   </td>
                   <td className="cell-ellipsis" title={j.title}>
                     {j.title}
+                  </td>
+                  <td
+                    className="cell-country"
+                    title={
+                      j.location
+                        ? `${j.country_name || j.country || "United States"} — ${j.location}`
+                        : j.country_name || j.country || "United States"
+                    }
+                  >
+                    {j.country || "US"}
                   </td>
                   <DomainCell domains={j.domains} />
                   <td className="cell-score">

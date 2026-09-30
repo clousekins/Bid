@@ -8,6 +8,21 @@ from app.validators.seniority import check_seniority
 from app.validators.it_domain import check_it_domain
 
 
+@pytest.fixture(autouse=True)
+def _strict_region_gate(monkeypatch):
+    """Pin the intake gate to US-only for this module.
+
+    These cases are about US eligibility specifically. The mode is an operator
+    setting in config/remote_us_rules.yml — it is 'remote_any_country' now — and
+    without pinning it here, changing that file silently rewrites what these
+    tests assert instead of failing honestly. Coverage of the other modes lives
+    in test_job_country.py.
+    """
+    from app.validators import remote_us
+
+    monkeypatch.setattr(remote_us, "_load_rules", lambda: {"mode": "us_remote_strict"})
+
+
 def test_normalize_company_strips_suffix():
     assert normalize_company("Acme Inc.") == "acme"
     assert normalize_company("Acme LLC") == "acme"

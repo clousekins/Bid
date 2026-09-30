@@ -748,6 +748,62 @@ body {
 
 .ats-floor-range { width: 100%; accent-color: var(--profile-accent); cursor: pointer; }
 
+/* --- Resume accent picker -------------------------------------------------
+   Same box as .ats-floor so the two controls read as one settings group. */
+
+.accent-picker {
+  flex: 1 0 100%;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.accent-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.accent-title { font-weight: 600; font-size: 0.86rem; }
+.accent-value { font-size: 0.85rem; }
+
+.accent-swatches { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+.accent-swatch {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  /* The border is always present so selecting one does not shift the others. */
+  border: 2px solid transparent;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.28);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.accent-swatch:hover:not(:disabled) { transform: translateY(-1px); }
+
+/* Selected: a ring in the page's own outline colour, held off the swatch by a
+   white gap so it stays visible on the darker colours. */
+.accent-swatch.on {
+  border-color: var(--text);
+  box-shadow: inset 0 0 0 2px var(--surface-2), inset 0 0 0 3px rgba(0, 0, 0, 0.28);
+}
+
+.accent-swatch:focus-visible { outline: 2px solid var(--profile-accent); outline-offset: 2px; }
+.accent-swatch:disabled { cursor: default; opacity: 0.6; }
+
+.accent-hint { font-size: 0.78rem; line-height: 1.35; }
+
+
 .ats-floor-foot {
   display: flex;
   align-items: center;
@@ -855,6 +911,10 @@ body {
 .jobs-table .col-seq { width: 2.6rem; }
 .jobs-table .col-company { width: auto; min-width: 9rem; }
 .jobs-table .col-title { width: auto; min-width: 12rem; }
+/* The cell only holds a two-letter code, but the header word "COUNTRY" is
+   uppercased and letter-spaced, and it sets the real minimum — at 3.4rem it
+   truncated to "COUNTI". */
+.jobs-table .col-country { width: 5.4rem; }
 .jobs-table .col-domain { width: 4.1rem; }
 .jobs-table .col-score { width: 6.5rem; }
 /* Status holds a pill plus up to three actions; starving it made them
@@ -1366,4 +1426,26 @@ body {
 .fetch-results-list li.past .fetch-result-main strong {
   opacity: 0.7;
   font-weight: 500;
+}
+
+
+/* --- Country column and filter -------------------------------------------
+   The cell shows the code so the column stays narrow at 3.4rem; hovering
+   gives the country name and the raw location it was derived from. */
+
+.jobs-table .cell-country {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.3px;
+  color: var(--text-muted, inherit);
+  white-space: nowrap;
+}
+
+.filter-country {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.filter-country select {
+  max-width: 12rem;
 }

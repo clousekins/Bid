@@ -118,3 +118,16 @@ export function parseJobsJson(text) {
   }
   return { rows, found: entries.length, unusable };
 }
+
+/**
+ * True when applying means going to LinkedIn.
+ *
+ * Jobright lists plenty of postings whose apply link lands on LinkedIn, and
+ * those are a dead end here: the backend has no LinkedIn adapter, the JD fetch
+ * cannot read them, and assisted apply cannot fill them. Only the link is
+ * judged. A JD that merely says "follow us on LinkedIn" is not a LinkedIn job.
+ */
+export function isLinkedInRow(row) {
+  const links = `${(row && row.apply_url) || ""} ${(row && row.url) || ""}`;
+  return links.toLowerCase().includes("linkedin.com");
+}

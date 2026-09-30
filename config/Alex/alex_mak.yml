@@ -1,0 +1,153 @@
+persona_id: alex_mak
+display_name: Alexander C Mak
+default_professional_title: Senior Data Engineer
+total_experience: "12 years"
+
+identity:
+  legal_name: Alexander C Mak
+  preferred_name: Alex Mak
+  email: alexandermak1992@outlook.com
+  phone: "(301) 857-9736"
+  location_city: Columbia
+  location_state: MD
+  location_country: US
+  linkedin_url: https://www.linkedin.com/in/alexander-m-695908140
+  work_authorization: "Authorized to work in the US"
+  salary_expectation: "150000-180000 USD per year"
+
+screening_answers:
+  - question: "Your resume's ATS score for this job description(only score, ex: 40%)?"
+    answer: ""
+  - question: "Are you authorized to work in the United States?"
+    answer: "Yes"
+  - question: "Do you now or will you in the future require sponsorship?"
+    answer: "No"
+  - question: "Are you willing to work remotely in the United States?"
+    answer: "Yes"
+  - question: "How many years of experience do you have?"
+    answer: "12"
+  - question: "What is your expected salary?"
+    answer: "150000-180000 USD per year"
+  - question: "Current Employer"
+    answer: "American Express"
+  - question: "Current Job Title"
+    answer: "Data Engineer III"
+  - question: "Were you referred for this position?"
+    answer: "No"
+
+tailor:
+  mode: html_resume_bundle
+  prompt_file: alex_mak.prompt.md
+  css_file: alex_mak.css
+  # The accent alex_mak.css is written in. Declaring it lets the colour picker
+  # repaint the sheet at generation time; without it the picker leaves this
+  # persona alone.
+  accent_color: "#1D6E93"
+  # Fill in <strong> on any bullet the model left without emphasis, and trim any
+  # that ran past three. Only this persona; the others are untouched.
+  enforce_bullet_emphasis: true
+  experience_ground_truth:
+    - company: American Express
+      title: Data Engineer III
+      location: Remote
+      start: "Jan 2025"
+      end: Present
+      bullets: 7
+      focus: Platform architecture and ownership, data contracts, schema evolution, governance and RBAC, cost optimization, architecture review and mentoring, roadmap (ML feature pipelines if JD)
+      allowed_tech: Modern data stack aligned to JD
+    - company: American Express
+      title: Data Engineer II
+      location: Remote
+      start: "Oct 2021"
+      end: "Jan 2025"
+      bullets: 6
+      focus: Batch and near-real-time pipelines at scale, reusable ingestion frameworks, streaming, CDC and incremental processing, orchestration standards, data-quality frameworks, Spark and SQL tuning
+      allowed_tech: Modern data stack aligned to JD
+    - company: Fortress Information Security
+      title: Data Engineer
+      location: Remote
+      start: "Nov 2020"
+      end: "Oct 2021"
+      bullets: 6
+      focus: Production data engineering workflows for logging, querying, data retrieval and operational reporting; batch and streaming ETL; database tables, schemas and data models for cross-functional teams; AWS database roles, permissions and infrastructure integrations; scheduled Airflow automation of recurring batch processes; production and on-call support with failure troubleshooting
+      allowed_tech: PySpark, AWS S3, Kinesis, RDS, Airflow, SQL, Python. AWS only — this period is locked to AWS regardless of the JD
+    - company: Comcast
+      title: Data Engineer
+      location: Philadelphia, Pennsylvania
+      start: "May 2020"
+      end: "Nov 2020"
+      bullets: 4
+      focus: ETL pipelines and automated tests for network telemetry; support for data science teams on large-scale telemetry datasets used in analytics and performance monitoring; Grafana dashboards and metrics workflows; CLI automation tooling for internal AI platform workflows; AWS infrastructure including backups, repositories, permissions and CI/CD; Ansible playbooks deploying Docker applications and configuring environments
+      allowed_tech: PySpark, Databricks, Grafana, AWS EC2, S3, RDS, Ansible, Docker, CI/CD, Python. AWS only — this period is locked to AWS regardless of the JD
+    - company: Discovery Inc
+      title: Python Developer
+      location: Silver Spring, Maryland
+      start: "Dec 2018"
+      end: "May 2020"
+      bullets: 4
+      focus: Python data applications and file processing, REST and API integrations, SQL optimization, Hadoop and Snowflake workflows, unit and integration testing, structured logging
+      allowed_tech: Python, SQL, Hadoop, Snowflake, REST APIs, CLI tooling, automated testing
+    - company: Minerva Engineering
+      title: Software Engineer
+      location: Hanover, Maryland
+      start: "Feb 2018"
+      end: "Nov 2018"
+      bullets: 3
+      focus: Python application components, SQL-backed workflows, REST integrations, input validation, unit and integration testing, Linux deployment
+      allowed_tech: Python, SQL, REST APIs, Linux, shell scripting, version control
+    - company: General Dynamics Information Technology
+      title: Software Developer / Infrastructure and Operations
+      location: Columbia, Maryland
+      start: "Mar 2017"
+      end: "Feb 2018"
+      bullets: 3
+      focus: Software and automation utilities for infrastructure and operational workflows, SQL queries and database utilities, Linux system support, monitoring and logging, deployment and configuration standardisation across environments, scheduled jobs and file transfers, incident investigation and root-cause analysis, backup, recovery and access control, runbooks and documentation
+      allowed_tech: Python, shell scripting, SQL, Linux, version control, monitoring and logging tooling
+    - company: Tenable
+      title: Cloud Services QA Intern
+      location: Columbia, Maryland
+      start: "Jun 2017"
+      end: "Aug 2017"
+      bullets: 2
+      focus: Functional, integration and regression testing of cloud service features, automated test development, API behaviour and payload-schema validation, SQL database verification, negative and authorisation testing, defect investigation and documentation, release validation
+      allowed_tech: Test automation, REST APIs, SQL, application logs, cloud service test environments
+    - company: Envieta Systems LLC
+      title: Software Developer Intern
+      location: Columbia, Maryland
+      start: "Dec 2016"
+      end: "Mar 2017"
+      bullets: 2
+      focus: Software component development, scripting to automate repetitive development tasks, SQL queries and database troubleshooting, parsing and transformation routines, input validation, API integration support, unit testing, source-control and deployment support, technical documentation
+      allowed_tech: Python, SQL, REST APIs, version control, CLI scripting
+    - company: Advantage Technical Resourcing, Inc.
+      title: Computer Network Technician
+      location: ""
+      start: "Feb 2014"
+      end: "Apr 2015"
+      bullets: 2
+      focus: Network and computing infrastructure support for users and devices, TCP/IP, DNS, routing and switching diagnosis, workstation and network-device configuration, Windows and Linux installation and patching, endpoint and network monitoring, account and permission configuration, hardware troubleshooting, incident documentation and reusable troubleshooting procedures
+      allowed_tech: TCP/IP, DNS, routing and switching, Windows, Linux, command-line utilities and scripts, monitoring tools
+  education_ground_truth:
+    - degree: Master of Science (Computer Science)
+      school: The Johns Hopkins University
+      location: Baltimore, Maryland
+      year: "2019"
+    - degree: Bachelor of Science (Computer Science)
+      school: Towson University
+      location: Towson, Maryland
+      year: "2017"
+  # Credential IDs are kept here for application forms that ask for them. The
+  # resume prints name, issuer and year only, the way brian_gou's does; the
+  # four undated ones print with an empty year column.
+  certifications_ground_truth:
+    - name: AWS Certified Solutions Architect - Associate
+      issuer: Amazon Web Services
+      year: "2025"
+    - name: AWS Certified Developer - Associate
+      issuer: Amazon Web Services
+      year: "2024"
+      credential_id: AWS04315857
+    - name: AWS Certified Cloud Practitioner
+      issuer: Amazon Web Services
+      year: "2019"
+   

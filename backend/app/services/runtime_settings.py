@@ -28,6 +28,12 @@ DEFAULTS: dict[str, Any] = {
     # None means it has never been reset, and the count falls back to the
     # start of the local day.
     "applied_counter_since": None,
+    # The accent a generated resume is printed in, as #rrggbb. None means each
+    # persona keeps the accent its own stylesheet is written in.
+    "resume_accent": None,
+    # The most one ChatGPT reply may take. A ceiling, not a delay: the job
+    # moves on the moment the reply finishes.
+    "chatgpt_timeout_seconds": 360,
 }
 
 
@@ -67,6 +73,22 @@ def max_attempts() -> int:
     return max(1, min(6, int(stored or 1)))
 
 
+def resume_accent() -> str | None:
+    """The accent chosen in the UI, or None to keep each stylesheet's own."""
+    stored = load().get("resume_accent")
+    from app.services.resume_accent import is_valid
+
+    return str(stored) if is_valid(stored) else None
+
+
+def chatgpt_timeout_seconds() -> int:
+    try:
+        stored = int(load().get("chatgpt_timeout_seconds") or 0)
+    except (TypeError, ValueError):
+        stored = 0
+    return max(60, min(1800, stored or DEFAULTS["chatgpt_timeout_seconds"]))
+
+
 def update(**changes: Any) -> dict[str, Any]:
     """Persist changed values, ignoring keys we do not own."""
     values = load()
@@ -79,6 +101,14 @@ def update(**changes: Any) -> dict[str, Any]:
             value = max(1, min(6, int(value)))
         elif key == "applied_counter_since":
             value = str(value)
+        elif key == "resume_accent":
+            from app.services.resume_accent import normalise
+
+            # Raises on anything that is not #rrggbb. The value is substituted
+            # into a stylesheet, so it must never be free text.
+            value = normalise(value)
+        elif key == "chatgpt_timeout_seconds":
+            value = max(60, min(1800, int(value)))
         values[key] = value
     _path().write_text(yaml.safe_dump(values, sort_keys=True), encoding="utf-8")
     return values

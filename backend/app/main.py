@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.api import apply as apply_api
+from app.api import chatgpt as chatgpt_api
 from app.api import jobs as jobs_api
 from app.api import jobs_bg as jobs_bg_api
 from app.api import manual_apply as manual_apply_api
@@ -117,6 +118,7 @@ def create_app() -> FastAPI:
     app.include_router(manual_apply_api.router)
     app.include_router(settings_api.router)
     app.include_router(rejected_api.router)
+    app.include_router(chatgpt_api.router)
 
     dist = FRONTEND_DIST
     if dist.exists():

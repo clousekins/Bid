@@ -55,6 +55,10 @@ class Job(Base):
     url: Mapped[str] = mapped_column(String(2048), nullable=False)
     apply_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     location: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    # ISO-ish two-letter code derived from location at ingest. Boards do not
+    # report a country, so this is inferred; a listing naming none is US, which
+    # is why the column is never null. See services/job_country.py.
+    country: Mapped[str] = mapped_column(String(2), default="US", nullable=False, index=True)
     source: Mapped[str] = mapped_column(String(64), default="manual", nullable=False)
     external_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)

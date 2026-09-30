@@ -501,8 +501,12 @@ def parse_hn_hiring_comment(text: str, *, story_id: str, comment_id: str) -> Raw
     blob = plain.lower()
     if not _HN_ENG_RE.search(title) and not _HN_ENG_RE.search(plain[:240]):
         return None
-    if "remote" not in blob and "us only" not in blob and "united states" not in blob:
+    from app.validators.remote_us import us_only
+
+    if us_only() and "remote" not in blob and "us only" not in blob and "united states" not in blob:
         # Keep US onsite? No — we want remote US. Allow if location says USA/US remote.
+        # Skipped entirely when intake is open to every country; the pipeline's
+        # own gate still enforces remote-ness.
         if not re.search(r"\b(usa|u\.s\.|united states)\b", blob):
             return None
     if any(x in blob for x in ("onsite only", "on-site only", "hybrid only")) and "remote" not in blob:
@@ -629,6 +633,8 @@ async def fetch_workable_board(account: str) -> list[RawListing]:
 
 async def fetch_themuse(pages: int = 3) -> list[RawListing]:
     """The Muse public jobs API — Software Engineering / Data Science categories."""
+    from app.validators.remote_us import us_only as us_only_intake
+
     categories = ["Software Engineering", "Data Science", "UX", "Design and UX"]
     out: list[RawListing] = []
     seen: set[str] = set()
@@ -667,7 +673,9 @@ async def fetch_themuse(pages: int = 3) -> list[RawListing]:
                         loc_names.append(str(loc["name"]))
                 loc_raw = ", ".join(loc_names) if loc_names else "Remote"
                 joined = " ".join(loc_names).lower()
-                if loc_names and not any(
+                # Dropped here only while intake is US-only; otherwise every
+                # location is kept and the pipeline gate decides.
+                if us_only_intake() and loc_names and not any(
                     x in joined for x in ("united states", "usa", "flexible", "remote", "anywhere")
                 ):
                     continue

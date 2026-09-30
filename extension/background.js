@@ -8,8 +8,9 @@
 // So the panel asks, and this answers: every backend call and every file
 // written goes through here.
 
-import { createJob, findByUrl, ping } from "./lib/api.js";
-
+import { createJob, findByUrl, gpt, ping } from "./lib/api.js";
+import { PAGE, SEL } from "./lib/gpt-page.js";
+import { BOARD_API } from "./lib/greenhouse.js";
 // Clicking the icon toggles the panel. There is no popup any more, which is
 // what makes this event fire at all.
 chrome.action.onClicked.addListener(async (tab) => {
@@ -34,14 +35,86 @@ const HANDLERS = {
   "csv:download": (payload) => downloadCsv(payload),
   "csv:reveal": ({ id }) => chrome.downloads.show(id),
   "options:open": () => chrome.runtime.openOptionsPage(),
+  "greenhouse:board": ({ slug }) => greenhouseBoard(slug),
+  // The ChatGPT panel: the backend's side of each job, and steps on the page.
+  "gpt:jobs": (payload) => gpt.jobs(payload),
+  "gpt:start": (payload) => gpt.start(payload),
+  "gpt:reply": (payload) => gpt.reply(payload),
+  "gpt:fail": (payload) => gpt.fail(payload),
+  "gpt:next": (payload) => gpt.next(payload),
+  "gpt:cancel": (payload) => gpt.cancel(payload),
+  "gpt:page": (payload, sender) => onPage(payload, sender),
 };
 
-chrome.runtime.onMessage.addListener((message, _sender, respond) => {
+// A frozen page never answers an injected script; without a limit the panel
+// would wait on it forever.
+const PAGE_STEP_LIMIT_MS = 20000;
+
+/**
+ * Run one of lib/gpt-page.js's steps in the tab that asked, in the page's own
+ * world. The panel cannot: a content script shares the page's DOM but not its
+ * JavaScript, and ChatGPT's copy button calls the clipboard from the latter.
+ */
+async function onPage({ fn, args = [] }, sender) {
+  const func = PAGE[fn];
+  if (!func) throw new Error(`Unknown page step: ${fn}`);
+  const tabId = sender && sender.tab && sender.tab.id;
+  if (!tabId) throw new Error("No tab to run the step in.");
+  let timer;
+  const limit = new Promise((_, reject) => {
+    timer = setTimeout(
+      () =>
+        reject(
+          new Error(
+            "chatgpt_page_frozen: the ChatGPT page stopped responding " +
+              `(Chrome may be showing "Page Unresponsive")`
+          )
+        ),
+      PAGE_STEP_LIMIT_MS
+    );
+  });
+  try {
+    const [res] = await Promise.race([
+      chrome.scripting.executeScript({ target: { tabId }, func, args: [SEL, ...args], world: "MAIN" }),
+      limit,
+    ]);
+    return res ? res.result : undefined;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Every opening on one Greenhouse board.
+ *
+ * Asked from here rather than from the panel because boards-api.greenhouse.io
+ * sends no access-control-allow-origin — a page on job-boards.greenhouse.io
+ * calling it is still cross-origin, and would be blocked. The worker has a
+ * host permission for it instead.
+ */
+async function greenhouseBoard(slug) {
+  const name = String(slug || "").trim();
+  if (!/^[A-Za-z0-9_-]+$/.test(name)) {
+    throw new Error("That does not look like a Greenhouse board name.");
+  }
+  const resp = await fetch(`${BOARD_API}/${encodeURIComponent(name)}/jobs`, {
+    headers: { Accept: "application/json" },
+  });
+  if (resp.status === 404) {
+    throw new Error(`Greenhouse has no board called "${name}".`);
+  }
+  if (!resp.ok) {
+    throw new Error(`Greenhouse answered ${resp.status}.`);
+  }
+  return resp.json();
+}
+
+chrome.runtime.onMessage.addListener((message, sender, respond) => {
   const handler = HANDLERS[message && message.type];
   if (!handler) return false;
   // Errors cross the message boundary as plain objects — an Error does not
   // survive structured cloning, and a panel told nothing would just hang.
-  Promise.resolve(handler(message.payload || {}))
+  Promise.resolve(handler(message.payload || {}, sender))
     .then((result) => respond({ ok: true, result }))
     .catch((err) => respond({ ok: false, error: err.message, status: err.status }));
   return true; // the reply is asynchronous

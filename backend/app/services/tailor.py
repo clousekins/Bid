@@ -4,8 +4,9 @@ import asyncio
 import json
 import logging
 import re
+from contextlib import AsyncExitStack, asynccontextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, AsyncIterator
 
 from openai import APITimeoutError, AsyncOpenAI, RateLimitError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -75,6 +76,9 @@ async def _refresh_job_from_packages(session: AsyncSession, job: Job) -> None:
         JobStatus.SKIPPED.value,
         JobStatus.EXPIRED.value,
         JobStatus.REJECTED_ONSITE.value,
+        # Regenerating a resume for a job already at interview must not send
+        # the listing back to jd_ready.
+        JobStatus.INTERVIEW.value,
     }
     if job.status not in terminal_listing_states:
         job.status = (
@@ -154,6 +158,62 @@ async def _chat(system: str, user: str, *, attempts: int = 6) -> str:
             await asyncio.sleep(wait)
     assert last_exc is not None
     raise last_exc
+
+
+# Who answers the tailoring questions. "api" is the OpenAI API with the key in
+# .env; "chatgpt" is chatgpt.com in the person's own tab, driven from the Poong
+# extension (see chatgpt_bridge), which hands its engine in as `llm`.
+# Everything after the answer is the same for both.
+ENGINES = ("api", "chatgpt")
+
+
+class _ApiEngine:
+    """Each question a fresh, stateless API call — the original path, unchanged."""
+
+    name = "api"
+    transcript: tuple[tuple[str, str], ...] = ()
+
+    async def ask(self, system: str, user: str, *, reply_format: str = "") -> str:
+        # reply_format is for the web page, which renders Markdown; the API
+        # returns text exactly as written and never needed it.
+        return await _chat(system, user)
+
+
+@asynccontextmanager
+async def _open_engine(engine: str, llm: Any = None) -> AsyncIterator[Any]:
+    if llm is not None:
+        yield llm
+    elif engine == "chatgpt":
+        raise RuntimeError(
+            "ChatGPT resumes are started from the Poong extension in a chatgpt.com tab"
+        )
+    else:
+        yield _ApiEngine()
+
+
+# chatgpt.com shows its reply as rendered Markdown, so raw HTML only survives
+# the trip back inside a code block. Sent to the ChatGPT engine alone.
+_BUNDLE_REPLY_FORMAT = (
+    "Reply format: put the complete HTML resume in one ```html code block, then the "
+    "plain-text cover letter after the code block. No other commentary."
+)
+_MARKDOWN_REPLY_FORMAT = "Reply with the resume in Markdown only. No commentary before or after it."
+_COVER_REPLY_FORMAT = "Reply with the cover letter only, as plain text. No commentary."
+_ANSWERS_REPLY_FORMAT = "Reply with only the JSON object, in one ```json code block."
+
+
+def _save_transcript(folder: Path, llm: Any) -> None:
+    """What was sent to ChatGPT and what came back, for when a job fails."""
+    turns = getattr(llm, "transcript", None)
+    if not turns:
+        return
+    try:
+        (folder / "chatgpt_raw.txt").write_text(
+            "\n\n".join(f"===== {who} =====\n{text}" for who, text in turns),
+            encoding="utf-8",
+        )
+    except OSError:
+        log.warning("could not write chatgpt_raw.txt to %s", folder)
 
 
 def _resume_user_message(persona, job: Job) -> str:
@@ -279,26 +339,58 @@ def _load_persona_css(persona) -> str:
     css_name = (persona.tailor or {}).get("css_file")
     if not css_name:
         return ""
-    base = get_settings().config_dir / "persona_identity"
-    path = base / css_name
-    if path.exists():
-        return path.read_text(encoding="utf-8")
-    return ""
+    folder = get_settings().config_dir / "persona_identity"
+    path = folder / css_name
+    if not path.exists():
+        return ""
+    css = path.read_text(encoding="utf-8")
+    # Repaint to the accent chosen in the UI. A persona that does not declare
+    # the accent its sheet is written in (tailor.accent_color) is left alone.
+    from app.services import runtime_settings
+    from app.services.resume_accent import apply_to_css
+
+    return apply_to_css(
+        css,
+        (persona.tailor or {}).get("accent_color"),
+        runtime_settings.resume_accent(),
+    )
 
 
-async def generate_resume_markdown(persona, job: Job, *, extra: str = "") -> str:
+async def generate_resume_markdown(
+    persona, job: Job, *, extra: str = "", llm: Any = None
+) -> str:
     from app.services.resume_header import enforce_resume_header
 
-    raw = await _chat(persona.system_prompt, _resume_user_message(persona, job) + extra)
+    llm = llm or _ApiEngine()
+    raw = await llm.ask(
+        persona.system_prompt,
+        _resume_user_message(persona, job) + extra,
+        reply_format=_MARKDOWN_REPLY_FORMAT,
+    )
     return enforce_resume_header(raw, persona)
 
 
-async def generate_html_bundle(persona, job: Job, *, extra: str = "") -> tuple[str, str]:
-    raw = await _chat(persona.system_prompt, _html_bundle_user_message(persona, job) + extra)
-    return _split_html_and_cover(raw)
+async def generate_html_bundle(
+    persona, job: Job, *, extra: str = "", llm: Any = None
+) -> tuple[str, str]:
+    llm = llm or _ApiEngine()
+    raw = await llm.ask(
+        persona.system_prompt,
+        _html_bundle_user_message(persona, job) + extra,
+        reply_format=_BUNDLE_REPLY_FORMAT,
+    )
+    html, cover = _split_html_and_cover(raw)
+    # Opt-in per persona, the way the header is enforced rather than trusted:
+    # the prompt asks for <strong> on the JD's keywords in every bullet, and the
+    # model leaves a varying handful bare. See resume_emphasis for the numbers.
+    if (persona.tailor or {}).get("enforce_bullet_emphasis"):
+        from app.services.resume_emphasis import emphasise_bullets
+
+        html = emphasise_bullets(html, job.description or "")
+    return html, cover
 
 
-async def generate_cover_letter(persona, job: Job, resume_md: str) -> str:
+async def generate_cover_letter(persona, job: Job, resume_md: str, *, llm: Any = None) -> str:
     gt = ground_truth_payload(persona)
     user = (
         f"Candidate ground truth:\n{json.dumps(gt, indent=2, ensure_ascii=False)}\n\n"
@@ -308,10 +400,11 @@ async def generate_cover_letter(persona, job: Job, resume_md: str) -> str:
         f"Resume draft (for tone/alignment only):\n{resume_md[:6000]}\n\n"
         "Write the cover letter plain text only."
     )
-    return await _chat(_cover_letter_system(persona), user)
+    llm = llm or _ApiEngine()
+    return await llm.ask(_cover_letter_system(persona), user, reply_format=_COVER_REPLY_FORMAT)
 
 
-async def generate_answers(persona, job: Job) -> dict[str, str]:
+async def generate_answers(persona, job: Job, *, llm: Any = None) -> dict[str, str]:
     questions = [a.get("question") for a in persona.screening_answers if a.get("question")]
     jd = job.description or ""
     for m in re.finditer(r"(?m)^\s*(?:\d+[.)]\s*)?([A-Z][^?\n]{8,120}\?)\s*$", jd):
@@ -323,7 +416,8 @@ async def generate_answers(persona, job: Job) -> dict[str, str]:
         f"{json.dumps({'screening_answers': persona.screening_answers, 'identity': persona.identity}, indent=2)}\n\n"
         f"Questions to answer:\n{json.dumps(questions, indent=2)}\n"
     )
-    raw = await _chat(_answers_system(), user)
+    llm = llm or _ApiEngine()
+    raw = await llm.ask(_answers_system(), user, reply_format=_ANSWERS_REPLY_FORMAT)
     try:
         raw2 = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw.strip(), flags=re.I | re.M)
         data = json.loads(raw2)
@@ -359,7 +453,11 @@ async def tailor_job(
     job: Job,
     *,
     persona_id: str | None = None,
+    engine: str = "api",
+    llm: Any = None,
 ) -> dict[str, Any]:
+    if engine not in ENGINES:
+        raise ValueError(f"unknown engine {engine!r}; expected one of {ENGINES}")
     if not (job.description and len(job.description) >= 50):
         return {"job_id": job.id, "ok": False, "reason": "not_jd_ready"}
 
@@ -371,9 +469,14 @@ async def tailor_job(
     display = persona.display_name
     mode = (persona.tailor or {}).get("mode") or "strategist_resume"
 
+    # The ChatGPT engine is one chat for the whole job, so every step below
+    # asks inside it; the exit stack closes the engine however the job ends.
+    given, llm = llm, None
+    engines = AsyncExitStack()
     try:
+        llm = await engines.enter_async_context(_open_engine(engine, given))
         if mode == "html_resume_bundle":
-            resume_html, cover = await generate_html_bundle(persona, job)
+            resume_html, cover = await generate_html_bundle(persona, job, llm=llm)
             css = _load_persona_css(persona)
             if css:
                 resume_html = _inject_css(resume_html, css)
@@ -384,7 +487,7 @@ async def tailor_job(
             await export_pdf(resume_html, folder / f"{display}.pdf")
             resume_for_answers = resume_html
         else:
-            resume_md = await generate_resume_markdown(persona, job)
+            resume_md = await generate_resume_markdown(persona, job, llm=llm)
             (folder / f"{display}.md").write_text(resume_md, encoding="utf-8")
             resume_html = markdown_to_html(resume_md, title=f"{display} — Resume")
             css = _load_persona_css(persona)
@@ -393,7 +496,7 @@ async def tailor_job(
                 resume_html = replace_document_css(resume_html, css)
             (folder / f"{display}.html").write_text(resume_html, encoding="utf-8")
             await export_pdf(resume_html, folder / f"{display}.pdf")
-            cover = await generate_cover_letter(persona, job, resume_md)
+            cover = await generate_cover_letter(persona, job, resume_md, llm=llm)
             resume_for_answers = resume_md
 
         floor = runtime_settings.min_ats_score()
@@ -419,7 +522,9 @@ async def tailor_job(
                 )
                 hint = _keyword_retry_hint(breakdown)
                 if mode == "html_resume_bundle":
-                    resume_html, cover = await generate_html_bundle(persona, job, extra=hint)
+                    resume_html, cover = await generate_html_bundle(
+                        persona, job, extra=hint, llm=llm
+                    )
                     css = _load_persona_css(persona)
                     if css:
                         resume_html = _inject_css(resume_html, css)
@@ -427,7 +532,9 @@ async def tailor_job(
                     await export_pdf(resume_html, folder / f"{display}.pdf")
                     resume_for_answers = resume_html
                 else:
-                    resume_md = await generate_resume_markdown(persona, job, extra=hint)
+                    resume_md = await generate_resume_markdown(
+                        persona, job, extra=hint, llm=llm
+                    )
                     (folder / f"{display}.md").write_text(resume_md, encoding="utf-8")
                     resume_html = markdown_to_html(resume_md, title=f"{display} — Resume")
                     css = _load_persona_css(persona)
@@ -442,7 +549,12 @@ async def tailor_job(
                 )
         # Does the finished document hold together as a truthful resume?
         credibility = score_credibility(resume_for_answers)
-        score_payload = {**breakdown.as_dict(), "attempts": attempts, "floor": floor}
+        score_payload = {
+            **breakdown.as_dict(),
+            "attempts": attempts,
+            "floor": floor,
+            "engine": engine,
+        }
         (folder / "ats_score.json").write_text(
             json.dumps(
                 {"ats": score_payload, "credibility": credibility.as_dict()},
@@ -452,7 +564,7 @@ async def tailor_job(
             encoding="utf-8",
         )
 
-        answers = await generate_answers(persona, job)
+        answers = await generate_answers(persona, job, llm=llm)
         (folder / "answers.json").write_text(
             json.dumps(answers, indent=2, ensure_ascii=False), encoding="utf-8"
         )
@@ -461,7 +573,7 @@ async def tailor_job(
         )
 
         if not cover:
-            cover = await generate_cover_letter(persona, job, resume_for_answers[:8000])
+            cover = await generate_cover_letter(persona, job, resume_for_answers[:8000], llm=llm)
         (folder / "cover_letter.txt").write_text(cover, encoding="utf-8")
         (folder / f"{display} - Cover Letter.txt").write_text(cover, encoding="utf-8")
         cover_html = markdown_to_html(cover, title=f"{display} — Cover Letter")
@@ -504,16 +616,18 @@ async def tailor_job(
             if job.description and len(job.description) >= 50:
                 job.status = JobStatus.JD_READY.value
         log.info(
-            "tailor ok job_id=%s seq=%s persona=%s folder=%s",
+            "tailor ok job_id=%s seq=%s persona=%s engine=%s folder=%s",
             job.id,
             job.seq_no,
             generate_pid,
+            engine,
             folder,
         )
         await session.flush()
         return {
             "job_id": job.id,
             "ok": True,
+            "engine": engine,
             "status": job.status,
             "folder": str(folder),
             "persona_id": generate_pid,
@@ -554,6 +668,7 @@ async def tailor_job(
         return {
             "job_id": job.id,
             "ok": False,
+            "engine": engine,
             "reason": reason,
             "persona_id": generate_pid,
             "package": {
@@ -564,3 +679,9 @@ async def tailor_job(
                 "notes": pkg.notes,
             },
         }
+    finally:
+        _save_transcript(folder, llm)
+        try:
+            await engines.aclose()
+        except Exception:  # noqa: BLE001
+            log.exception("closing the %s engine failed job_id=%s", engine, job.id)

@@ -25,6 +25,7 @@
 .panel {
   max-height: calc(100vh - 32px);
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 0 12px 12px;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -208,7 +209,8 @@ label {
 }
 
 input,
-textarea {
+textarea,
+select {
   width: 100%;
   padding: 5px 7px;
   border: 1px solid var(--line);
@@ -226,7 +228,8 @@ textarea {
 }
 
 input:focus,
-textarea:focus {
+textarea:focus,
+select:focus {
   outline: 2px solid var(--accent);
   outline-offset: -1px;
 }
@@ -308,6 +311,169 @@ button:disabled {
 
 a {
   color: var(--accent);
+  font-size: 11px;
+}
+
+/* --- The ChatGPT panel's job list --- */
+
+.gpt .card > input[type="search"] {
+  margin-top: 6px;
+}
+
+.tools {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.tools button {
+  padding: 3px 8px;
+  font-size: 11px;
+}
+
+.jobs {
+  /* Room for a real page of jobs without pushing the controls off screen. */
+  height: min(48vh, 460px);
+  min-height: 160px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  /* Scrolling to the end of the list must not start scrolling the chat behind. */
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--bg);
+  list-style: none;
+}
+
+.jobs:empty::before {
+  content: "Nothing to show.";
+  display: block;
+  padding: 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.jobs li + li {
+  border-top: 1px solid var(--line);
+}
+
+.job {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 7px;
+  color: var(--ink);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.job input {
+  width: auto;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.seq {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.what {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.what b,
+.what span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.what span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.pill {
+  max-width: 130px;
+  overflow: hidden;
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pill.ok {
+  border-color: var(--ok);
+  color: var(--ok);
+}
+
+.pill.warn {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+.pill.bad {
+  border-color: var(--bad);
+  color: var(--bad);
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.pager button {
+  flex: 0 0 auto;
+  width: 28px;
+  padding: 3px 0;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.pager .pg {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.pager .pg b {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.pager input[type="number"] {
+  width: 52px;
+  padding: 2px 4px;
+  text-align: center;
+}
+
+.pager select {
+  width: auto;
+  flex: 0 0 auto;
+  padding: 3px 4px;
+  font-size: 11px;
+}
+
+.hint {
+  margin: 8px 0 0;
+  color: var(--muted);
   font-size: 11px;
 }
 

@@ -34,6 +34,9 @@ async def test_parallel_tailor_progress_has_concurrency(tmp_path, monkeypatch):
     sess._engine = None
     sess._session_factory = None
     await init_db()
+    # enqueue() starts the real worker, which would race the executor called
+    # by hand below and run the same jobs a second time.
+    monkeypatch.setattr(bg_jobs, "ensure_worker", lambda: None)
 
     factory = get_session_factory()
     async with factory() as session:

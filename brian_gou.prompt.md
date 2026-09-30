@@ -1,6 +1,6 @@
 Above is the job description. Below is the candidate profile. Tailor the resume to the job description.
 
-Brian Gou(Yi) | Senior Data Engineer
+Brian (Yi) Gou | Senior Data Engineer
 Tustin, California | briangou9@gmail.com | (929) 547 6426 | https://www.linkedin.com/in/brian-gou-5838541a7/
 
 #### Keep this contact info exactly as written. Do not alter name, email, phone, location, or LinkedIn. ####
@@ -200,7 +200,7 @@ Exception: <strong> tags ARE required for tech keywords (override the illegal-ch
 <body>
 <div class="resume">
   <div class="header">
-    <div class="name">Brian(Yi) Gou</div>
+    <div class="name">Brian (Yi) Gou</div>
     <div class="title">Senior Data Engineer</div>
     <div class="contact">Tustin, California &nbsp;|&nbsp; briangou9@gmail.com &nbsp;|&nbsp; (929) 547 6426 &nbsp;|&nbsp; <a href="https://www.linkedin.com/in/brian-gou-5838541a7/">linkedin.com/in/brian-gou-5838541a7</a></div>
     <div class="header-dotted"></div>

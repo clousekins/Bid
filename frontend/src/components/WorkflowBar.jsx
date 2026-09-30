@@ -3,6 +3,7 @@ import { commitSeqRange } from "../utils/seqRange.js";
 import DomainFetchModal from "./DomainFetchModal.jsx";
 import SiteFetchPanel from "./SiteFetchPanel.jsx";
 import AtsFloorControl from "./AtsFloorControl.jsx";
+import AccentControl from "./AccentControl.jsx";
 import SectorSearchPanel from "./SectorSearchPanel.jsx";
 
 const STAGES = [
@@ -255,6 +256,7 @@ export default function WorkflowBar({
               Tailors HTML resume bundles for <strong>{workingLabel}</strong>. Watch the bottom activity panel while it runs.
             </p>
             <AtsFloorControl />
+            <AccentControl />
           </div>
         ) : null}
 

@@ -97,15 +97,38 @@ async def html_to_pdf_playwright(html: str, out_path: Path) -> bool:
         browser = await p.chromium.launch(headless=True)
         page = await browser.new_page()
         await page.set_content(html, wait_until="load")
-        await page.pdf(path=str(out_path), format="Letter", margin={"top": "0.6in", "bottom": "0.6in", "left": "0.6in", "right": "0.6in"})
+        await page.pdf(
+            path=str(out_path),
+            format="Letter",
+            margin={"top": "0.6in", "bottom": "0.6in", "left": "0.6in", "right": "0.6in"},
+            # Persona stylesheets colour headings, rules and bullet markers.
+            # Without this Chromium drops every background and prints the page
+            # as if it had none.
+            print_background=True,
+        )
         await browser.close()
     return out_path.exists()
 
 
 async def export_pdf(html: str, out_path: Path) -> Path:
+    """Render to PDF, preferring the engine that understands the stylesheet.
+
+    Playwright goes first. It is real Chromium, so the PDF matches what the
+    .html next to it shows in a browser.
+
+    xhtml2pdf is the fallback rather than the default because it is a ReportLab
+    renderer, not a browser: it honours colour and borders but silently ignores
+    flexbox and text-transform. A persona sheet that lays the company against
+    its dates, or the job title against its location, collapses into one run-on
+    line under it — "Data Engineer IIIRemote" — and uppercase headings come out
+    in title case. The HTML looked right while the PDF, which is the file that
+    actually gets submitted, did not.
+
+    It is kept because it needs no browser binary: on a machine where Chromium
+    was never installed, a slightly wrong PDF beats no PDF at all.
+    """
+    if await html_to_pdf_playwright(html, out_path):
+        return out_path
     if html_to_pdf_xhtml2pdf(html, out_path):
         return out_path
-    ok = await html_to_pdf_playwright(html, out_path)
-    if not ok:
-        raise RuntimeError("PDF export failed (xhtml2pdf and Playwright)")
-    return out_path
+    raise RuntimeError("PDF export failed (Playwright and xhtml2pdf)")

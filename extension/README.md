@@ -129,6 +129,43 @@ employment_type, remote, salary, score, source, external_id, description
 It is written with CRLF endings and a UTF-8 BOM, because Excel renders the
 accented company names in this data as mojibake without one.
 
+## Writing resumes with ChatGPT
+
+Open chatgpt.com, signed in, and click the extension icon there. Instead of
+the clipper you get the **ChatGPT resumes** panel, and on chatgpt.com you get
+nothing else.
+
+1. Pick who to write as, and tick jobs. The list is Poong's "needs a resume"
+   for that persona: a usable job description and no resume yet, or one that
+   failed. Switch *Show* to see every job with a JD, or type to search.
+2. Press **Generate**. The jobs run one at a time, each in a new chat in this
+   tab. For each, the backend hands over a prompt (the persona prompt, the
+   candidate profile and the job description), the panel pastes it and presses
+   send, waits for ChatGPT to finish, and hands the answer back. Then the
+   screening questions, in the same chat. The backend may ask for more, such as
+   an ATS retry, and the panel follows until the job says it is done.
+3. The backend writes the same files an API-generated resume gets: the HTML and
+   PDF resume, the cover letter, `answers.json`, the ATS score, and the job
+   folder. It also writes `chatgpt_raw.txt`, with what was sent and what came
+   back. Each job's pill shows its progress, then done with its ATS score, or
+   failed. Hover over it to see why.
+
+Keep the tab in front while it works: Chrome slows hidden tabs down. **Stop**
+ends the run after the current step.
+
+If the panel cannot find ChatGPT's send button, it asks you to click it once.
+Your click sends that prompt, and the panel remembers the button and presses it
+itself from then on.
+
+The prompt goes in as one paste. Typing it froze the page, since a prompt runs
+to hundreds of lines. ChatGPT may turn the paste into a "Pasted text"
+attachment, which works the same. The answer comes out through the message's
+own Copy button, with the clipboard intercepted for that one click, so your
+clipboard is never touched.
+
+The backend's `config/runtime.yml` holds `chatgpt_timeout_seconds`, the longest
+one reply may take (360 by default). It is a ceiling, not a delay.
+
 ## Layout
 
 ```
@@ -136,12 +173,16 @@ manifest.json    MV3. No default_popup — that is what makes the icon click fir
                  chrome.action.onClicked, which toggles the panel.
 background.js    Service worker: the backend calls and the file writing.
 content.js       The only classic script. Toggles the panel, then dynamically
-                 imports lib/panel.js — a content script cannot be declared as a
+                 imports lib/panel.js (lib/gpt-panel.js on chatgpt.com) — a
+                 content script cannot be declared as a
                  module, but it may import one.
-lib/panel.js     The panel: shadow root, both cards, dragging.
+lib/shell.js     The frame both panels share: shadow root, dragging, closing.
+lib/panel.js     The clipper panel and its cards.
+lib/gpt-panel.js The ChatGPT resumes panel (chatgpt.com only).
+lib/gpt-page.js  What that panel does on the ChatGPT page, run in its own world.
 ui.css           Shared by the panel's shadow root and the options page.
 options.html/.js Backend URL, token, persona.
-lib/api.js       The two backend calls (worker and options page only).
+lib/api.js       The backend calls (worker and options page only).
 lib/settings.js  What is stored, and why it is local rather than synced.
 lib/extract.js   Reading a job out of the page.
 lib/jobright.js  Search payload → rows.

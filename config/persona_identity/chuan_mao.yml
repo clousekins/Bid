@@ -1,0 +1,110 @@
+persona_id: chuan_mao
+display_name: Chuan Mao
+default_professional_title: Senior Data Engineer
+total_experience: "14 years"
+
+identity:
+  legal_name: Chuan Mao
+  preferred_name: Chuan Mao
+  email: cmao90@outlook.com
+  # The resume header, the cover-letter signature and the prompt's {{phone}}
+  # slots all read this one field.
+  phone: "(571) 295-4180"
+  location_city: Arlington
+  location_state: VA
+  location_country: US
+  linkedin_url: https://www.linkedin.com/in/chuanmao/
+  work_authorization: "Authorized to work in the US"
+  salary_expectation: "150000-180000 USD per year"
+
+screening_answers:
+  - question: "Your resume's ATS score for this job description(only score, ex: 40%)?"
+    answer: ""
+  - question: "Are you authorized to work in the United States?"
+    answer: "Yes"
+  - question: "Do you now or will you in the future require sponsorship?"
+    answer: "No"
+  - question: "Are you willing to work remotely in the United States?"
+    answer: "Yes"
+  - question: "How many years of experience do you have?"
+    answer: "14"
+  - question: "What is your expected salary?"
+    answer: "150000-180000 USD per year"
+  - question: "Current Employer"
+    answer: "Meta"
+  - question: "Current Job Title"
+    answer: "Data Engineer"
+  - question: "Were you referred for this position?"
+    answer: "No"
+
+tailor:
+  mode: html_resume_bundle
+  prompt_file: chuan_mao.prompt.md
+  css_file: chuan_mao.css
+  # The accent chuan_mao.css is written in (a copy of alex_mak.css). Declaring
+  # it lets the colour picker repaint the sheet at generation time.
+  accent_color: "#1D6E93"
+  # Fill in <strong> on any bullet the model left without emphasis, and trim any
+  # that ran past three, as for alex_mak.
+  enforce_bullet_emphasis: true
+  experience_ground_truth:
+    - company: Meta
+      title: Data Engineer
+      location: Remote
+      start: "Jul 2020"
+      end: Present
+      bullets: 8
+      focus: Product data engineering across Messaging Large Screens, Messenger Communities and Superintelligence Labs; logging and event pipelines, core metrics and data models, experimentation data, privacy and retention controls, AI training and evaluation data (Superintelligence Labs)
+      allowed_tech: Open technologies Meta's stack is built on or equivalent to (Spark, Presto/Trino, Hive, Python, SQL, PyTorch). And JD's cloud workflow.
+    - company: INNOCEAN USA
+      title: Principal Data Engineer
+      location: Remote
+      start: "Jun 2019"
+      end: "Jul 2020"
+      bullets: 7
+      focus: Marketing and advertising data platform ownership; campaign, media-spend and ad-platform data; warehouse architecture and modeling; attribution and reporting datasets; standards and technical direction
+      allowed_tech: Modern data stack aligned to JD, as it existed by mid-2020, on one cloud provider selected from the JD
+    - company: Revenue Analytics, Inc.
+      title: Senior Software Engineer, Data Engineering
+      location: Dunwoody, Georgia
+      start: "Aug 2016"
+      end: "Jun 2019"
+      bullets: 4
+      focus: Core modules of a global revenue management system (Market Response Model, Demand Forecast, Price and Inventory joint Optimization); data requests, validation and mapping; batch scheduling; Tableau report data; AWS-hosted demand and retail forecasting for a salon chain; technical standards, reviews and coaching; pre-sales architecture diagrams
+      allowed_tech: Python, SQL, PL/SQL, Oracle, AWS (S3, EC2, RDS), Tableau, shell scripting, batch scheduling. AWS only
+    - company: Revenue Analytics, Inc.
+      title: Software Engineer, Data Engineering
+      location: Dunwoody, Georgia
+      start: "Jun 2014"
+      end: "Aug 2016"
+      bullets: 4
+      focus: Rule-based pricing for cruise shore excursions; Demand Forecast, Competitor Data Processing, Market Response Model, Rate Forecast, Price and Inventory Optimization for hospitality and cruise clients; data validation and mapping; batch scheduling; Tableau report publishing
+      allowed_tech: Python, SQL, PL/SQL, Oracle, Tableau, shell scripting, batch scheduling. No cloud platform
+    - company: Revenue Analytics, Inc.
+      title: Analyst, Data Engineering
+      location: Dunwoody, Georgia
+      start: "Jun 2012"
+      end: "Jun 2014"
+      bullets: 3
+      focus: Data requirements and integrated data models for automotive revenue management; data analysis and competitive-data cleansing for a cruise line; middle-tier and data model for UI and DB access; what-if scenarios; self-diagnostic automation; PL/SQL, Excel VBA and shell reports on Oracle; design documentation and diagrams
+      allowed_tech: SQL, PL/SQL, Oracle, Excel VBA, shell scripting. No cloud platform
+  # No graduation years on record: the resume leaves the year column empty
+  # rather than inventing one.
+  education_ground_truth:
+    - degree: Master of Science (Information Systems and Technology Management)
+      school: The George Washington University
+      location: Washington, D.C.
+      year: ""
+      activities: Graduate Consulting Group
+    - degree: Bachelor (Management Information Systems)
+      school: Renmin University of China
+      location: Beijing, China
+      year: ""
+  # The AWS certificate has no recorded date: its year column stays empty.
+  certifications_ground_truth:
+    - name: AWS Certified Cloud Practitioner
+      issuer: Amazon Web Services
+      year: ""
+    - name: CIO University Certificate
+      issuer: The George Washington University
+      year: "2012"

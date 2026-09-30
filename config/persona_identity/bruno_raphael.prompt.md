@@ -19,453 +19,18 @@ Cloud Data Engineer | Ohio Department of Health | Remote | Jan 2023 - Dec 2024
 Data Engineer | Ohio Department of Health | Columbus, Ohio | May 2021 - Dec 2022
 Python Developer | Intelivix | Recife, Pernambuco, Brazil | Feb 2019 - Mar 2021
 
------------ Domain rule -------------------
-
-First of all, think about the job domain from the JD.
-Also think about the JD's really important skills or role.
-I will give you some projects.
-Then you can select a project from these matching domain.
-If you can't select any project, you can imagine a UHG project just like JD's project.
-
-Domain: Health Insurance / Payer Operations
-
-Project name: Claims Adjudication Data Platform
-Project detail: Build pipelines integrating medical claims, member eligibility, provider contracts, diagnosis/procedure codes, and payment rules. Support adjudication analytics, rejected-claim investigation, and payment accuracy.
-
-Project name: Member Eligibility & Enrollment Platform
-Project detail: Process employer, Medicare, Medicaid, and individual-plan enrollment feeds. Maintain effective dates, coverage changes, dependents, terminations, and eligibility history.
-
-Project name: Premium Billing & Reconciliation Platform
-Project detail: Reconcile premium invoices, employer payments, member contributions, adjustments, and outstanding balances across billing systems.
-
-Project name: Benefit Configuration Analytics
-Project detail: Centralize deductible, copay, coinsurance, coverage-limit, and plan-benefit information so downstream systems can determine member financial responsibility.
-
-Domain: Medical Claims
-
-Project name: Enterprise Claims Lakehouse
-Project detail: Ingest professional, institutional, pharmacy, and dental claims into Databricks/Delta Lake for analytics, reporting, and downstream processing.
-
-Project name: Claims Reprocessing Platform
-Project detail: Identify claims affected by pricing, eligibility, or configuration corrections and safely reprocess them while preserving complete audit history.
-
-Project name: Claims Reconciliation System
-Project detail: Compare claims across intake, adjudication, payment, and financial systems to detect missing, duplicated, or mismatched transactions.
-
-Project name: Claims Denial Analytics
-Project detail: Analyze denial codes, providers, procedures, member plans, and historical patterns to identify major causes of claim rejection.
-
-Domain: Member / Customer
-
-Project name: Member 360 Data Platform
-Project detail: Combine eligibility, claims, pharmacy, contact-center, digital-app, and benefit data into a unified member profile.
-
-Project name: Member Engagement Analytics
-Project detail: Track portal visits, mobile-app activity, messages, calls, care-program participation, and benefit usage to understand engagement.
-
-Project name: Member Communication Preference Platform
-Project detail: Manage email, SMS, phone, paper, language, and consent preferences across multiple customer-facing systems.
-
-Project name: Member Journey Analytics
-Project detail: Analyze the member experience from enrollment through care, claims, payments, support calls, and renewals.
-
-Domain: Provider
-
-Project name: Provider 360 Platform
-Project detail: Combine provider demographics, specialties, contracts, claims, quality scores, credentialing, and network participation.
-
-Project name: Provider Directory Data Quality
-Project detail: Continuously validate provider address, specialty, phone, facility affiliation, network status, and availability.
-
-Project name: Provider Performance Analytics
-Project detail: Calculate provider cost, quality, utilization, readmission, patient outcomes, and network-performance metrics.
-
-Project name: Provider Credentialing Platform
-Project detail: Integrate licenses, certifications, sanctions, specialties, education, and credentialing status into a governed workflow.
-
-Domain: Provider Network Management
-
-Project name: Network Adequacy Analytics
-Project detail: Determine whether health plans have sufficient providers by geography, specialty, population, and regulatory requirements.
-
-Project name: Provider Contract Analytics
-Project detail: Model reimbursement contracts, fee schedules, negotiated rates, effective dates, and contract amendments.
-
-Project name: Out-of-Network Leakage Analytics
-Project detail: Identify members receiving services outside the preferred network and analyze cost and availability causes.
-
-Project name: Provider Network Optimization
-Project detail: Use cost, quality, capacity, geography, and member demand to determine where network expansion is needed.
-
-Domain: Pharmacy / Optum Rx
-
-Project name: Pharmacy Claims Platform
-Project detail: Process prescription claims containing member, pharmacy, drug, prescriber, benefit, pricing, and authorization information.
-
-Project name: Prescription Adherence Analytics
-Project detail: Analyze refill history and medication possession to identify members at risk of discontinuing important medications.
-
-Project name: Drug Pricing Analytics
-Project detail: Compare ingredient cost, dispensing fees, negotiated rates, rebates, member copays, and pharmacy reimbursements.
-
-Project name: Specialty Pharmacy Analytics
-Project detail: Track expensive specialty medications, prior authorization, dispensing, adherence, clinical outcomes, and financial performance.
-
-Domain: Pharmacy Benefit Management
-
-Project name: Formulary Management Platform
-Project detail: Manage covered-drug lists, tiers, exclusions, utilization rules, and plan-specific formulary configurations.
-
-Project name: Drug Rebate Reconciliation
-Project detail: Match manufacturer rebate agreements with pharmacy utilization and eligible claims to calculate expected payments.
-
-Project name: Pharmacy Network Analytics
-Project detail: Evaluate pharmacy utilization, geographic coverage, pricing, contract performance, and member access.
-
-Project name: Generic Drug Conversion Analytics
-Project detail: Identify opportunities to move appropriate prescriptions toward lower-cost generic or alternative therapies.
-
-Domain: Clinical / EHR
-
-Project name: Clinical Data Lake
-Project detail: Integrate EHR, laboratory, diagnosis, procedure, medication, encounter, and observation data into a common clinical model.
-
-Project name: HL7/FHIR Integration Platform
-Project detail: Build pipelines and APIs processing HL7 messages and FHIR resources from hospitals, clinics, labs, and external partners.
-
-Project name: Patient Clinical Timeline
-Project detail: Create chronological patient histories combining encounters, diagnoses, labs, medications, procedures, and care events.
-
-Project name: Clinical Data Quality Framework
-Project detail: Detect missing codes, invalid clinical values, duplicate encounters, timestamp problems, and inconsistent patient identifiers.
-
-Domain: Care Management
-
-Project name: High-Risk Member Identification
-Project detail: Combine claims, clinical, pharmacy, demographic, and utilization data to identify members needing care-management intervention.
-
-Project name: Care Gap Analytics
-Project detail: Identify missing screenings, vaccinations, follow-up visits, medication adherence, and preventive-care activities.
-
-Project name: Care Manager Workflow Platform
-Project detail: Feed prioritized member cases into care-management systems with risk factors, recent events, and recommended actions.
-
-Project name: Hospital Discharge Follow-Up
-Project detail: Detect inpatient discharges and trigger timely care-manager outreach to reduce complications and readmissions.
-
-Domain: Population Health
-
-Project name: Population Health Data Mart
-Project detail: Aggregate member populations by disease, risk, geography, demographics, utilization, and outcomes.
-
-Project name: Chronic Disease Analytics
-Project detail: Analyze diabetes, hypertension, cardiovascular disease, COPD, and other chronic-condition populations.
-
-Project name: Preventive Care Analytics
-Project detail: Measure screenings, vaccinations, annual wellness visits, and preventive-care compliance.
-
-Project name: Health Equity Analytics
-Project detail: Analyze differences in healthcare access, utilization, quality, and outcomes across different geographic and demographic groups.
-
-Domain: Utilization Management
-
-Project name: Utilization Review Platform
-Project detail: Analyze inpatient admissions, procedures, imaging, therapy, and other services requiring medical-necessity review.
-
-Project name: Inpatient Utilization Analytics
-Project detail: Track admission rates, length of stay, readmissions, intensive-care usage, and hospital utilization.
-
-Project name: Medical Necessity Rules Engine Data Platform
-Project detail: Combine clinical policies, member benefits, diagnosis, procedures, and historical utilization to support review decisions.
-
-Project name: Utilization Trend Monitoring
-Project detail: Detect unusual increases in procedures, hospitalizations, imaging, or other healthcare services.
-
-Domain: Prior Authorization
-
-Project name: Prior Authorization Workflow Platform
-Project detail: Integrate provider requests, member eligibility, clinical documentation, benefit rules, and approval decisions.
-
-Project name: Prior Authorization Automation
-Project detail: Automatically approve straightforward requests based on policy rules while routing complex cases for clinical review.
-
-Project name: Authorization Turnaround Analytics
-Project detail: Monitor submission-to-decision time, pending cases, denial causes, and operational bottlenecks.
-
-Project name: Authorization-to-Claims Reconciliation
-Project detail: Validate that claims requiring authorization have corresponding approved authorization records.
-
-Domain: Payment / Financial Transactions
-
-Project name: Provider Payment Platform
-Project detail: Build data pipelines connecting adjudicated claims with provider payment, ACH, check, virtual-card, and remittance information.
-
-Project name: Payment Reconciliation Engine
-Project detail: Compare claims-payment instructions against banking, treasury, and provider-remittance records.
-
-Project name: Member Cost-Sharing Analytics
-Project detail: Analyze deductibles, copays, coinsurance, benefit balances, and member financial responsibility.
-
-Project name: Payment Exception Management
-Project detail: Identify rejected ACH payments, duplicate payments, invalid banking details, stale checks, and payment reversals.
-
-Domain: Commerce / Marketplace
-
-Project name: Member Benefits Commerce Platform
-Project detail: Support member purchases of OTC, wellness, and benefit-eligible products using benefit balances and payment methods.
-
-Project name: Commerce Order Analytics
-Project detail: Process product views, carts, checkout events, orders, payments, shipment, delivery, refund, and cancellation data.
-
-Project name: Benefit Wallet & Checkout Reconciliation
-Project detail: Reconcile benefit-wallet deductions with checkout transactions, vendor orders, refunds, and settlement records.
-
-Project name: Product Catalog Data Platform
-Project detail: Centralize SKU, product category, price, eligibility, vendor, inventory, and plan-specific product rules.
-
-Domain: Revenue Cycle Management
-
-Project name: Patient Billing Analytics
-Project detail: Integrate charges, claims, insurance payments, patient balances, write-offs, and collections.
-
-Project name: Denial Management Platform
-Project detail: Analyze denied claims and automate prioritization based on denial reason, amount, payer, and recovery probability.
-
-Project name: Accounts Receivable Analytics
-Project detail: Track outstanding balances, aging buckets, collections activity, and payment trends.
-
-Project name: Revenue Leakage Detection
-Project detail: Identify missed charges, coding errors, underpayments, duplicate adjustments, and unbilled services.
-
-Domain: Fraud, Waste & Abuse
-
-Project name: Claims Fraud Detection Platform
-Project detail: Analyze provider, member, procedure, diagnosis, billing, and utilization patterns to identify suspicious claims.
-
-Project name: Provider Anomaly Detection
-Project detail: Compare providers against peer groups to detect unusual billing frequency, procedure combinations, or reimbursement patterns.
-
-Project name: Duplicate Claims Detection
-Project detail: Detect identical or near-identical claims submitted multiple times using deterministic and probabilistic matching.
-
-Project name: Investigation Case Analytics
-Project detail: Consolidate suspicious claims, provider history, member relationships, and investigation results for special-investigation teams.
-
-Domain: Risk Adjustment
-
-Project name: Risk Adjustment Data Platform
-Project detail: Process claims and clinical diagnoses used for Medicare Advantage and other risk-adjustment programs.
-
-Project name: HCC Analytics Platform
-Project detail: Map diagnoses to Hierarchical Condition Categories and calculate member risk indicators.
-
-Project name: Diagnosis Validation Analytics
-Project detail: Compare claims, clinical records, and coding evidence to validate risk-adjustment diagnoses.
-
-Project name: Risk Submission Reconciliation
-Project detail: Compare internal risk records with government submissions and returned response files.
-
-Domain: Medicare
-
-Project name: Medicare Advantage Analytics
-Project detail: Combine enrollment, claims, pharmacy, risk adjustment, quality, and benefit utilization for Medicare populations.
-
-Project name: Medicare Enrollment Platform
-Project detail: Process enrollment transactions, eligibility changes, plan selection, effective dates, and CMS response files.
-
-Project name: Medicare Benefit Utilization Analytics
-Project detail: Analyze supplemental benefits such as OTC, transportation, dental, vision, hearing, and wellness programs.
-
-Project name: CMS Submission Data Platform
-Project detail: Prepare, validate, reconcile, and track regulatory data submissions to CMS.
-
-Domain: Medicaid
-
-Project name: Medicaid Eligibility Platform
-Project detail: Integrate state eligibility, enrollment, demographic, and plan-assignment information.
-
-Project name: Medicaid Claims Analytics
-Project detail: Analyze medical and pharmacy utilization across Medicaid populations and state programs.
-
-Project name: Medicaid Encounter Submission Platform
-Project detail: Transform and validate managed-care encounters before submission to state agencies.
-
-Project name: Social Determinants Analytics
-Project detail: Combine healthcare and community-resource data to understand transportation, housing, food, and other care barriers.
-
-Domain: Employer Health Plans
-
-Project name: Employer Group Analytics
-Project detail: Build employer-level reporting for membership, claims cost, utilization, pharmacy spending, and health outcomes.
-
-Project name: Employer Enrollment Integration
-Project detail: Process employee/dependent eligibility files from large employers and benefit administration systems.
-
-Project name: Employer Cost Trend Analytics
-Project detail: Measure healthcare cost trends across employee populations, providers, conditions, and service categories.
-
-Project name: Benefit Plan Performance Dashboard
-Project detail: Compare utilization, member outcomes, employee engagement, and financial results across plan designs.
-
-Domain: Behavioral Health
-
-Project name: Behavioral Health Data Platform
-Project detail: Integrate mental-health and substance-use claims, clinical events, provider, and program data.
-
-Project name: Behavioral Health Care Coordination
-Project detail: Identify members requiring coordinated behavioral and physical-health interventions.
-
-Project name: Behavioral Health Provider Analytics
-Project detail: Analyze access, utilization, outcomes, cost, and network capacity across behavioral-health providers.
-
-Project name: Behavioral Health Program Outcomes
-Project detail: Measure engagement, treatment continuation, readmissions, emergency utilization, and other program outcomes.
-
-Domain: Dental / Vision
-
-Project name: Dental Claims Platform
-Project detail: Process dental claims, procedures, provider networks, benefits, and member cost-sharing.
-
-Project name: Vision Benefit Analytics
-Project detail: Analyze eye exams, glasses, contact lenses, providers, benefit allowances, and member utilization.
-
-Project name: Dental Network Analytics
-Project detail: Evaluate provider availability, utilization, cost, and quality across dental networks.
-
-Project name: Supplemental Benefit Integration
-Project detail: Build a common data platform across medical, dental, vision, hearing, and wellness benefits.
-
-Domain: Contact Center / Customer Service
-
-Project name: Contact Center Analytics Platform
-Project detail: Integrate member calls, IVR events, agent activity, call reasons, case data, and resolution outcomes.
-
-Project name: Member Call Journey Analytics
-Project detail: Connect calls with claims, benefits, provider searches, prior authorizations, and other member activities.
-
-Project name: First Call Resolution Analytics
-Project detail: Determine whether member issues were resolved during the first interaction or required repeated contacts.
-
-Project name: Agent Performance Analytics
-Project detail: Measure handling time, resolution rate, transfer rate, customer satisfaction, and workload.
-
-Domain: Digital Health
-
-Project name: Member Mobile App Analytics
-Project detail: Track login, provider search, claims views, virtual visits, benefit usage, and other app activity.
-
-Project name: Digital Identity Platform
-Project detail: Create secure identity matching across member portals, apps, healthcare systems, and external services.
-
-Project name: Virtual Care Data Platform
-Project detail: Integrate telehealth appointments, provider activity, clinical encounters, prescriptions, and follow-up events.
-
-Project name: Digital Personalization Platform
-Project detail: Use member context to personalize recommendations, benefits, health programs, and digital experiences.
-
-Domain: Healthcare API / Interoperability
-
-Project name: FHIR API Platform
-Project detail: Expose member, claims, provider, coverage, and clinical data through standardized FHIR APIs.
-
-Project name: Partner Integration Gateway
-Project detail: Manage secure API exchanges with hospitals, providers, pharmacies, vendors, employers, and government partners.
-
-Project name: EDI Integration Platform
-Project detail: Process healthcare transactions such as 837 claims, 835 remittances, 270/271 eligibility, and 276/277 claim status.
-
-Project name: Healthcare Data Canonical Model
-Project detail: Transform many external schemas into standardized internal member, provider, claim, encounter, and clinical models.
-
-Domain: Data Platform
-
-Project name: Enterprise Healthcare Lakehouse
-Project detail: Build Bronze/Silver/Gold architecture on Databricks for claims, clinical, pharmacy, member, and provider workloads.
-
-Project name: Streaming Data Platform
-Project detail: Use Kafka and Spark Structured Streaming for real-time claims, member, payment, and digital events.
-
-Project name: Enterprise Data Quality Framework
-Project detail: Standardize completeness, validity, uniqueness, reconciliation, freshness, and schema-drift checks.
-
-Project name: Metadata-Driven ETL Framework
-Project detail: Build reusable ingestion and transformation frameworks driven by configuration instead of custom code for every pipeline.
-
-Domain: Data Governance
-
-Project name: Enterprise Data Catalog
-Project detail: Create searchable metadata and lineage covering business definitions, tables, pipelines, owners, and data classifications.
-
-Project name: PHI/PII Governance Platform
-Project detail: Discover and classify sensitive healthcare data and enforce masking and access controls.
-
-Project name: Data Lineage Platform
-Project detail: Trace critical fields from source applications through transformations to reports, APIs, and regulatory outputs.
-
-Project name: Data Retention Framework
-Project detail: Automate retention and deletion rules based on legal, regulatory, and business requirements.
-
-Domain: Security / Compliance
-
-Project name: Healthcare Security Audit Platform
-Project detail: Centralize access, authentication, data usage, administrative changes, and audit events.
-
-Project name: HIPAA Access Monitoring
-Project detail: Detect unusual access to PHI based on user role, member relationship, volume, and behavior.
-
-Project name: Data Loss Prevention Analytics
-Project detail: Monitor movement of sensitive data across databases, storage, APIs, files, and cloud environments.
-
-Project name: Regulatory Evidence Automation
-Project detail: Collect access-control, encryption, lineage, deployment, and audit evidence for compliance reviews.
-
-Domain: Finance
-
-Project name: Healthcare Financial Data Warehouse
-Project detail: Consolidate premium revenue, medical costs, pharmacy spending, provider payments, administrative expenses, and forecasts.
-
-Project name: Medical Cost Trend Analytics
-Project detail: Analyze healthcare spending changes by service, provider, geography, diagnosis, and member population.
-
-Project name: Financial Close Automation
-Project detail: Reconcile operational systems with finance ledgers and automate monthly-close reporting.
-
-Project name: Healthcare Profitability Analytics
-Project detail: Analyze revenue and cost by product, employer, market, plan, and member segment.
-
-Domain: AI / Machine Learning
-
-Project name: Claims Prediction Platform
-Project detail: Build training datasets and feature pipelines for claim-cost, denial, or processing predictions.
-
-Project name: Healthcare Recommendation Engine
-Project detail: Generate personalized recommendations for care programs, providers, benefits, and member services.
-
-Project name: Provider Fraud ML Platform
-Project detail: Build features and model pipelines to identify unusual provider billing and utilization behavior.
-
-Project name: Generative AI Knowledge Platform
-Project detail: Build governed RAG datasets from policies, benefit documents, clinical guidelines, and operational knowledge.
-
-Domain: Reporting / Business Intelligence
-
-Project name: Executive Healthcare KPI Platform
-Project detail: Provide standardized metrics for membership, claims, costs, quality, pharmacy, network, and operations.
-
-Project name: Operational Reporting Data Mart
-Project detail: Create curated datasets supporting daily claims, enrollment, payment, provider, and service operations.
-
-Project name: Self-Service Analytics Platform
-Project detail: Publish governed business datasets that analysts can use without querying raw operational databases.
-
-Project name: Regulatory Reporting Warehouse
-Project detail: Maintain validated historical datasets supporting federal and state healthcare reporting.
-
--------------- Matching Domain and selected project -------------------
-
-Use many skills especially impactful skills in JD as much as possible.
-These skills are more priority.
-The selected project is organized by the as much as possible a lot of JD skills inorder the priority.
+----------- Ready for write rule -------------------
+
+First of all, analyze the JD and catch all of the JD requirements(years of experienced for each skill) and skills(cloud, datalake, warehouse, databricks and all of skills) and responsibility(role, position).
+Imagine a ideal projects for Bruno's last two roles(UHG and Ohio) based on your analyze result including all of them.
+But all projects are indivisual.
+The experience bullets are show these projects for role.
+Bruno's last two roles must show most powerful impact for JD, especially at UHG.
+Don't worry. UHG is Health group, so the company has all of the Job domains (healthcare, financial, so on).
+And other roles(projects) show thses infrastructure.
+About each project, think about Bruno's exact role for JD and Skills.
+Overall, history summary have match or more experience for the JD as can as possible.
+Make the projects and roles.
 
 -------------- Writing bullets rule -------------------------------
 
@@ -481,11 +46,6 @@ Write every sentences as human written to the maximum.
 Don't use this "10+ years".
 Use "over 10 years".
 Use quantity numbers that show your impact as much as possible.
-
-Never use "+" as shorthand for "over" or "more than", anywhere in the resume.
-Write "over 30 projects", not "30+ projects".
-Write "more than 5 years", not "5+ years".
-This applies to every number in every bullet, the summary, and the skills section.
 
 I will give you count of bullet about each position.
 UnitedHealth Group - Senior Data Engineer | Data Platform engineer : 8 bullet points
@@ -574,10 +134,6 @@ roles. Built, Designed, Implemented, Developed, Led and Optimized are worn
 thin. Rewrote, Cut, Traced, Replaced, Merged, Backfilled, Split, Tuned, Caught,
 Unblocked and Retired read like a person wrote them.
 
-Vary bullet length inside every role. Mix one short bullet of roughly 15 words
-with longer ones of 35 to 45. Eight bullets of matching length is the clearest
-generated-text signal on the page.
-
 Do not repair one pattern by repeating a single replacement. If every bullet
 now opens on "Rebuilt", that is the same problem wearing a different coat.
 
@@ -629,6 +185,7 @@ However, if a more precise truthful formulation improves alignment with the
 JD, use it. Never increase the number merely to satisfy the JD.
 
 Describe seniority, data engineering background, ownership, business impact, and collaboration in plain language.
+THIS SECTION MUST SHOWS OVERALL IMPACT FOR JD.
 
 Do not list technologies or a keyword stack in the summary.
 
@@ -792,6 +349,13 @@ Never name a platform the JD does not mention and the resume does not use.
 
 This pipe belongs to the header title only. The role lines inside Work
 Experience still carry two spans and never a pipe.
+
+
+-------------- THE MOST IMPORTANT RULE -------------------------------
+After resume draft was completed, analyze the resume based on the JD.
+If the resume have a some important weakness and you can modify it, REWRITE the resume.
+The recruiter must feels that the man is a best fit for the role.
+BUT DON'T ADD CONTAINS THAT NOT MATCHING TERMS OF TIMING OR IMPOSSIBLE SKILLS OR IMPOSSIBLE ROLES.
 
 -------------- HTML output -------------------------------
 

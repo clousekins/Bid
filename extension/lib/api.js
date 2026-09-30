@@ -108,6 +108,48 @@ export async function createJob(job) {
  * parameters, a trailing slash and the scheme all vary between where a link was
  * found and where it was saved from.
  */
+/**
+ * The ChatGPT panel's backend calls. A job is a session: start it and get the
+ * first prompt; post each reply and get the next prompt, or the outcome.
+ */
+export const gpt = {
+  jobs({ persona_id, show, q, offset, limit }) {
+    const params = new URLSearchParams();
+    if (persona_id) params.set("persona_id", persona_id);
+    if (show) params.set("show", show);
+    if (q) params.set("q", q);
+    if (offset) params.set("offset", String(offset));
+    if (limit) params.set("limit", String(limit));
+    return request(`/api/chatgpt/jobs?${params}`);
+  },
+  start({ job_id, persona_id }) {
+    return request("/api/chatgpt/sessions", {
+      method: "POST",
+      body: JSON.stringify({ job_id, persona_id }),
+    });
+  },
+  reply({ session, step, text }) {
+    return request(`/api/chatgpt/sessions/${encodeURIComponent(session)}/reply`, {
+      method: "POST",
+      body: JSON.stringify({ step, text }),
+    });
+  },
+  fail({ session, step, error }) {
+    return request(`/api/chatgpt/sessions/${encodeURIComponent(session)}/fail`, {
+      method: "POST",
+      body: JSON.stringify({ step, error }),
+    });
+  },
+  next({ session }) {
+    return request(`/api/chatgpt/sessions/${encodeURIComponent(session)}/next`);
+  },
+  cancel({ session }) {
+    return request(`/api/chatgpt/sessions/${encodeURIComponent(session)}/cancel`, {
+      method: "POST",
+    });
+  },
+};
+
 export function normalizeUrl(raw) {
   const text = String(raw || "").trim();
   if (!text) return "";

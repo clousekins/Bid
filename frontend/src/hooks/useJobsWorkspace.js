@@ -15,6 +15,10 @@ export function useJobsWorkspace() {
   const [hideOwnEmployers, setHideOwnEmployers] = useState(true);
   const [ownEmployerInfo, setOwnEmployerInfo] = useState({ hidden: 0, names: [] });
   const [searchText, setSearchText] = useState("");
+  // Empty means every country. The options come from the server so only
+  // countries that actually have listings can be chosen.
+  const [countryFilter, setCountryFilter] = useState("");
+  const [countryOptions, setCountryOptions] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
@@ -38,7 +42,13 @@ export function useJobsWorkspace() {
         params.profile_status = profileStatusFilter;
       }
       if (searchQuery) params.q = searchQuery;
-      const [list, st] = await Promise.all([client.listJobs(params), client.stats()]);
+      if (countryFilter) params.country = countryFilter;
+      const [list, st, countries] = await Promise.all([
+        client.listJobs(params),
+        client.stats(),
+        client.jobCountries().catch(() => null),
+      ]);
+      if (countries?.countries) setCountryOptions(countries.countries);
       const rows = list.jobs || [];
       setJobs(rows);
       setJobsTotal(Number(list.total ?? rows.length));
@@ -70,7 +80,7 @@ export function useJobsWorkspace() {
       setError(String(e.message || e));
       logPoong("refresh error", e);
     }
-  }, [statusFilter, workingPersonaId, profileStatusFilter, searchQuery, page, pageSize, sort, sortDir, hideOwnEmployers]);
+  }, [statusFilter, workingPersonaId, profileStatusFilter, searchQuery, countryFilter, page, pageSize, sort, sortDir, hideOwnEmployers]);
 
   useEffect(() => {
     const timer = setTimeout(() => setSearchQuery(searchText.trim()), 250);
@@ -79,7 +89,7 @@ export function useJobsWorkspace() {
 
   useEffect(() => {
     setPage(1);
-  }, [statusFilter, workingPersonaId, profileStatusFilter, searchQuery, pageSize, sort, sortDir, hideOwnEmployers]);
+  }, [statusFilter, workingPersonaId, profileStatusFilter, searchQuery, countryFilter, pageSize, sort, sortDir, hideOwnEmployers]);
 
   useEffect(() => {
     refresh();
@@ -217,6 +227,9 @@ export function useJobsWorkspace() {
     ownEmployerInfo,
     setProfileStatusFilter,
     searchText,
+    countryFilter,
+    setCountryFilter,
+    countryOptions,
     setSearchText,
     searchQuery,
     page,

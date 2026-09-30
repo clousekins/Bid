@@ -11,6 +11,9 @@ export default function Toolbar({
   onProfileStatusChange,
   statusFilter,
   onStatusFilterChange,
+  countryFilter,
+  onCountryFilterChange,
+  countryOptions = [],
   stats,
   workingPersonaId,
   hideOwnEmployers = true,
@@ -27,6 +30,9 @@ export default function Toolbar({
       ? PIPELINE_OPTIONS.find((o) => o.value === statusFilter)?.label || statusFilter
       : null,
     searchText.trim() ? `"${searchText.trim()}"` : null,
+    countryFilter
+      ? countryOptions.find((c) => c.code === countryFilter)?.name || countryFilter
+      : null,
   ].filter(Boolean);
 
   return (
@@ -36,7 +42,7 @@ export default function Toolbar({
         <input
           type="search"
           value={searchText}
-          placeholder="Search company, title, profile…"
+          placeholder="Search company, title, profile, URL…"
           onChange={(e) => onSearchChange(e.target.value)}
         />
       </label>
@@ -58,6 +64,25 @@ export default function Toolbar({
           );
         })}
       </div>
+
+      {/* Only countries that actually have listings are offered, so the filter
+          cannot select an empty set. Empty value means every country, which is
+          the default. */}
+      <label className="filter-country">
+        <span className="filter-pipeline-label">Country</span>
+        <select
+          value={countryFilter || ""}
+          onChange={(e) => onCountryFilterChange(e.target.value)}
+          title="Show listings from one country"
+        >
+          <option value="">All countries</option>
+          {countryOptions.map((c) => (
+            <option key={c.code} value={c.code}>
+              {c.name} ({c.count})
+            </option>
+          ))}
+        </select>
+      </label>
 
       <label className="filter-pipeline">
         <span className="filter-pipeline-label">Pipeline</span>

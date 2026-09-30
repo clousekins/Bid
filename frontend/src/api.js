@@ -34,6 +34,7 @@ async function api(path, options = {}) {
 
 export const client = {
   health: () => api("/api/health"),
+  jobCountries: () => api("/api/jobs/countries"),
   listJobs: (params = {}) => {
     const q = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => {
@@ -128,8 +129,7 @@ export const client = {
     });
     return api(`/api/sync/ats-catalog/boards?${q}`);
   },
-  tailorRange: (body) => api("/api/sync/tailor", { method: "POST", json: body }),
-  deepScanIds: (job_ids) =>
+  tailorRange: (body) => api("/api/sync/tailor", { method: "POST", json: body }),  deepScanIds: (job_ids) =>
     api("/api/sync/deep-scan", { method: "POST", json: { job_ids } }),
   tailorIds: (job_ids, persona_id) =>
     api("/api/sync/tailor", {
@@ -162,6 +162,9 @@ export const client = {
   personas: () => api("/api/settings/personas"),
   setAtsFloor: (body) =>
     api("/api/settings/ats-floor", { method: "POST", json: body }),
+  resumeAccent: () => api("/api/settings/resume-accent"),
+  setResumeAccent: (accent) =>
+    api("/api/settings/resume-accent", { method: "POST", json: { accent } }),
   activatePersona: (persona_id) =>
     api("/api/settings/personas/activate", { method: "POST", json: { persona_id } }),
   rejected: () => api("/api/rejected"),

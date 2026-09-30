@@ -10,6 +10,7 @@ from sqlalchemy.orm import selectinload
 from app.db.enums import JobStatus, PackageStatus
 from app.db.models import Application, Company, Job, JobPackage, JobSourceSeen, RejectedJob
 from app.services.folder_writer import sync_job_folder
+from app.services.job_country import country_code
 from app.services.persona import get_active_persona_id
 from app.validators.dedupe import canonicalize_url, normalize_company, normalize_title
 from app.validators.it_domain import check_it_domain
@@ -334,8 +335,11 @@ async def process_listing(
         company_id=company_row.id,
         title=title,
         url=url,
-        apply_url=url,
+        # Same as url unless the listing carried its own apply link, which only
+        # aggregator sources do.
+        apply_url=(str(listing.get("apply_url") or "").strip() or url),
         location=location,
+        country=country_code(location),
         source=source,
         external_id=external_id,
         description=description,

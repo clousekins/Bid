@@ -21,6 +21,28 @@ def _load_rules() -> dict:
     return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
 
 
+def gate_mode() -> str:
+    """Which intake gate is in force.
+
+    us_remote_strict  — remote, and eligible to work in the US
+    remote_any_country — remote, wherever it is
+    anything else      — no gate at all
+
+    Read fresh from config/remote_us_rules.yml on every call, so flipping it is
+    an edit and a refetch rather than an edit and a restart.
+    """
+    return str(_load_rules().get("mode") or "us_remote_strict").strip()
+
+
+def us_only() -> bool:
+    """True while intake is restricted to the US.
+
+    The board fetchers ask this before discarding a listing on location, so the
+    one switch in the rules file governs both the fetchers and this gate.
+    """
+    return gate_mode() == "us_remote_strict"
+
+
 REMOTE_RE = re.compile(
     r"\b(remote|work\s*from\s*home|wfh|distributed|anywhere|"
     r"remote\s*solely|remote\s*ok|remote\s*only|fully\s*remote)\b",
@@ -140,10 +162,10 @@ def check_remote_us(
     Location / remote_restricted_to win over JD body copy. Incidental
     "United States" in a description must not salvage Spain/India/Brazil roles.
     """
-    rules = _load_rules()
-    mode = rules.get("mode", "us_remote_strict")
-    if mode != "us_remote_strict":
+    mode = gate_mode()
+    if mode not in {"us_remote_strict", "remote_any_country"}:
         return GateResult(ok=True)
+    require_us = mode == "us_remote_strict"
 
     loc = (location or "").strip()
     wa = (work_arrangement or "").strip()
@@ -153,13 +175,14 @@ def check_remote_us(
     signal_blob = f"{loc}\n{wa}\n{rr}".strip()
     text = f"{signal_blob}\n{desc}"
 
-    if NON_US_ONLY_RE.search(text):
-        return GateResult(ok=False, reason="non_us_only")
+    if require_us:
+        if NON_US_ONLY_RE.search(text):
+            return GateResult(ok=False, reason="non_us_only")
 
-    # Hard reject: location / restriction names a non-US country/region
-    # (unless the same field also clearly scopes to US, e.g. rare dual listings)
-    if place_blob and _has_non_us_geo(place_blob) and not _has_us_signal(place_blob):
-        return GateResult(ok=False, reason="not_us")
+        # Hard reject: location / restriction names a non-US country/region
+        # (unless the same field also clearly scopes to US, e.g. rare dual listings)
+        if place_blob and _has_non_us_geo(place_blob) and not _has_us_signal(place_blob):
+            return GateResult(ok=False, reason="not_us")
 
     if wa and HYBRID_RE.search(wa) and not REMOTE_RE.search(wa):
         return GateResult(ok=False, reason="hybrid_or_onsite")
@@ -170,6 +193,12 @@ def check_remote_us(
     has_remote = bool(REMOTE_RE.search(signal_blob) or REMOTE_RE.search(desc))
     if not has_remote:
         return GateResult(ok=False, reason="not_remote")
+
+    # remote_any_country stops here: the posting is remote, and where it is
+    # does not disqualify it. Everything below decides US eligibility, which
+    # this mode does not care about.
+    if not require_us:
+        return GateResult(ok=True)
 
     # Prefer place fields for US eligibility; only use JD when place is vague
     place_has_us = _has_us_signal(place_blob) or _has_us_signal(wa)

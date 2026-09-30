@@ -21,6 +21,7 @@ export const PIPELINE_OPTIONS = [
   { value: "jd_ready", label: "JD ready" },
   { value: "scan_failed", label: "Scan failed" },
   { value: "needs_manual", label: "Needs manual" },
+  { value: "interview", label: "Interview" },
   { value: "skipped", label: "Skipped" },
   { value: "rejected", label: "Rejected" },
   { value: "blocked", label: "Blocked" },
@@ -35,6 +36,7 @@ export const PIPELINE_LABELS = Object.fromEntries(
 export const PIPELINE_INLINE = new Set([
   "scan_failed",
   "needs_manual",
+  "interview",
   "skipped",
   "rejected",
   "blocked",
