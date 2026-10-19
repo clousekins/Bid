@@ -156,7 +156,7 @@ export default function WorkspaceApp({ onGoHome, theme, onToggleTheme }) {
 
   const onUpload = async (file) => {
     try {
-      const res = await client.importJobs(file);
+      const res = await client.importJobs(file, [...ws.ingestPersonaIds]);
       logPoong("import", res);
       const skippedN = (res.skipped || []).length;
       const rejectedN = (res.rejected || []).length;

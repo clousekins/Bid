@@ -179,14 +179,16 @@ async def _filter_jobs_needing_persona_package(
     *,
     persona_id: str,
 ) -> list[JobRow]:
-    """Keep jobs that still need a resume. The row carries its own status now,
-    so skip only those already resume_ready / applying / applied."""
+    """Keep jobs that still need a resume. Skip those already resume_ready/
+    applying/applied, and any row that already has a generated resume
+    (ats_score set) even if its status was walked back by a stage change like
+    interview → un-interview — a forced run bypasses this filter."""
     done = {
         JobStatus.RESUME_READY.value,
         JobStatus.APPLYING.value,
         JobStatus.APPLIED.value,
     }
-    return [j for j in jobs if j.status not in done]
+    return [j for j in jobs if j.status not in done and j.ats_score is None]
 
 
 def _force_regenerate(row: BackgroundJob) -> bool:

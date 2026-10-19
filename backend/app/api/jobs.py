@@ -56,6 +56,43 @@ router = APIRouter(prefix="/api/jobs", tags=["jobs"])
 # Sentinel so callers can pass persona=None to mean "no fit score".
 _UNSET = object()
 
+# JD-lifecycle statuses — a row here has not reached a resume yet.
+_NEEDS_RESUME_STATUS = {
+    JobStatus.NEW.value,
+    JobStatus.JD_READY.value,
+    JobStatus.SCAN_FAILED.value,
+    JobStatus.TAILOR_FAILED.value,
+}
+
+
+def _has_resume(job: JobRow) -> bool:
+    """Whether a resume was actually generated for this row.
+
+    ats_score is written by every tailor/build run and is never cleared by a
+    pipeline stage change, so it survives moving a job to interview and back —
+    unlike the row's own status, which a stage change overwrites.
+    """
+    return job.ats_score is not None
+
+
+def _resume_state(job: JobRow) -> str:
+    """The resume-artifact state the UI gates its Resume/Cover buttons on.
+
+    Independent of the pipeline stage: a generated resume stays visible through
+    interview / un-interview. Only a row with no generated resume reads as
+    need_resume. Maps apply progress onto the old package lifecycle so every
+    existing ``my_status`` / package-status check keeps working.
+    """
+    if _has_resume(job):
+        if job.status in (JobStatus.APPLIED.value, JobStatus.INTERVIEW.value):
+            return JobStatus.APPLIED.value
+        if job.status == JobStatus.APPLYING.value:
+            return JobStatus.APPLYING.value
+        return JobStatus.RESUME_READY.value
+    if job.status in _NEEDS_RESUME_STATUS:
+        return "need_resume"
+    return job.status
+
 
 class JobCreate(BaseModel):
     company: str
@@ -116,7 +153,9 @@ def _row_pkg_dict(job: JobRow) -> dict[str, Any]:
     return {
         "id": job.id,
         "persona_id": job.persona_id,
-        "status": job.status,
+        # Resume-aware so the UI's package-status gates keep working through a
+        # stage change (interview/un-interview) — not the raw pipeline status.
+        "status": _resume_state(job),
         "folder_path": job.folder_path,
         "notes": job.notes,
         "applied_at": job.applied_at.isoformat() if job.applied_at else None,
@@ -214,16 +253,6 @@ async def _purge_jobs(
     return deleted, folders_removed
 
 
-# A row "needs a resume" when its own status is still in the JD lifecycle — no
-# resume has been generated (or the last run failed and can be retried).
-_NEEDS_RESUME_STATUS = {
-    JobStatus.NEW.value,
-    JobStatus.JD_READY.value,
-    JobStatus.SCAN_FAILED.value,
-    JobStatus.TAILOR_FAILED.value,
-}
-
-
 def _load_profile(profile: str | None):
     """Resolve a persona once per request.
 
@@ -273,7 +302,7 @@ def _job_dict(
         from app.services.job_domains import classify_domains, domains_storage
 
         domains = domains_storage(classify_domains(job.title, job.description))
-    needs_resume = job.status in _NEEDS_RESUME_STATUS
+    my_status = _resume_state(job)
     return {
         "id": job.id,
         "seq_no": job.seq_no,
@@ -302,10 +331,13 @@ def _job_dict(
         "feasibility": _feasibility_for(job, persona),
         "ats_score": job.ats_score,
         "credibility_score": job.credibility_score,
+        # A resume was generated (survives interview / un-interview): the UI
+        # shows the Resume/Cover buttons on this, not on the pipeline status.
+        "has_resume": _has_resume(job),
         "notes": job.notes,
         "packages": [row_pkg],
         "package_count": 1,
-        "my_status": "need_resume" if needs_resume else job.status,
+        "my_status": my_status,
         "my_package_id": job.id,
         "applied_count": 1 if job.status == JobStatus.APPLIED.value else 0,
         "created_at": job.created_at.isoformat() if job.created_at else None,
@@ -592,8 +624,13 @@ async def create_job(body: JobCreate, db: AsyncSession = Depends(get_db)):
 async def import_jobs(
     file: UploadFile = File(...),
     persona_id: str | None = None,
+    persona_ids: str | None = Query(
+        None, description="Comma-separated persona ids; ingests a copy for each"
+    ),
     db: AsyncSession = Depends(get_db),
 ):
+    from app.services.pipeline import ingest_listing_for_personas
+
     content = await file.read()
     try:
         listings, meta = parse_upload(file.filename or "jobs.json", content)
@@ -613,26 +650,33 @@ async def import_jobs(
             },
         )
 
-    pid = persona_id or get_active_persona_id()
+    sel = [p.strip() for p in (persona_ids or "").split(",") if p.strip()]
+    if not sel:
+        sel = [persona_id or get_active_persona_id()]
     inserted = []
     jd_ready = []
     rejected = []
     skipped = []
     for listing in listings:
         # skip_content_gates=True for rows WITHOUT JD (deep-scan later).
-        # process_listing still runs gates when description is present.
-        result = await process_listing(
-            db, listing, persona_id=pid, skip_content_gates=True, insert_rejects=True
+        # A copy is ingested for each selected, country-eligible persona.
+        results = await ingest_listing_for_personas(
+            db, listing, persona_ids=sel, skip_content_gates=True, insert_rejects=True
         )
-        if result.job:
-            inserted.append(result.job.id)
-            st = result.status or result.job.status
-            if st == "jd_ready":
-                jd_ready.append(result.job.id)
-            elif st in {"rejected_onsite", "skipped", "needs_manual", "blocked"}:
-                rejected.append({"id": result.job.id, "company": result.job.company, "reason": result.reason, "status": st})
+        got = [r for r in results.values() if r.job]
+        if got:
+            for r in got:
+                inserted.append(r.job.id)
+                st = r.status or r.job.status
+                if st == "jd_ready":
+                    jd_ready.append(r.job.id)
+                elif st in {"rejected_onsite", "skipped", "needs_manual", "blocked"}:
+                    rejected.append(
+                        {"id": r.job.id, "company": r.job.company, "reason": r.reason, "status": st}
+                    )
         else:
-            skipped.append({"company": listing.get("company"), "reason": result.reason})
+            reason = next((r.reason for r in results.values() if r.reason), "no_eligible_persona")
+            skipped.append({"company": listing.get("company"), "reason": reason})
     await db.commit()
     return {
         "inserted": len(inserted),

@@ -44,13 +44,16 @@ export const client = {
   },
   stats: () => api("/api/jobs/meta/stats"),
   createJob: (body) => api("/api/jobs", { method: "POST", json: body }),
-  importJobs: async (file) => {
+  importJobs: async (file, personaIds = []) => {
     const token = getToken();
     const fd = new FormData();
     fd.append("file", file);
     const headers = {};
     if (token) headers.Authorization = `Bearer ${token}`;
-    const res = await fetch("/api/jobs/import", {
+    const q = new URLSearchParams();
+    if (personaIds && personaIds.length) q.set("persona_ids", personaIds.join(","));
+    const qs = q.toString();
+    const res = await fetch(`/api/jobs/import${qs ? `?${qs}` : ""}`, {
       method: "POST",
       headers,
       body: fd,

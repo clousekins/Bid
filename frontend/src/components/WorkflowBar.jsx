@@ -55,6 +55,13 @@ export default function WorkflowBar({
   const hasSelection = checkedCount > 0;
   const maxSeq = Math.max(0, Number(seqMax) || 0);
 
+  const toggleIngestPersona = (id) =>
+    setIngestPersonaIds?.((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+
   const applyRange = (fromRaw, toRaw) => {
     if (!maxSeq) {
       setSeqFrom(1);
@@ -163,6 +170,37 @@ export default function WorkflowBar({
       <div className="workflow-stage">
         {stage === "ingest" ? (
           <>
+            {personas.length ? (
+              <div className="ingest-persona-row">
+                <span className="workflow-group-label">Ingest jobs for</span>
+                <div className="ingest-persona-chips">
+                  {personas.map((p) => {
+                    const on = Boolean(ingestPersonaIds?.has?.(p.id));
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        className={on ? "seq-chip active" : "seq-chip"}
+                        disabled={busy}
+                        title={on ? `Fetching will add ${p.label || p.id}'s copy` : `Click to also ingest for ${p.label || p.id}`}
+                        onClick={() => toggleIngestPersona(p.id)}
+                      >
+                        {p.label || p.id}
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    className="linkish"
+                    disabled={busy}
+                    onClick={() => setIngestPersonaIds?.(new Set(personas.map((p) => p.id)))}
+                  >
+                    All
+                  </button>
+                </div>
+                <span className="muted">{ingestPersonaIds?.size || 0} selected</span>
+              </div>
+            ) : null}
             <div className="action-grid">
               <button type="button" className="primary" onClick={onAddJob}>
                 Add job
