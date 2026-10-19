@@ -9,6 +9,10 @@ export function gateMessage(code, extra = {}) {
       return extra.seq
         ? `This URL is already job #${extra.seq}. Using that listing.`
         : "This URL is already in the job list.";
+    case "duplicate_company":
+      return extra.seq
+        ? `${company} already has a recent listing (#${extra.seq}) within the last 7 days. Using that one.`
+        : `${company} already has a listing from the last 7 days — one job per company in that window.`;
     case "already_has_jd":
       return "JD is already on file for this URL.";
     case "url_required":

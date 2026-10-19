@@ -553,6 +553,13 @@ async def _exec_tailor(session, row: BackgroundJob) -> None:
         jobs = await _filter_jobs_needing_persona_package(session, jobs, persona_id=gen_pid)
     # Still need a usable JD
     jobs = [j for j in jobs if j.description and len(j.description) >= 50]
+    # Resume build ignores jobs disabled for this profile — applied-company
+    # siblings and hand-disabled listings alike.
+    from app.services.pipeline import disabled_job_ids_for
+
+    disabled_ids = await disabled_job_ids_for(session, gen_pid)
+    if disabled_ids:
+        jobs = [j for j in jobs if j.id not in disabled_ids]
     job_ids = [j.id for j in jobs]
     bg_id = row.id
     items: list[dict[str, Any]] = []
@@ -751,6 +758,7 @@ async def _exec_discover(session, row: BackgroundJob, *, mode: str = "standard")
         "company_already_applied",
         "company_blocked",
         "duplicate_url",
+        "duplicate_company",
         "duplicate_external_id",
         "already_seen",
     }

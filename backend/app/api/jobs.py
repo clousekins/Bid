@@ -21,7 +21,7 @@ from app.db.enums import (
     PackageStatus,
     can_transition,
 )
-from app.db.models import Application, Job, JobPackage, utcnow
+from app.db.models import Application, Job, JobDisable, JobPackage, utcnow
 from app.db.session import get_db
 from app.services.apply import mark_job_applied, stop_apply_for_job
 from app.services.artifacts import KINDS, folder_is_allowed, resolve_artifacts, resolve_kind
@@ -40,8 +40,12 @@ from app.services import runtime_settings
 from app.services.persona import get_active_persona_id, load_persona
 from app.services.pipeline import (
     _get_or_create_company,
+    applied_scope,
+    effective_disabled,
     forget_job_markers,
+    is_disabled_for,
     process_listing,
+    profile_disable_overrides,
 )
 from app.services.renumber import renumber_all_jobs
 from app.services.tailor import tailor_job
@@ -67,6 +71,7 @@ class JobCreate(BaseModel):
     external_id: str | None = None
     source: str = "manual"
     description: str | None = None
+    salary: str | None = None
     staffing_firm: str | None = None
     persona_id: str | None = None
 
@@ -84,12 +89,17 @@ class OutcomePatch(BaseModel):
     notes: str | None = None
 
 
+class DisableBody(BaseModel):
+    persona_id: str | None = None
+
+
 class JobFieldsPatch(BaseModel):
     company: str | None = None
     title: str | None = None
     url: str | None = None
     location: str | None = None
     apply_url: str | None = None
+    salary: str | None = None
 
 
 class RangeDelete(BaseModel):
@@ -139,6 +149,11 @@ async def _purge_jobs(
 ) -> tuple[list[dict[str, Any]], int]:
     deleted: list[dict[str, Any]] = []
     folders_removed = 0
+    purge_ids = [j.id for j in jobs]
+    if purge_ids:
+        # SQLite FK cascade is not enforced here, so drop the per-profile
+        # disabled overrides for these jobs by hand.
+        await db.execute(delete(JobDisable).where(JobDisable.job_id.in_(purge_ids)))
     for job in jobs:
         pkgs = (
             await db.execute(select(JobPackage).where(JobPackage.job_id == job.id))
@@ -246,7 +261,12 @@ def _feasibility_for(job: Job, persona: Any) -> dict[str, Any] | None:
 
 
 def _job_dict(
-    job: Job, *, profile: str | None = None, persona: Any = _UNSET
+    job: Job,
+    *,
+    profile: str | None = None,
+    persona: Any = _UNSET,
+    disabled: bool = False,
+    disabled_reason: str | None = None,
 ) -> dict[str, Any]:
     if persona is _UNSET:
         persona = _load_profile(profile)
@@ -266,6 +286,7 @@ def _job_dict(
         "url": job.url,
         "apply_url": job.apply_url,
         "location": job.location,
+        "salary": job.salary,
         "country": job.country or "US",
         "country_name": country_name(job.country),
         "source": job.source,
@@ -277,6 +298,11 @@ def _job_dict(
         "staffing_firm": job.staffing_firm,
         "domains": domains,
         "jd_fetched": job.jd_fetched,
+        # Disabled for the viewing profile: an applied-company sibling
+        # ("company_applied") or one turned off by hand ("manual"). The UI
+        # greys it and keeps ingestion / resume build off it.
+        "disabled": disabled,
+        "disabled_reason": disabled_reason,
         "feasibility": _feasibility_for(job, persona),
         "ats_score": (my_package or {}).get("ats_score"),
         "credibility_score": (my_package or {}).get("credibility_score"),
@@ -375,6 +401,10 @@ async def list_jobs(
                     )
                 )
             )
+
+    # Applied-company duplicates are no longer hidden. They stay in the list and
+    # are marked disabled per viewing profile at serialization time (below), so
+    # the UI can grey them out while keeping them visible.
     if status:
         if status == JobStatus.JD_READY.value:
             filters.append(
@@ -471,8 +501,35 @@ async def list_jobs(
         stmt = stmt.where(*filters)
     stmt = stmt.offset(start).limit(size)
     rows = (await db.execute(stmt)).scalars().all()
+
+    # Mark each row disabled for the viewing profile — applied-company siblings
+    # and hand-disabled listings alike — from a couple of indexed passes rather
+    # than a subquery per row, so the list stays fast.
+    applied_company_set: set[str] = set()
+    applied_job_ids: set[int] = set()
+    overrides: dict[int, bool] = {}
+    if profile:
+        applied_company_set, applied_job_ids = await applied_scope(db, profile)
+        overrides = await profile_disable_overrides(db, profile)
+    job_dicts: list[dict[str, Any]] = []
+    disabled_count = 0
+    for j in rows:
+        dis, reason = effective_disabled(
+            j, applied_company_set, applied_job_ids, overrides
+        )
+        if dis:
+            disabled_count += 1
+        job_dicts.append(
+            _job_dict(
+                j,
+                profile=profile,
+                persona=page_persona,
+                disabled=dis,
+                disabled_reason=reason,
+            )
+        )
     return {
-        "jobs": [_job_dict(j, profile=profile, persona=page_persona) for j in rows],
+        "jobs": job_dicts,
         "total": total,
         "page": current_page,
         "page_size": size,
@@ -482,6 +539,7 @@ async def list_jobs(
         "sort": sort_key,
         "hidden_own_employers": hidden_own,
         "own_employer_names": sorted(own_employers)[:40],
+        "disabled_count": disabled_count,
         "sort_dir": "desc" if descending else "asc",
     }
 
@@ -563,7 +621,9 @@ async def create_job(body: JobCreate, db: AsyncSession = Depends(get_db)):
     await db.commit()
     if result.reason in {"company_already_applied", "company_blocked"}:
         raise HTTPException(409, detail=result.reason)
-    if result.reason == "duplicate_url" and result.job:
+    # A URL repeat or another recent listing from the same company: hand back
+    # the row already on file instead of a raw error.
+    if result.reason in {"duplicate_url", "duplicate_company"} and result.job:
         job = await _get_job_with_packages(db, result.job.id)
         return _job_dict(job or result.job)
     if not result.ok:
@@ -730,7 +790,9 @@ async def get_job(
         raise HTTPException(404, detail="not_found")
     # Without the profile there is no "my package" and no fit score — the
     # single-job fetch has to answer for the same persona the list did.
-    return _job_dict(job, profile=profile or get_active_persona_id())
+    prof = profile or get_active_persona_id()
+    dis, reason = await is_disabled_for(db, job, prof)
+    return _job_dict(job, profile=prof, disabled=dis, disabled_reason=reason)
 
 
 @router.get("/{job_id}/qa")
@@ -913,6 +975,8 @@ async def patch_job_fields(
         job.apply_url = apply_url or job.url
     if body.location is not None:
         job.location = body.location.strip() or None
+    if body.salary is not None:
+        job.salary = body.salary.strip() or None
 
     job.updated_at = utcnow()
     if job.company != old_company:
@@ -1085,6 +1149,49 @@ async def outcome_stats(
         "outcomes": [o.value for o in ApplicationOutcome],
         "by_profile": summary,
     }
+
+
+async def _set_job_disabled(
+    db: AsyncSession, job_id: int, persona_id: str | None, disabled: bool
+) -> dict[str, Any]:
+    job = await _get_job_with_packages(db, job_id)
+    if not job:
+        raise HTTPException(404, detail="not_found")
+    pid = persona_id or get_active_persona_id()
+    row = (
+        await db.execute(
+            select(JobDisable).where(
+                JobDisable.job_id == job_id, JobDisable.persona_id == pid
+            )
+        )
+    ).scalar_one_or_none()
+    if row:
+        row.disabled = disabled
+        row.updated_at = utcnow()
+    else:
+        db.add(JobDisable(job_id=job_id, persona_id=pid, disabled=disabled))
+    await db.commit()
+    job = await _get_job_with_packages(db, job_id)
+    dis, reason = await is_disabled_for(db, job, pid)
+    return _job_dict(job or None, profile=pid, disabled=dis, disabled_reason=reason)
+
+
+@router.post("/{job_id}/disable")
+async def disable_job(
+    job_id: int, body: DisableBody | None = None, db: AsyncSession = Depends(get_db)
+):
+    """Turn this job off for one profile: greyed in the list, and left alone by
+    ingestion and resume build."""
+    return await _set_job_disabled(db, job_id, body.persona_id if body else None, True)
+
+
+@router.post("/{job_id}/enable")
+async def enable_job(
+    job_id: int, body: DisableBody | None = None, db: AsyncSession = Depends(get_db)
+):
+    """Turn this job back on for one profile, overriding an automatic
+    applied-company disable."""
+    return await _set_job_disabled(db, job_id, body.persona_id if body else None, False)
 
 
 @router.post("/{job_id}/block-company")

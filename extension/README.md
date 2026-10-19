@@ -129,11 +129,16 @@ employment_type, remote, salary, score, source, external_id, description
 It is written with CRLF endings and a UTF-8 BOM, because Excel renders the
 accented company names in this data as mojibake without one.
 
-## Writing resumes with ChatGPT
+## Writing resumes with ChatGPT or Claude
 
-Open chatgpt.com, signed in, and click the extension icon there. Instead of
-the clipper you get the **ChatGPT resumes** panel, and on chatgpt.com you get
-nothing else.
+Open **chatgpt.com** or **claude.ai**, signed in, and click the extension icon
+there. Instead of the clipper you get the **resumes** panel, and on those sites
+you get nothing else. The engine is the site: the panel on chatgpt.com drives
+ChatGPT, the one on claude.ai drives Claude. That is the whole selection — the
+panel works the tab it is in and cannot reach across to the other site, so to
+write with the other AI you open the panel in a tab on the other site. The
+backend side is identical for both; only the on-page steps differ. ChatGPT and
+Claude each remember their own last persona and taught send button.
 
 1. Pick who to write as, and tick jobs. The list is Poong's "needs a resume"
    for that persona: a usable job description and no resume yet, or one that
@@ -141,7 +146,7 @@ nothing else.
 2. Press **Generate**. The jobs run one at a time, each in a new chat in this
    tab. For each, the backend hands over a prompt (the persona prompt, the
    candidate profile and the job description), the panel pastes it and presses
-   send, waits for ChatGPT to finish, and hands the answer back. Then the
+   send, waits for the AI to finish, and hands the answer back. Then the
    screening questions, in the same chat. The backend may ask for more, such as
    an ATS retry, and the panel follows until the job says it is done.
 3. The backend writes the same files an API-generated resume gets: the HTML and
@@ -153,15 +158,21 @@ nothing else.
 Keep the tab in front while it works: Chrome slows hidden tabs down. **Stop**
 ends the run after the current step.
 
-If the panel cannot find ChatGPT's send button, it asks you to click it once.
+If the panel cannot find the AI's send button, it asks you to click it once.
 Your click sends that prompt, and the panel remembers the button and presses it
 itself from then on.
 
-The prompt goes in as one paste. Typing it froze the page, since a prompt runs
-to hundreds of lines. ChatGPT may turn the paste into a "Pasted text"
-attachment, which works the same. The answer comes out through the message's
-own Copy button, with the clipboard intercepted for that one click, so your
-clipboard is never touched.
+The page steps run in the isolated extension world: they only read and edit the
+rendered page from the outside, and never touch the page's own scripts or your
+clipboard. The prompt goes in as one insert — `document.execCommand("insertText")`,
+which the browser performs itself, so the AI sees it as ordinary, trusted text
+entry. It goes in all at once because typing it froze the page, a prompt running
+to hundreds of lines; ChatGPT may turn the insert into a "Pasted text"
+attachment, which works the same, and Claude keeps it inline. The answer is read
+straight from the newest message on the page: one fenced code block comes back
+as its code, everything else block by block, with toolbars and buttons left out.
+On chatgpt.com each message is found by its copy button; on claude.ai each reply
+is its own `.font-claude-message`.
 
 The backend's `config/runtime.yml` holds `chatgpt_timeout_seconds`, the longest
 one reply may take (360 by default). It is a ceiling, not a delay.
@@ -173,13 +184,16 @@ manifest.json    MV3. No default_popup — that is what makes the icon click fir
                  chrome.action.onClicked, which toggles the panel.
 background.js    Service worker: the backend calls and the file writing.
 content.js       The only classic script. Toggles the panel, then dynamically
-                 imports lib/panel.js (lib/gpt-panel.js on chatgpt.com) — a
-                 content script cannot be declared as a
+                 imports lib/panel.js (lib/engine-panel.js on chatgpt.com and
+                 claude.ai) — a content script cannot be declared as a
                  module, but it may import one.
 lib/shell.js     The frame both panels share: shadow root, dragging, closing.
 lib/panel.js     The clipper panel and its cards.
-lib/gpt-panel.js The ChatGPT resumes panel (chatgpt.com only).
-lib/gpt-page.js  What that panel does on the ChatGPT page, run in its own world.
+lib/engine-panel.js The resume panel, shared by both AI engines. The engine is
+                 the site: chatgpt.com drives ChatGPT, claude.ai drives Claude.
+lib/gpt-page.js  What the panel does on the ChatGPT page, run in the isolated
+                 extension world — reads and edits the DOM from the outside.
+lib/claude-page.js The same steps for the claude.ai page.
 ui.css           Shared by the panel's shadow root and the options page.
 options.html/.js Backend URL, token, persona.
 lib/api.js       The backend calls (worker and options page only).

@@ -25,6 +25,16 @@ class Settings(BaseSettings):
 
     auto_submit: bool = False
 
+    # One resume per employer is the cautious default a recruiter expects: a
+    # second application to the same company reaches someone who already has the
+    # first. Turning this on lets a persona apply to several openings at one
+    # employer and lets many personas work the same posting — listings at an
+    # already-applied company keep flowing through ingest and deep scan, and the
+    # job queue stops hiding a company's other openings once one is applied to.
+    # Set ALLOW_COMPANY_MULTI_APPLY=false in .env to restore the one-per-company
+    # guard.
+    allow_company_multi_apply: bool = True
+
     cors_origins: str = "*"
     access_token: str = ""
     host: str = "0.0.0.0"

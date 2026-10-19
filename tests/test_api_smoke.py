@@ -1,14 +1,15 @@
 from __future__ import annotations
 
+from datetime import timedelta
+
 import pytest
 from sqlalchemy import select
 
 from app.config import get_settings
 from app.db import session as sess
-from app.db.enums import JobStatus
-from app.db.models import Application, Job
+from app.db.models import Application, Job, utcnow
 from app.db.session import get_session_factory, init_db
-from app.services.pipeline import process_listing
+from app.services.pipeline import APPLY_GROUP, process_listing
 from app.validators.dedupe import normalize_company
 
 
@@ -18,6 +19,8 @@ async def test_pipeline_seq_and_applied_skip(tmp_path, monkeypatch):
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db_file.as_posix()}")
     monkeypatch.setenv("ACCESS_TOKEN", "")
     monkeypatch.setenv("PERSONA_OUTPUT_ROOT", str(tmp_path / "applications"))
+    # The company-already-applied skip fires once the whole crew has applied,
+    # and is always on now, independent of ALLOW_COMPANY_MULTI_APPLY.
     get_settings.cache_clear()
     sess._engine = None
     sess._session_factory = None
@@ -53,26 +56,55 @@ async def test_pipeline_seq_and_applied_skip(tmp_path, monkeypatch):
         assert [j.seq_no for j in rows] == [1, 2, 3]
         assert all(j.status == "new" for j in rows)
 
-        # Mark first company applied via Application row
-        first = rows[0]
-        first.status = JobStatus.APPLIED.value
+        # Past the one-per-company window, one crew member applied is not enough
+        # to close the company: the others can still use it, so a second Acme job
+        # is still let in. (Within the window the company rule blocks it outright.)
+        acme = rows[0]
+        acme.created_at = utcnow() - timedelta(days=11)
+        normalized_acme = normalize_company(acme.company)
         session.add(
             Application(
-                persona_id=first.persona_id,
-                company=first.company,
-                normalized_company=normalize_company(first.company),
-                job_id=first.id,
+                persona_id=APPLY_GROUP[0],
+                company=acme.company,
+                normalized_company=normalized_acme,
+                job_id=acme.id,
                 status="applied",
             )
         )
+        await session.commit()
+
+        r_partial = await process_listing(
+            session,
+            {
+                "company": "Acme LLC",
+                "title": "Staff Engineer",
+                "url": "https://example.com/b",
+                "location": "Remote, US",
+            },
+            skip_content_gates=True,
+        )
+        await session.commit()
+        assert r_partial.ok, r_partial.reason
+
+        # Once the whole crew has applied, the company is closed to ingest.
+        for persona_id in APPLY_GROUP[1:]:
+            session.add(
+                Application(
+                    persona_id=persona_id,
+                    company=acme.company,
+                    normalized_company=normalized_acme,
+                    job_id=acme.id,
+                    status="applied",
+                )
+            )
         await session.commit()
 
         r2 = await process_listing(
             session,
             {
                 "company": "Acme LLC",
-                "title": "Staff Engineer",
-                "url": "https://example.com/b",
+                "title": "Principal Engineer",
+                "url": "https://example.com/c",
                 "location": "Remote, US",
             },
             skip_content_gates=True,

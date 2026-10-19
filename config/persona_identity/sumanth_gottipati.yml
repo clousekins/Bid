@@ -1,0 +1,130 @@
+persona_id: sumanth_gottipati
+display_name: Sumanth Gottipati
+default_professional_title: Senior Ruby on Rails Developer
+total_experience: "12 years"
+
+identity:
+  legal_name: Sumanth Gottipati
+  preferred_name: Sumanth
+  # TODO: phone is still required for live applications. Left blank on purpose —
+  # a borrowed value would put another person's PII on a submitted form. Fill
+  # it, then flip enabled:true in personas.yml.
+  email: "gsumanth93@outlook.com"
+  phone: ""
+  address_line: "65 Shelter Ln E"
+  location_city: Dawsonville
+  location_state: GA
+  location_postal: "30534"
+  location_country: US
+  linkedin_url: https://www.linkedin.com/in/sumanth-gottipati/
+  work_authorization: "Authorized to work in the US"
+  salary_expectation: "150000-180000 USD per year"
+
+screening_answers:
+  - question: "Your resume's ATS score for this job description(only score, ex: 40%)?"
+    answer: ""
+  - question: "Are you authorized to work in the United States?"
+    answer: "Yes"
+  - question: "Do you now or will you in the future require sponsorship?"
+    answer: "No"
+  - question: "Are you willing to work remotely in the United States?"
+    answer: "Yes"
+  - question: "How many years of experience do you have?"
+    answer: "12"
+  - question: "What is your expected salary?"
+    answer: "150000-180000 USD per year"
+  - question: "Current Employer"
+    answer: "Experian"
+  - question: "Current Job Title"
+    answer: "Senior Ruby on Rails Developer"
+  - question: "Were you referred for this position?"
+    answer: "No"
+
+tailor:
+  mode: html_resume_bundle
+  prompt_file: sumanth_gottipati.prompt.md
+  css_file: sumanth_gottipati.css
+  # The accent sumanth_gottipati.css is written in. Declaring it lets the colour
+  # picker repaint the sheet at generation time; without it the picker leaves
+  # this persona alone.
+  accent_color: "#9E2A2B"
+  # Fill in <strong> on any bullet the model left without emphasis, and trim any
+  # that ran past three. Only this persona; the others are untouched.
+  enforce_bullet_emphasis: true
+  experience_ground_truth:
+    - company: Experian's Clarity Services
+      title: Senior Ruby on Rails Developer
+      location: Franklin, Tennessee
+      start: "Jan 2023"
+      end: Present
+      bullets: 7
+      focus: Scalable Rails applications and REST APIs for a consumer-credit Data Quality platform; high-volume tradeline and inquiry processing; collect, validate, transform and deliver consumer financial data to downstream systems; PostgreSQL query, indexing and data-access optimization; Sidekiq and ActiveJob asynchronous and high-volume background workflows; Redis caching; React.js components integrated with Rails APIs; AWS, Docker, Kubernetes, Git and CI/CD; accuracy, reliability and performance for credit-decisioning data
+      allowed_tech: Ruby, Ruby on Rails, REST APIs, PostgreSQL, Redis, Sidekiq, ActiveJob, React.js, AWS, Docker, Kubernetes, Git, CI/CD, RSpec. Cloud is AWS
+    - company: Acorns
+      title: Senior Ruby on Rails Developer
+      location: ""
+      start: "Jun 2021"
+      end: "Jan 2023"
+      bullets: 6
+      focus: Financial-platform features in Ruby on Rails with a focus on scalability, reliability and maintainability; reusable Rails components and service objects; Sidekiq background jobs for transaction processing, user verification, notifications and asynchronous workflows; PostgreSQL query optimization, indexing, caching and efficient data loading; React.js components integrated with Rails APIs for customer-facing financial workflows; AWS EC2, S3, RDS and CloudWatch; production troubleshooting, logging and rollback strategies; RSpec and Capybara testing with peer code reviews
+      allowed_tech: Ruby on Rails, Sidekiq, PostgreSQL, Redis, React.js, AWS EC2, S3, RDS, CloudWatch, RSpec, Capybara, Git. Cloud is AWS
+    - company: Cerner Corporation
+      title: Ruby on Rails Engineer
+      location: ""
+      start: "Jun 2019"
+      end: "Jun 2021"
+      bullets: 6
+      focus: Healthcare Rails applications with scalable backend services and responsive interfaces; MVC, ActiveRecord, REST APIs, AJAX, JSON, jQuery, ERB; reusable React.js, Redux and TypeScript frontend components; PostgreSQL and MySQL database design, migrations, queries and performance; Redis, Resque and Sidekiq background processing for asynchronous and long-running workflows; RSpec unit and integration tests following TDD; AWS and Docker deployment; code reviews and production support in Agile
+      allowed_tech: Ruby on Rails, ActiveRecord, REST APIs, JavaScript, AJAX, JSON, jQuery, ERB, React.js, Redux, TypeScript, PostgreSQL, MySQL, Redis, Resque, Sidekiq, RSpec, AWS, Docker. Cloud is AWS
+    - company: JPMorgan Chase & Co.
+      title: Ruby on Rails Developer
+      location: ""
+      start: "Jan 2018"
+      end: "Jun 2019"
+      bullets: 4
+      focus: Ruby on Rails applications using MVC, ActiveRecord, REST APIs and PostgreSQL; responsive features with JavaScript, AJAX, jQuery, HTML and CSS; automated tests with RSpec, MiniTest and Cucumber following TDD and BDD; indexing and query/data-retrieval tuning; API integrations, debugging and production issue resolution; peer code reviews and AWS deployments in Agile/Scrum
+      allowed_tech: Ruby on Rails, ActiveRecord, REST APIs, PostgreSQL, JavaScript, AJAX, jQuery, HTML, CSS, RSpec, MiniTest, Cucumber, AWS, Git. Cloud is AWS
+    - company: Ramsey Solutions
+      title: Ruby on Rails Developer
+      location: ""
+      start: "Jun 2017"
+      end: "Jan 2018"
+      bullets: 4
+      focus: Backend functionality in Ruby on Rails with ActiveRecord and PostgreSQL; features and automated tests with RSpec and Cucumber; database migrations, validations, scopes and model associations; REST APIs integrated with application workflows; code reviews, debugging and Agile/Scrum delivery
+      allowed_tech: Ruby on Rails, ActiveRecord, PostgreSQL, REST APIs, RSpec, Cucumber, Git. No cloud platform
+    - company: AppsTek
+      title: Ruby Developer
+      location: ""
+      start: "Feb 2017"
+      end: "Jun 2017"
+      bullets: 3
+      focus: Ruby on Rails applications, REST APIs, ActiveRecord models and database functionality; responsive web features with Rails, JavaScript, HTML5, CSS, jQuery and Bootstrap; RSpec tests supporting TDD; PostgreSQL migrations, validations and model associations; Dockerization and AWS EC2 deployments with code reviews in Agile
+      allowed_tech: Ruby on Rails, REST APIs, ActiveRecord, JavaScript, HTML5, CSS, jQuery, Bootstrap, PostgreSQL, RSpec, Docker, AWS EC2, Git. Cloud is AWS
+    - company: Cosmicvent Solutions
+      title: Junior Ruby on Rails Developer
+      location: India
+      start: "Aug 2014"
+      end: "Jul 2015"
+      bullets: 3
+      focus: Ruby on Rails web applications and REST APIs; PostgreSQL and MySQL with ActiveRecord, migrations, models and associations; RSpec tests in Agile/Scrum; features with Ruby, Rails, JavaScript, HTML, CSS and jQuery; application troubleshooting, performance improvements, third-party API integrations and bug fixes
+      allowed_tech: Ruby on Rails, REST APIs, PostgreSQL, MySQL, ActiveRecord, JavaScript, HTML, CSS, jQuery, RSpec, Git. No cloud platform
+  education_ground_truth:
+    - degree: Master of Science (Information Systems)
+      school: Dakota State University
+      location: Madison, South Dakota
+      year: "2016"
+    - degree: Bachelor of Engineering (Computer Science)
+      school: JNTU Kakinada
+      location: Kakinada, India
+      year: ""
+  # The resume prints name, issuer and year only, the way the other personas do.
+  certifications_ground_truth:
+    - name: Rails 7 Advanced Certification
+      issuer: Rails Technology Certification Examination Committee
+      year: "2025"
+    - name: AWS Certified Developer - Associate
+      issuer: Amazon Web Services
+      year: "2024"
+    - name: Ruby Association Certified Ruby Programmer Gold
+      issuer: Ruby Association
+      year: "2022"

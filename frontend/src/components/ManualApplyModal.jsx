@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { client, logPoong } from "../api.js";
+import { client, logPoong, artifactUrl, getAuthToken } from "../api.js";
 import { shortPersona } from "../utils/persona.js";
 import { formatGateList, gateMessage } from "../utils/gates.js";
 import ResumePreview from "./ResumePreview.jsx";
@@ -11,6 +11,76 @@ const emptyForm = {
   location: "",
   description: "",
 };
+
+// Offline interview-answer prompt. The selected job's JD and the generated
+// resume text are spliced into the {JD field} / {Resume field} placeholders.
+const INTERVIEW_PROMPT = `You are ChatGPT, an AI assistant helping me to handle the interview.
+
+I’ll give you a specific Job Description (JD) and my resume. You’ll generate **natural, human-sounding answers** to interview questions, using my real project experience — but match it flexibly to the JD requirements.
+
+Here’s how you should answer:
+
+🔹 First, understand the **intent** of the question — is it technical, behavioral, or casual?
+🔹 Then, respond with a **natural, human-like length** — not too short, not too long.
+  • For casual/simple questions: 1–2 real-sounding sentences is enough (Specifically, be ready for the questions related to my location given in the resume. ).
+  • For deep/behavioral ones: use short storytelling (3–6 sentences).
+  • If the question is technical, then you have to give me the one sentence first that clearly shows what the key points are, and then give me 2 or 3 sentences more, explaining the first sentence and answering to the core of the question.
+  • And if the question is a coding assessment, then you have to give me the whole code for that question or the requirements first. And then you have to give me the explanation of WHY? I mean why did you choose that way in total flow or outline, and then give me the explanation for each step and the functions that you gave me, but here, what you have to care about is, give me the aligned code parts for that specific step or the function that you are mentioning.
+  • If there are any additional or follow-up questions for the coding assessment, then you have to give me the same code parts that you provided in the original answer and start the explanation line by line and step by step, showing the details of each part (remember you have to render the code itself there too.).
+
+🔹 **If the interviewer asks a challenge-related question** (like “what was your biggest challenge in your past experience?” or “what was the challenge in that specific project?”), you have to dive deeper:
+  • Identify the project (based on the interview context until then) — mention the client, their business need, and our purpose in the project.
+  • Talk about what the main challenge was and why it was tough.
+  • Briefly mention other methods or techniques we considered, and why we chose the final solution.
+  • Then, vividly explain how we implemented it, step by step, like a short story.
+  • Keep it natural and show how I contributed and solved the challenge from a senior-level perspective.
+
+🔹 Use a **casual, emotional tone**. Talk like me in a real interview — informal but confident. Use fillers like “um,” “you know,” “just wanna say,” etc.
+🔹 Use **simple English** (B1–B2 level), except for technical terms — those should be accurate and real.
+🔹 Always give answers in **first person**, like I’m saying it out loud.
+🔹 And if you think it’s needed, pick one of my past projects that best matches the JD and the question, and explain about the project.
+🔹 If the tech in the JD is different from the project, **adjust it naturally** to fit.
+🔹 Show what I did — what I solved, improved, or led in Senior level perspective. Be specific!
+🔹 If the question is fun or silly, give a second **optional humorous answer**, but only if it clearly fits.
+
+🔹 And one more important thing: in conversational English, sentences are made up of **small units of speech** called “intonation units” or “thought groups.”
+  These are short phrases that carry one main idea — like how people speak in real life, naturally pausing to breathe.
+  For example:
+  “Well, you know, //
+  it’s kind of hard to say, //
+  but I think //
+  maybe we should wait and see. //”
+  (Here, each phrase is short — and it sounds like actual speech, not long paragraphs.)
+  Please do this for every answer you give me.
+  Each line should be **short** and end with “//.”
+  Make sure you add real line breaks between these lines, so that when I copy-paste, it shows each clause on its own separate line.
+  Keep the length of each clause **short**, like how real people talk in conversation.
+
+🔹 When the interviewer asks: “Do you have any questions?”
+  • I’ll give you a number at the end (like 111, 222, or 333).
+  • For 111 (manager/director):
+    - Show real appreciation for the chance to speak with someone driving the company’s vision.
+    - Mention how I respect their role in turning ideas into real-world success.
+    - Say I don’t want to miss this chance, so I’d love to ask about their business, mission, or project vision.
+    - Show that I’ve done my research — share a quick, senior-level insight I got about their work.
+    - Then ask a thoughtful question about the business itself (not too technical), to show I’m genuinely interested.
+  • For 222 (technical interviewer):
+    - Appreciate their technical leadership and effort for the interview.
+    - Mention how I know they’re working on some tricky or tough parts of the project or product.
+    - Show I’ve researched their tech vision and the challenges.
+    - Then ask a deep technical question about a tricky implementation or decision in their system, showing my senior-level curiosity and understanding.
+  • For 333 (non-technical recruiter):
+    - Keep it light — just express appreciation for the interview.
+    - Ask about their team culture, the company’s future plans, or something that shows I’m keen to fit in and grow with them.
+
+📌Here, I’ll send:
+– The JD:
+	{JD field}
+– The Resume:
+	{Resume field}
+– The Extra conversations:
+
+Please reply only with the final answer, in my voice — like I’m saying it naturally in the interview.`;
 
 function resumeReadyFromJob(job, personaId) {
   const pkg = (job?.packages || []).find((p) => p.persona_id === personaId);
@@ -52,6 +122,15 @@ export default function ManualApplyModal({
   const [urlInferred, setUrlInferred] = useState(false);
   const [jobListed, setJobListed] = useState(false);
   const [warnings, setWarnings] = useState([]);
+  // Offline (no-API) path: show the exact prompt to run by hand, and paste the
+  // chat's output back to build the resume + cover letter.
+  const [promptText, setPromptText] = useState("");
+  const [promptMeta, setPromptMeta] = useState(null);
+  const [promptOpen, setPromptOpen] = useState(false);
+  const [buildOpen, setBuildOpen] = useState(false);
+  const [buildText, setBuildText] = useState("");
+  // A generic copyable panel reused by the interview-prompt and JD+Resume buttons.
+  const [copyPanel, setCopyPanel] = useState({ open: false, title: "", text: "" });
   const answersPanelRef = useRef(null);
   const handledReadyKey = useRef("");
   const hydrateKey = `${open}:${openKey}:${workingPersonaId || ""}`;
@@ -65,6 +144,12 @@ export default function ManualApplyModal({
       setError("");
       setBusy("");
       setUrlInferred(false);
+      setPromptOpen(false);
+      setPromptText("");
+      setPromptMeta(null);
+      setBuildOpen(false);
+      setBuildText("");
+      setCopyPanel({ open: false, title: "", text: "" });
       if (!resumeJob?.id) {
         setForm(emptyForm);
         setJob(null);
@@ -417,6 +502,197 @@ export default function ManualApplyModal({
     }
   };
 
+  const showPrompt = async () => {
+    setError("");
+    let current = job;
+    if (!current) {
+      current = await prepareJob();
+      if (!current) return;
+    }
+    setBusy("prompt");
+    try {
+      const res = await client.manualPrompt({
+        persona_id: activePersonaId,
+        job_id: current.id,
+      });
+      setPromptText(res.combined || "");
+      setPromptMeta({ mode: res.mode, model: res.model });
+      setPromptOpen(true);
+      setStatus(
+        `Prompt ready (${res.mode}, ${(res.combined || "").length} chars). ` +
+          'Copy it, run it in your chat, then paste the output back with "Paste AI output".'
+      );
+    } catch (e) {
+      setError(String(e.message || e));
+      logPoong("manual-prompt fail", e);
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const copyPromptText = async () => {
+    try {
+      await navigator.clipboard.writeText(promptText || "");
+      setStatus("Prompt copied to clipboard.");
+    } catch {
+      setError("Could not copy to clipboard");
+    }
+  };
+
+  // Read the generated resume as plain text by rendering its HTML artifact
+  // off-screen and pulling the visible text (keeps line breaks and bullets).
+  const fetchResumeText = async () => {
+    const token = getAuthToken();
+    const res = await fetch(artifactUrl(job.id, "resume_html", activePersonaId), {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      credentials: "include",
+    });
+    if (!res.ok) throw new Error(`resume artifact HTTP ${res.status}`);
+    const html = await res.text();
+    const clean = html
+      .replace(/<!DOCTYPE[^>]*>/i, "")
+      .replace(/<head[\s\S]*?<\/head>/i, "")
+      .replace(/<(script|style)[\s\S]*?<\/\1>/gi, "");
+    const div = document.createElement("div");
+    div.style.cssText = "position:absolute;left:-99999px;top:0;width:800px;white-space:pre-wrap;";
+    div.innerHTML = clean;
+    document.body.appendChild(div);
+    const text = (div.innerText || div.textContent || "")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+    document.body.removeChild(div);
+    if (!text) throw new Error("resume text is empty");
+    return text;
+  };
+
+  const openCopy = (title, text) => setCopyPanel({ open: true, title, text });
+  const closeCopy = () => setCopyPanel({ open: false, title: "", text: "" });
+  const copyCopyPanel = async () => {
+    try {
+      await navigator.clipboard.writeText(copyPanel.text || "");
+      setStatus("Copied to clipboard.");
+    } catch {
+      setError("Could not copy to clipboard");
+    }
+  };
+
+  const makeInterviewPrompt = async () => {
+    setError("");
+    const jd = (form.description || job?.description || "").trim();
+    if (!jd) {
+      setError("No JD yet — fetch or paste the job description first.");
+      return;
+    }
+    if (!resumeReady) {
+      setError("Generate the resume first — the interview prompt needs the resume text.");
+      return;
+    }
+    setBusy("interview");
+    try {
+      const resumeText = await fetchResumeText();
+      const text = INTERVIEW_PROMPT.replace("{JD field}", () => jd).replace(
+        "{Resume field}",
+        () => resumeText
+      );
+      openCopy("Interview answer prompt (JD + resume inserted)", text);
+      setStatus(`Interview prompt ready (${text.length} chars). Copy it into ChatGPT.`);
+    } catch (e) {
+      setError(`Could not read the resume text: ${String(e.message || e)}`);
+      logPoong("interview-prompt fail", e);
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const makeJdResume = async () => {
+    setError("");
+    const jd = (form.description || job?.description || "").trim();
+    if (!jd) {
+      setError("No JD yet — fetch or paste the job description first.");
+      return;
+    }
+    if (!resumeReady) {
+      setError("Generate the resume first — JD + Resume needs the resume text.");
+      return;
+    }
+    setBusy("jdresume");
+    try {
+      const resumeText = await fetchResumeText();
+      const rule = "=".repeat(40);
+      const text = `JOB DESCRIPTION\n${rule}\n${jd}\n\n\nRESUME\n${rule}\n${resumeText}`;
+      openCopy("JD + Resume", text);
+      setStatus(`JD + Resume ready (${text.length} chars).`);
+    } catch (e) {
+      setError(`Could not read the resume text: ${String(e.message || e)}`);
+      logPoong("jd-resume fail", e);
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const openBuild = async () => {
+    setError("");
+    let current = job;
+    if (!current) {
+      current = await prepareJob();
+      if (!current) return;
+    }
+    setBuildOpen(true);
+  };
+
+  const submitBuild = async () => {
+    setError("");
+    if (!buildText.trim()) {
+      setError("Paste the AI output (HTML resume + cover letter) first.");
+      return;
+    }
+    if (!job?.id) {
+      setError("Add the job to the list first.");
+      return;
+    }
+    setBusy("build");
+    try {
+      const res = await client.manualBuild({
+        persona_id: activePersonaId,
+        job_id: job.id,
+        text: buildText,
+      });
+      const full = await client.getJob(job.id);
+      setJob(full);
+      setTailorResult(
+        tailorFromJob(full, activePersonaId) || {
+          ok: true,
+          job: full,
+          resume_folder: res.folder,
+        }
+      );
+      setBuildOpen(false);
+      setBuildText("");
+      setStatus(
+        `Built resume for #${full.seq_no} ${full.company} from pasted output` +
+          (res.cover_included ? " (with cover letter)" : " (no cover letter in paste)") +
+          `. ATS ${res.ats_score}. Files are in the job folder.`
+      );
+      await onCreated?.(full);
+    } catch (e) {
+      const detail = String(e.message || e);
+      if (
+        detail.includes("tailor_html_missing") ||
+        detail.includes("tailor_html_incomplete")
+      ) {
+        setError(
+          "That paste did not contain a complete HTML resume. Copy the whole HTML " +
+            "block the chat produced, from <!DOCTYPE html> through </html>, then the cover letter."
+        );
+      } else {
+        setError(detail);
+      }
+      logPoong("manual-build fail", e);
+    } finally {
+      setBusy("");
+    }
+  };
+
   const openJobPage = () => {
     const url = (job?.url || form.url || "").trim();
     if (!url || url.includes("manual.poong.local")) {
@@ -652,6 +928,96 @@ export default function ManualApplyModal({
           </button>
         </div>
 
+        <div className="modal-actions" style={{ marginTop: 2 }}>
+          <span className="muted" style={{ alignSelf: "center", marginRight: 4 }}>
+            Offline (no API):
+          </span>
+          <button type="button" disabled={formBusy || generating} onClick={showPrompt}>
+            {busy === "prompt" ? "Building prompt…" : "Show prompt"}
+          </button>
+          <button type="button" disabled={formBusy || generating} onClick={openBuild}>
+            Paste AI output → build
+          </button>
+          <button
+            type="button"
+            disabled={formBusy || generating || !resumeReady}
+            title={resumeReady ? "" : "Generate the resume first"}
+            onClick={makeInterviewPrompt}
+          >
+            {busy === "interview" ? "Building…" : "Interview prompt"}
+          </button>
+          <button
+            type="button"
+            disabled={formBusy || generating || !resumeReady}
+            title={resumeReady ? "" : "Generate the resume first"}
+            onClick={makeJdResume}
+          >
+            {busy === "jdresume" ? "Building…" : "JD + Resume"}
+          </button>
+        </div>
+
+        {copyPanel.open ? (
+          <div className="manual-answers-panel" style={{ marginTop: 8 }}>
+            <div className="manual-answers-panel-head">
+              <strong>{copyPanel.title}</strong>
+              <span className="muted">{copyPanel.text.length} chars</span>
+            </div>
+            <textarea
+              readOnly
+              rows={14}
+              value={copyPanel.text}
+              onFocus={(e) => e.target.select()}
+              style={{
+                width: "100%",
+                fontFamily: "monospace",
+                fontSize: 11,
+                whiteSpace: "pre-wrap",
+              }}
+            />
+            <div className="modal-actions">
+              <button type="button" className="primary" onClick={copyCopyPanel}>
+                Copy
+              </button>
+              <button type="button" onClick={closeCopy}>
+                Hide
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {promptOpen ? (
+          <div className="manual-answers-panel" style={{ marginTop: 8 }}>
+            <div className="manual-answers-panel-head">
+              <strong>Completed prompt (sent to generate resume + cover letter)</strong>
+              <span className="muted">
+                {promptMeta
+                  ? `${promptMeta.mode} · model ${promptMeta.model} · ${promptText.length} chars`
+                  : `${promptText.length} chars`}
+              </span>
+            </div>
+            <textarea
+              readOnly
+              rows={12}
+              value={promptText}
+              onFocus={(e) => e.target.select()}
+              style={{
+                width: "100%",
+                fontFamily: "monospace",
+                fontSize: 11,
+                whiteSpace: "pre",
+              }}
+            />
+            <div className="modal-actions">
+              <button type="button" className="primary" onClick={copyPromptText}>
+                Copy prompt
+              </button>
+              <button type="button" onClick={() => setPromptOpen(false)}>
+                Hide
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         {job ? (
           <p className="muted">
             Job #{job.seq_no}: {job.company} — {job.title}
@@ -732,6 +1098,55 @@ export default function ManualApplyModal({
           </div>
         ) : null}
       </div>
+
+      {buildOpen ? (
+        <div className="modal-backdrop" style={{ zIndex: 60 }}>
+          <div className="modal">
+            <div className="manual-apply-head">
+              <h3 style={{ margin: 0 }}>Paste AI output → build resume &amp; cover letter</h3>
+              <button
+                type="button"
+                onClick={() => setBuildOpen(false)}
+                disabled={busy === "build"}
+              >
+                Close
+              </button>
+            </div>
+            <p className="muted">
+              Paste the chat&apos;s full output here — the complete HTML resume (
+              <span className="detail-mono">{"<!DOCTYPE html> … </html>"}</span>) followed by the
+              plain-text cover letter. Build writes the resume, cover letter, and PDF into the job
+              folder and marks it resume-ready. No API key is used.
+            </p>
+            {error ? <div className="error-banner">{error}</div> : null}
+            <textarea
+              rows={16}
+              value={buildText}
+              disabled={busy === "build"}
+              onChange={(e) => setBuildText(e.target.value)}
+              placeholder="Paste the complete AI output here (HTML resume, then the cover letter)…"
+              style={{ width: "100%", fontFamily: "monospace", fontSize: 12 }}
+            />
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="primary"
+                disabled={busy === "build" || !buildText.trim()}
+                onClick={submitBuild}
+              >
+                {busy === "build" ? "Building…" : "Build resume & cover letter"}
+              </button>
+              <button
+                type="button"
+                disabled={busy === "build"}
+                onClick={() => setBuildOpen(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

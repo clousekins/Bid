@@ -1,23 +1,34 @@
-// The ChatGPT panel: tick jobs, and have ChatGPT in this very tab write their
+// The resume panel: tick jobs, and have the AI in this very tab write their
 // resumes, one job at a time, each in a new chat.
 //
-// It opens instead of the clipper panel whenever the extension icon is
-// clicked on chatgpt.com, and nowhere else. The work runs here, in the tab
+// One panel, two engines. It opens instead of the clipper panel whenever the
+// extension icon is clicked on an AI site — chatgpt.com (engine "gpt") or
+// claude.ai (engine "claude") — and nowhere else; which one is decided by the
+// site, in content.js, because the panel drives the DOM of the very tab it runs
+// in and cannot reach across to the other site. The work runs here, in the tab
 // the person is looking at: for each job the backend hands over a prompt, the
-// page steps (lib/gpt-page.js) paste it and press send, and when ChatGPT has
-// finished, its answer goes back. The backend turns the answers into the same
-// files an API-generated resume gets, and may ask for more than one prompt
-// per job — the screening answers, an ATS retry — so the loop simply follows
-// what it is given until the job says it is done.
+// page steps (lib/gpt-page.js or lib/claude-page.js, by engine) paste it and
+// press send, and when the AI has finished, its answer goes back. The backend
+// turns the answers into the same files an API-generated resume gets, and the
+// backend session API is the same for both engines — only the on-page steps
+// differ. It may ask for more than one prompt per job (screening answers, an ATS
+// retry), so the loop simply follows what it is given until the job says done.
 
 import { ask, mountShell, say } from "./shell.js";
 
-const TEMPLATE = `
-  <div class="panel gpt" part="panel">
+// Each engine's human name and storage namespace. `id` is both the storage
+// prefix and the engine the page steps run under (see background.js onPage).
+const ENGINES = {
+  gpt: { id: "gpt", name: "ChatGPT", site: "chatgpt.com" },
+  claude: { id: "claude", name: "Claude", site: "claude.ai" },
+};
+
+const template = (engine) => `
+  <div class="panel ${engine.id}" part="panel">
     <header class="bar">
       <span class="grip" title="Drag to move">⠿</span>
       <div class="titles">
-        <strong>Poong · ChatGPT resumes</strong>
+        <strong>Poong · ${engine.name} resumes</strong>
         <span id="status" class="muted">Loading jobs…</span>
       </div>
       <button type="button" id="btnClose" class="icon" title="Close (Esc)">✕</button>
@@ -68,30 +79,33 @@ const TEMPLATE = `
       <button type="button" id="btnStop" hidden>Stop</button>
     </div>
     <p id="msg" class="message" hidden></p>
-    <p class="hint">Keep this tab in front while it works. Each job opens a new chat here.</p>
+    <p class="hint">Keep this ${engine.name} tab in front while it works. Each job opens a new chat here.</p>
   </div>
 `;
 
-const PERSONA_KEY = "gptPersona";
-const PAGE_SIZE_KEY = "gptPageSize";
-// The send button, once the person has shown it (see learnSend).
-const SEND_KEY = "gptSendButton";
 const TICK_MS = 1200;
-// A reply is finished once ChatGPT has stopped and the page has not changed
-// for this long.
+// A reply is finished once the AI has stopped and the page has not changed for
+// this long.
 const SETTLE_MS = 2500;
 
-export async function mountPanel(hostId) {
-  const { root, $, onClose } = await mountShell(hostId, TEMPLATE);
-  const panel = new GptPanel(root, $);
+export async function mountPanel(hostId, engineId = "gpt") {
+  const engine = ENGINES[engineId] || ENGINES.gpt;
+  const { root, $, onClose } = await mountShell(hostId, template(engine));
+  const panel = new EnginePanel(root, $, engine);
   onClose(() => panel.stop("closed"));
   await panel.init();
 }
 
-class GptPanel {
-  constructor(root, $) {
+class EnginePanel {
+  constructor(root, $, engine) {
     this.root = root;
     this.$ = $;
+    this.engine = engine;
+    // Per-engine storage, so ChatGPT and Claude each remember their own last
+    // persona, page size and taught send button without treading on each other.
+    this.personaKey = `${engine.id}Persona`;
+    this.pageSizeKey = `${engine.id}PageSize`;
+    this.sendKey = `${engine.id}SendButton`;
     this.jobs = []; // the page on screen
     // Ticked jobs across every page, by id, in the order they were ticked —
     // which is the order they run in.
@@ -107,9 +121,9 @@ class GptPanel {
 
   async init() {
     const $ = this.$;
-    const stored = await chrome.storage.local.get({ [PERSONA_KEY]: "", [PAGE_SIZE_KEY]: 50 });
-    this.persona = stored[PERSONA_KEY];
-    this.pageSize = Number(stored[PAGE_SIZE_KEY]) || 50;
+    const stored = await chrome.storage.local.get({ [this.personaKey]: "", [this.pageSizeKey]: 50 });
+    this.persona = stored[this.personaKey];
+    this.pageSize = Number(stored[this.pageSizeKey]) || 50;
     $("pgSize").value = String(this.pageSize);
 
     // Filters change what the pages hold, so they start again at page one.
@@ -119,7 +133,7 @@ class GptPanel {
     };
     $("persona").addEventListener("change", () => {
       this.persona = $("persona").value;
-      chrome.storage.local.set({ [PERSONA_KEY]: this.persona });
+      chrome.storage.local.set({ [this.personaKey]: this.persona });
       // A resume is written as one persona; ticks made for another would mislead.
       this.ticked.clear();
       refilter();
@@ -165,7 +179,7 @@ class GptPanel {
       // Keep the first job on screen in view at the new size.
       const first = this.page * this.pageSize;
       this.pageSize = Number($("pgSize").value) || 50;
-      chrome.storage.local.set({ [PAGE_SIZE_KEY]: this.pageSize });
+      chrome.storage.local.set({ [this.pageSizeKey]: this.pageSize });
       this.goTo(Math.floor(first / this.pageSize));
     });
     $("btnStart").addEventListener("click", () => this.run());
@@ -401,31 +415,32 @@ class GptPanel {
     return step || { ok: false, reason: "no outcome" };
   }
 
-  /** One prompt: into this tab's chat, and ChatGPT's answer back out. */
+  /** One prompt: into this tab's chat, and the AI's answer back out. */
   async converse(job, step) {
+    const engine = this.engine;
     const label = step.step > 1 ? `step ${step.step}: ` : "";
     if (step.new_chat) {
       this.mark(job.id, "new chat");
-      if (!(await page("newChat"))) {
-        throw new Error("chatgpt_no_new_chat: could not find ChatGPT's “New chat” button");
+      if (!(await this.pageStep("newChat"))) {
+        throw new Error(`${engine.id}_no_new_chat: could not find ${engine.name}'s “New chat” button`);
       }
       await this.sleep(1500);
     }
     await this.waitForComposer();
-    const before = await page("state");
+    const before = await this.pageStep("state");
 
     this.mark(job.id, `${label}pasting`);
-    const pasted = await page("paste", [step.prompt]);
+    const pasted = await this.pageStep("paste", [step.prompt]);
     if (!pasted || !pasted.ok) {
-      throw new Error(`chatgpt_paste_failed: ${pasted ? pasted.reason : "no answer from the page"}`);
+      throw new Error(`${engine.id}_paste_failed: ${pasted ? pasted.reason : "no answer from the page"}`);
     }
 
     this.mark(job.id, `${label}sending`);
-    // The page as it stood the moment the prompt went: its own message and
-    // Copy button are already counted, so only ChatGPT's answer adds more.
+    // The page as it stood before the prompt went: the answers already on it
+    // are counted, so only the AI's new reply pushes the count past this.
     const sent = await this.send(before);
 
-    this.mark(job.id, `${label}ChatGPT writing`);
+    this.mark(job.id, `${label}${engine.name} writing`);
     await this.waitForReply(sent, step.timeout || 360);
 
     this.mark(job.id, `${label}reading`);
@@ -433,34 +448,34 @@ class GptPanel {
   }
 
   async waitForComposer() {
+    const engine = this.engine;
     const until = Date.now() + 30000;
     while (Date.now() < until) {
       this.checkStopped();
-      const s = await page("state");
+      const s = await this.pageStep("state");
       if (s.loginRequired) {
-        throw new Error("chatgpt_not_logged_in: sign in to chatgpt.com in this tab first");
+        throw new Error(`${engine.id}_not_logged_in: sign in to ${engine.site} in this tab first`);
       }
       if (s.composerIsEditor) return;
       await this.sleep(700);
     }
-    throw new Error("chatgpt_page_not_ready: ChatGPT's message box did not appear");
+    throw new Error(`${engine.id}_page_not_ready: ${engine.name}'s message box did not appear`);
   }
 
   /**
-   * Whether the prompt left the box: ChatGPT is answering, or the prompt now
-   * sits in the chat as a message with its own Copy button. Resolves with the
-   * page at that moment, the baseline an answer is measured from.
+   * Whether the prompt left the box: the AI is answering, or a new reply has
+   * appeared in the chat. Resolves with the page at that moment, the baseline an
+   * answer is measured from.
    *
-   * The page's text merely growing is not proof — that is what a prompt
-   * pasted into the wrong place looks like. Nor is a new chat getting its
-   * address: that happens before the message and its Copy button appear, and
-   * a baseline taken then would count that button as ChatGPT's answer.
+   * The page's text merely growing is not proof — that is what a prompt pasted
+   * into the wrong place looks like. A new reply body appearing, or the Stop
+   * button showing, is.
    */
   async sentSince(before, ms) {
     const until = Date.now() + ms;
     while (Date.now() < until) {
-      const s = await page("state");
-      if (s.streaming || s.copies > before.copies) {
+      const s = await this.pageStep("state");
+      if (s.streaming || s.answers > before.answers) {
         return s;
       }
       await this.sleep(600);
@@ -469,22 +484,22 @@ class GptPanel {
   }
 
   async send(before) {
-    const learned = (await chrome.storage.local.get({ [SEND_KEY]: null }))[SEND_KEY];
-    // A pasted-text attachment keeps the button disabled while it uploads.
+    const learned = (await chrome.storage.local.get({ [this.sendKey]: null }))[this.sendKey];
+    // A pasted-text attachment can keep the button disabled while it uploads.
     let info = null;
     const until = Date.now() + 30000;
     while (Date.now() < until) {
       this.checkStopped();
-      info = await page("send", [learned, false]);
+      info = await this.pageStep("send", [learned, false]);
       if (info.found && info.enabled) break;
       await this.sleep(700);
     }
     if (info && info.found && info.enabled) {
-      await page("send", [learned, true]);
+      await this.pageStep("send", [learned, true]);
       const sent = await this.sentSince(before, 10000);
       if (sent) {
         if (info.via !== "learned") {
-          await chrome.storage.local.set({ [SEND_KEY]: { aria: info.aria, testid: info.testid } });
+          await chrome.storage.local.set({ [this.sendKey]: { aria: info.aria, testid: info.testid } });
         }
         return sent;
       }
@@ -493,20 +508,24 @@ class GptPanel {
   }
 
   /**
-   * The send button could not be found or did not take. Ask the person to
-   * press it once, and remember which button it was: their click both sends
-   * this prompt and teaches the panel the button for every job after.
+   * The send button could not be found or did not take. Ask the person to press
+   * it once, and remember which button it was: their click both sends this
+   * prompt and teaches the panel the button for every job after.
    */
   async learnSend(before) {
+    const engine = this.engine;
     say(
       this.$("msg"),
-      "Click ChatGPT's send button (↑) once. Poong will remember it and press it itself from then on.",
+      `Click ${engine.name}'s send button (↑) once. Poong will remember it and press it itself from then on.`,
       "warn"
     );
     let seen = null;
     const listen = (e) => {
+      // Clicks inside the panel's shadow root arrive here retargeted to the host
+      // element, whose closest("button") is null — so this only ever catches a
+      // real page button.
       const button = e.target instanceof Element ? e.target.closest("button") : null;
-      if (button && button.closest("form")) {
+      if (button) {
         seen = {
           aria: button.getAttribute("aria-label") || "",
           testid: button.getAttribute("data-testid") || "",
@@ -517,18 +536,19 @@ class GptPanel {
     let sent;
     try {
       sent = await this.sentSince(before, 180000);
-      if (!sent) throw new Error("chatgpt_send_failed: the prompt was pasted but never sent");
+      if (!sent) throw new Error(`${engine.id}_send_failed: the prompt was pasted but never sent`);
     } finally {
       document.removeEventListener("click", listen, true);
     }
     if (seen && (seen.aria || seen.testid)) {
-      await chrome.storage.local.set({ [SEND_KEY]: seen });
+      await chrome.storage.local.set({ [this.sendKey]: seen });
     }
     say(this.$("msg"), "Got it — sending on its own from now on.", "ok");
     return sent;
   }
 
   async waitForReply(before, timeoutSeconds) {
+    const engine = this.engine;
     const deadline = Date.now() + timeoutSeconds * 1000;
     let sawStreaming = !!before.streaming;
     let last = -1;
@@ -536,7 +556,7 @@ class GptPanel {
     while (Date.now() < deadline) {
       this.checkStopped();
       await this.sleep(TICK_MS);
-      const s = await page("state");
+      const s = await this.pageStep("state");
       if (s.streaming) {
         sawStreaming = true;
         last = s.textLength;
@@ -551,38 +571,72 @@ class GptPanel {
       if (Date.now() - stableSince < SETTLE_MS) continue;
       if (s.canContinue) {
         // A long reply cut off at the output limit.
-        await page("clickContinue");
+        await this.pageStep("clickContinue");
         stableSince = Date.now();
         continue;
       }
-      if (sawStreaming || s.copies > before.copies) return;
+      if (sawStreaming || s.answers > before.answers) return;
       if (Date.now() - stableSince > 20000) {
-        throw new Error("chatgpt_no_reply: ChatGPT did not start answering");
+        throw new Error(`${engine.id}_no_reply: ${engine.name} did not start answering`);
       }
     }
-    throw new Error(`chatgpt_timeout: no complete answer within ${timeoutSeconds}s`);
+    throw new Error(`${engine.id}_timeout: no complete answer within ${timeoutSeconds}s`);
   }
 
   /**
-   * ChatGPT's answer, through the newest message's own Copy button. Checked
-   * before it is trusted: never the prompt itself (the user message has a
-   * Copy button too), and holding what this prompt asked for.
+   * The AI's answer, read from the newest message on the page. Checked before it
+   * is trusted: never the prompt itself (the user message is read the same way),
+   * and holding what this prompt asked for.
    */
   async readReply(step) {
+    const engine = this.engine;
     const promptHead = step.prompt.trim().slice(0, 160);
-    // Only the newest message, or the one before it when ChatGPT's answer
-    // carries no Copy button of its own. Further back is an earlier answer —
-    // the resume, when the questions are being read — and would be wrong.
+    // Only the newest message, or the one before it when the anchor lands on the
+    // user's own message. Further back is an earlier answer — the resume, when
+    // the questions are being read — and would be wrong.
+    const why = [];
     for (let fromEnd = 0; fromEnd < 2; fromEnd += 1) {
-      const copied = await page("copyAt", [fromEnd]);
-      if (!copied || copied.text == null) break;
-      const text = copied.text.trim();
-      if (!text || text.includes(promptHead)) continue;
-      if (step.expect === "html" && !/<\/html>/i.test(text)) continue;
-      if (step.expect === "json" && !text.includes("{")) continue;
+      const got = await this.pageStep("readAt", [fromEnd]);
+      if (!got || got.text == null) {
+        why.push(`#${fromEnd}:no-body(bodies=${got ? got.count : "?"})`);
+        break;
+      }
+      const text = got.text.trim();
+      const sample = text.slice(0, 80).replace(/\s+/g, " ");
+      if (!text) {
+        why.push(`#${fromEnd}:empty`);
+        continue;
+      }
+      if (text.includes(promptHead)) {
+        why.push(`#${fromEnd}:is-prompt(len=${text.length}, head="${sample}")`);
+        continue;
+      }
+      if (step.expect === "html" && !/<\/html>/i.test(text)) {
+        why.push(`#${fromEnd}:no-</html>(len=${text.length}, head="${sample}")`);
+        continue;
+      }
+      if (step.expect === "json" && !text.includes("{")) {
+        why.push(`#${fromEnd}:no-json(len=${text.length})`);
+        continue;
+      }
       return text;
     }
-    throw new Error("chatgpt_read_failed: could not read ChatGPT's answer from the page");
+    // Nothing usable. Carry back a snapshot of the page so the failure in the log
+    // says why, when the DOM here is not one we can open.
+    const probe = await this.pageStep("probe").catch(() => null);
+    throw new Error(
+      `${engine.id}_read_failed: could not read ${engine.name}'s answer from the page [${why.join(", ")}]` +
+        (probe ? ` ${JSON.stringify(probe)}` : "")
+    );
+  }
+
+  /**
+   * Run one on-page step under this panel's engine. Named pageStep, not page,
+   * because this.page is the current page index — a method called page would be
+   * shadowed by it the moment the constructor sets this.page = 0.
+   */
+  pageStep(fn, args = []) {
+    return ask("engine:page", { engine: this.engine.id, fn, args });
   }
 
   checkStopped() {
@@ -592,10 +646,6 @@ class GptPanel {
   sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
-}
-
-async function page(fn, args = []) {
-  return ask("gpt:page", { fn, args });
 }
 
 function stateLabel(job) {

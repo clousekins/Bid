@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Poong Job Clipper",
-  "description": "An in-page panel: clip the job posting you are looking at into Poong-Apply, turn pasted Jobright search JSON into one CSV, and on chatgpt.com, write resumes for Poong's jobs.",
-  "version": "1.3.2",
+  "description": "An in-page panel: clip the job posting you are looking at into Poong-Apply, turn pasted Jobright search JSON into one CSV, and on chatgpt.com or claude.ai, write resumes for Poong's jobs.",
+  "version": "1.4.0",
   "permissions": [
     "storage",
     "activeTab",
@@ -13,7 +13,8 @@
     "http://127.0.0.1:8000/*",
     "http://localhost:8000/*",
     "https://boards-api.greenhouse.io/*",
-    "https://chatgpt.com/*"
+    "https://chatgpt.com/*",
+    "https://claude.ai/*"
   ],
   "background": {
     "service_worker": "background.js",

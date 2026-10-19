@@ -161,6 +161,37 @@ def _backfill_country(conn) -> None:
     )
 
 
+def _backfill_salary(conn) -> None:
+    """Read a pay range out of the JD every existing row already holds.
+
+    Runs once, right after the column is added, so jobs fetched before this
+    feature show a salary without needing a re-scan. Only rows with a real JD
+    are touched; the rest stay NULL and read as "—" until one arrives.
+    """
+    from sqlalchemy import text
+
+    import logging
+
+    from app.services.salary_extract import extract_salary
+
+    rows = conn.execute(
+        text("SELECT id, description FROM jobs WHERE description IS NOT NULL")
+    ).fetchall()
+    filled = 0
+    for row_id, description in rows:
+        salary = extract_salary(description)
+        if not salary:
+            continue
+        conn.execute(
+            text("UPDATE jobs SET salary = :salary WHERE id = :id"),
+            {"salary": salary, "id": row_id},
+        )
+        filled += 1
+    logging.getLogger("poong.salary").info(
+        "salary backfill: found a pay range in %s of %s JD rows", filled, len(rows)
+    )
+
+
 def _ensure_sqlite_columns(conn) -> None:
     """Add columns that create_all will not alter on existing SQLite DBs."""
     from sqlalchemy import text
@@ -181,6 +212,9 @@ def _ensure_sqlite_columns(conn) -> None:
         conn.execute(text("ALTER TABLE jobs ADD COLUMN domains VARCHAR(64)"))
     if "feasibility_score" not in cols:
         conn.execute(text("ALTER TABLE jobs ADD COLUMN feasibility_score INTEGER"))
+    if "salary" not in cols:
+        conn.execute(text("ALTER TABLE jobs ADD COLUMN salary VARCHAR(128)"))
+        _backfill_salary(conn)
     if "country" not in cols:
         conn.execute(
             text("ALTER TABLE jobs ADD COLUMN country VARCHAR(2) NOT NULL DEFAULT 'US'")

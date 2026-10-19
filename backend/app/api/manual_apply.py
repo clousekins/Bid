@@ -19,9 +19,14 @@ from app.services.apply_answers import generate_field_answers
 from app.services.folder_writer import ensure_job_folder
 from app.services.jd_extract import extract_job_fields_from_jd
 from app.services.persona import get_active_persona_id, load_persona
-from app.services.pipeline import find_job_by_url, process_listing
+from app.services.pipeline import find_job_by_url, is_stale_duplicate, process_listing
 from app.services.deep_scan import deep_scan_job, preview_url_fetch
-from app.services.tailor import tailor_job
+from app.services.tailor import (
+    build_package_from_text,
+    build_tailor_prompt,
+    tailor_job,
+)
+from app.config import get_settings
 
 router = APIRouter(prefix="/api/manual-apply", tags=["manual-apply"])
 
@@ -55,6 +60,17 @@ class ManualAnswersBody(BaseModel):
     title: str | None = None
     url: str | None = None
     description: str | None = None
+
+
+class ManualPromptBody(BaseModel):
+    persona_id: str
+    job_id: int
+
+
+class ManualBuildBody(BaseModel):
+    persona_id: str
+    job_id: int
+    text: str = Field(..., min_length=1)
 
 
 def _parse_questions(*, questions: list[str] | None, questions_text: str | None) -> list[str]:
@@ -127,6 +143,7 @@ def _job_payload(job: Job) -> dict[str, Any]:
         "url": job.url,
         "apply_url": job.apply_url,
         "location": job.location,
+        "salary": job.salary,
         "status": job.status,
         "description": job.description,
         "folder_path": job.folder_path,
@@ -212,8 +229,10 @@ async def manual_prepare(body: ManualPrepareBody, db: AsyncSession = Depends(get
         "description": jd,
         "source": "manual_apply",
     }
+    # A match older than the re-insert window is let through to process_listing,
+    # which adds it again at the end rather than reusing the stale row.
     existing = await find_job_by_url(db, url)
-    if existing and not url_inferred:
+    if existing and not url_inferred and not is_stale_duplicate(existing):
         job = (
             await db.execute(
                 select(Job).options(selectinload(Job.packages)).where(Job.id == existing.id)
@@ -222,6 +241,10 @@ async def manual_prepare(body: ManualPrepareBody, db: AsyncSession = Depends(get
         if jd and len(jd) >= 50 and (not job.description or len(job.description) < 50):
             job.description = jd
             job.status = JobStatus.JD_READY.value
+            if not job.salary:
+                from app.services.salary_extract import extract_salary
+
+                job.salary = extract_salary(jd)
             await db.commit()
             job = (
                 await db.execute(
@@ -248,7 +271,7 @@ async def manual_prepare(body: ManualPrepareBody, db: AsyncSession = Depends(get
         bypass_gates=False,
     )
     await db.commit()
-    if result.reason == "duplicate_url" and result.job:
+    if result.reason in {"duplicate_url", "duplicate_company"} and result.job:
         job = (
             await db.execute(
                 select(Job).options(selectinload(Job.packages)).where(Job.id == result.job.id)
@@ -260,7 +283,7 @@ async def manual_prepare(body: ManualPrepareBody, db: AsyncSession = Depends(get
             "persona_id": body.persona_id,
             "extracted": extracted,
             "url_inferred": url_inferred,
-            "warning": "duplicate_url",
+            "warning": result.reason,
             "resume_save_hint": (
                 f"data/applications/{body.persona_id}/{{seq}}-{company.replace(' ', '-')}/"
             ),
@@ -332,6 +355,72 @@ async def manual_tailor(body: ManualTailorBody, db: AsyncSession = Depends(get_d
             "note": "PDF/HTML/MD live in this folder for Assisted apply upload",
         },
     }
+
+
+@router.post("/prompt")
+async def manual_prompt(body: ManualPromptBody, db: AsyncSession = Depends(get_db)):
+    """The complete prompt tailor_job would send for this job + persona.
+
+    system + user are the two messages; combined is the two joined with a
+    separator, ready to paste into a chat window in one go.
+    """
+    job = await db.get(Job, body.job_id)
+    if not job:
+        raise HTTPException(404, detail="not_found")
+    try:
+        persona = load_persona(body.persona_id)
+    except ValueError as exc:
+        raise HTTPException(400, detail=str(exc)) from exc
+    if not (job.description and len(job.description) >= 50):
+        raise HTTPException(400, detail="jd_too_short")
+
+    prompt = build_tailor_prompt(persona, job)
+    separator = (
+        "\n\n======== JOB DESCRIPTION + CANDIDATE GROUND TRUTH "
+        "(the task) ========\n\n"
+    )
+    combined = prompt["system"] + separator + prompt["user"]
+    return {
+        "ok": True,
+        "persona_id": persona.persona_id,
+        "job_id": job.id,
+        "mode": prompt["mode"],
+        "model": get_settings().openai_model,
+        "system": prompt["system"],
+        "user": prompt["user"],
+        "combined": combined,
+    }
+
+
+@router.post("/build")
+async def manual_build(body: ManualBuildBody, db: AsyncSession = Depends(get_db)):
+    """Build the resume + cover package from text pasted by hand (no LLM call)."""
+    job = await db.get(Job, body.job_id)
+    if not job:
+        raise HTTPException(404, detail="not_found")
+    try:
+        load_persona(body.persona_id)
+    except ValueError as exc:
+        raise HTTPException(400, detail=str(exc)) from exc
+
+    try:
+        result = await build_package_from_text(
+            db, job, persona_id=body.persona_id, raw_text=body.text
+        )
+        await db.commit()
+    except RuntimeError as exc:
+        # Paste did not contain a usable resume: tailor_html_missing,
+        # tailor_html_incomplete, security_clearance_required.
+        raise HTTPException(400, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, detail=str(exc)) from exc
+
+    job = (
+        await db.execute(
+            select(Job).options(selectinload(Job.packages)).where(Job.id == body.job_id)
+        )
+    ).scalar_one()
+    return {**result, "job": _job_payload(job)}
 
 
 @router.post("/answers")

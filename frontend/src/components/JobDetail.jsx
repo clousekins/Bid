@@ -206,6 +206,8 @@ export default function JobDetail({
   onMarkApplied,
   onBlock,
   onDelete,
+  onDisable,
+  onEnable,
   onUpdateFields,
   onContinueManual,
   onSetOutcome,
@@ -234,6 +236,9 @@ export default function JobDetail({
   const hasResume = myStatus === "resume_ready" || myStatus === "applying";
   const canGenerate =
     job.status !== "rejected" && (job.description || "").trim().length >= 50;
+  const ingestAgeDays = job.created_at
+    ? Math.floor((Date.now() - new Date(job.created_at).getTime()) / 86400000)
+    : NaN;
 
   const saveField = async (field, next) => {
     if (!onUpdateFields) return;
@@ -255,6 +260,18 @@ export default function JobDetail({
           {packageStatusLabel(myStatus)}
         </span>
         {generating ? <span className="pill generating">Generating</span> : null}
+        {job.disabled ? (
+          <span
+            className="pill rejected"
+            title={
+              job.disabled_reason === "company_applied"
+                ? `Disabled for ${workingLabel}: already applied at this company. Enable to work it anyway.`
+                : `Disabled for ${workingLabel}.`
+            }
+          >
+            Disabled
+          </span>
+        ) : null}
       </div>
 
       <div className="detail-body">
@@ -266,6 +283,26 @@ export default function JobDetail({
           <span className="detail-label">Pipeline</span>
           <span className={`pill ${job.status}`}>{pipelineLabel(job.status)}</span>
         </div>
+        {job.created_at ? (
+          <div className="detail-row">
+            <span className="detail-label">Ingested</span>
+            <span className="detail-value">
+              {new Date(job.created_at).toLocaleDateString()}
+              {Number.isFinite(ingestAgeDays) ? (
+                <span
+                  className="muted"
+                  style={ingestAgeDays > 7 ? { color: "#d08770" } : undefined}
+                  title={ingestAgeDays > 7 ? "Older than 7 days — re-adding inserts a fresh copy" : undefined}
+                >
+                  {" "}
+                  ({ingestAgeDays === 0
+                    ? "today"
+                    : `${ingestAgeDays} day${ingestAgeDays === 1 ? "" : "s"} ago`})
+                </span>
+              ) : null}
+            </span>
+          </div>
+        ) : null}
         {workingPackage?.status === "applied" && onSetOutcome ? (
           <OutcomeControl pkg={workingPackage} onSetOutcome={onSetOutcome} />
         ) : null}
@@ -316,6 +353,13 @@ export default function JobDetail({
           label="Location"
           field="location"
           value={job.location || ""}
+          onSave={saveField}
+          busy={saving}
+        />
+        <EditableField
+          label="Salary"
+          field="salary"
+          value={job.salary || ""}
           onSave={saveField}
           busy={saving}
         />
@@ -461,6 +505,23 @@ export default function JobDetail({
               title="Keep the job on the list but out of the pipeline, and free its company for other jobs"
             >
               Make rejected
+            </button>
+          )}
+          {job.disabled ? (
+            <button
+              type="button"
+              onClick={onEnable}
+              title={`Enable this job for ${workingLabel} — back in the list and the pipeline`}
+            >
+              Enable
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onDisable}
+              title={`Disable this job for ${workingLabel} — greyed out, and left out of ingestion and resume build`}
+            >
+              Disable
             </button>
           )}
         </div>

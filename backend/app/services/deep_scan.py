@@ -80,7 +80,9 @@ async def _apply_resolved_employer(
         job.notes = f"gate:client_company_blocked:{job.company}"
         return {"employer": change, "gate": "company_blocked"}
 
-    if await company_is_applied(session, job.persona_id, job.normalized_company):
+    if not get_settings().allow_company_multi_apply and await company_is_applied(
+        session, job.persona_id, job.normalized_company
+    ):
         job.status = JobStatus.SKIPPED.value
         job.notes = f"gate:client_already_applied:{job.company}"
         return {"employer": change, "gate": "company_already_applied"}
@@ -121,6 +123,11 @@ async def deep_scan_job(session: AsyncSession, job: Job, *, force: bool = False)
 
     job.description = result.text
     job.jd_fetched = True
+    # Read pay from the freshly fetched JD, but never clobber a hand-edited one.
+    if not job.salary:
+        from app.services.salary_extract import extract_salary
+
+        job.salary = extract_salary(result.text)
 
     if gate_blocked:
         folder = sync_job_folder(
@@ -277,7 +284,9 @@ async def preview_url_fetch(
             warnings.append("already_has_jd")
         if await company_is_blocked(session, normalized):
             blockers.append("company_blocked")
-        elif await company_is_applied(session, persona_id, normalized):
+        elif not get_settings().allow_company_multi_apply and await company_is_applied(
+            session, persona_id, normalized
+        ):
             blockers.append("company_already_applied")
         if existing.status in {JobStatus.REJECTED_ONSITE.value}:
             warnings.append("hybrid_or_onsite")
@@ -338,7 +347,9 @@ async def preview_url_fetch(
         warnings.append("staffing_firm_resolved")
     if await company_is_blocked(session, normalized):
         blockers.append("company_blocked")
-    elif await company_is_applied(session, persona_id, normalized):
+    elif not get_settings().allow_company_multi_apply and await company_is_applied(
+        session, persona_id, normalized
+    ):
         blockers.append("company_already_applied")
     gate = check_remote_us(location, result.text)
     if not gate.ok:

@@ -148,7 +148,8 @@ class TestCsvDuplicateTitles:
 
 @pytest.mark.asyncio
 async def test_reposted_job_is_rejected_on_csv_upload(tmp_path, monkeypatch):
-    """Same company + same role under a different URL must not enter twice."""
+    """One job per company per 7 days: a second listing from the same company,
+    same role or not, under a different URL must not enter while one is recent."""
     from app.config import get_settings
     from app.db import session as sess
     from app.db.session import get_session_factory, init_db
@@ -176,14 +177,17 @@ async def test_reposted_job_is_rejected_on_csv_upload(tmp_path, monkeypatch):
             {**base, "title": "Senior Data Engineer (Remote) - W2", "url": "https://b.example/2"},
         )
         assert not again.ok
-        assert again.reason == "duplicate_company_title"
+        assert again.reason == "duplicate_company"
         assert again.job is not None and again.job.id == first.job.id
 
-        # A genuinely different role at the same company still gets in.
+        # A genuinely different role at the same company is held too now —
+        # one company per 7-day window.
         other = await process_listing(
             db, {**base, "title": "Staff Machine Learning Engineer", "url": "https://c.example/3"}
         )
-        assert other.ok, other.reason
+        assert not other.ok
+        assert other.reason == "duplicate_company"
+        assert other.job is not None and other.job.id == first.job.id
 
 
 class TestFeasibilityRanking:

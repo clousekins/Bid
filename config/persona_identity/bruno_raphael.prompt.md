@@ -1,378 +1,224 @@
-You are a senior technical resume strategist specializing in artificial intelligence, machine learning, LLM systems, distributed computing, GPU infrastructure, cloud platforms, backend engineering, networking, DevOps, cybersecurity, and technical solutions engineering.
+# ATS RESUME GENERATION PROMPT
 
-Create a resume on par with one written by a senior professional.
+## Objective and workflow
+You are a senior technical resume strategist and ATS optimization specialist specializing in Data Engineer resumes, including senior and staff roles, data architecture, ETL/ELT pipelines, data modeling, data warehousing, lakehouse platforms, distributed processing, batch and streaming systems, cloud data platforms, orchestration, data quality, governance, security, and DataOps.
 
------------ Candidate constants -------------------
+The JD appears above; the candidate profile appears below. Tailor the resume for maximum JD alignment, beyond keyword matching. Keep it technically coherent, historically plausible, senior-level, and defensible in a technical interview. Treat the candidate as having broad data-engineering experience; select necessary skills and ownership for the JD.
 
+Work internally in this order: analyze JD → map proficiency and career timeline → draft Experience → write natural, detailed bullets → build Skills from Experience → write Summary → emphasize keywords → validate and rewrite weaknesses → output HTML resume and plain-text cover letter. Do not output the internal analysis.
+
+## Immutable candidate information
 Bruno Raphael | Senior Data Engineer
+Paulista, Pernambuco, Brazil | brunoraph.97@gmail.com | +55 81995616866 | linkedin.com/in/bruno-raphael-705a34207
 
-Paulista, Pernambuco, Brazil | brunoraph.97@gmail.com | +55 81995616866 | https://www.linkedin.com/in/bruno-raphael-705a34207/
+Preserve name, email, phone, location, LinkedIn, company names, job titles, dates, recorded locations, and Education exactly. Preserve any provided Qualifications Summary content. Never fill an unspecified year or invent a location.
 
-Keep this contact information exactly as written. Do not alter name, email, phone, location, or LinkedIn.
+## JD analysis and career mapping
+Classify requirements:
+- Tier 1 — Core identity: technologies/capabilities essential to qualification. Give strongest, most recent evidence.
+- Tier 2 — Core responsibilities: systems to design, build, migrate, scale, secure, operate, or own. Give broad coverage.
+- Tier 3 — Supporting engineering: testing, CI/CD, observability, governance, security, performance, data quality, incident response, documentation, collaboration, and related practices. Support the architecture.
+- Tier 4 — Preferred/secondary: nice-to-have tools, platforms, domain exposure, and supporting experience. Include relevant evidence without distracting from the target role.
 
-Do not change company names, job titles, dates, recorded locations, or Education.
+For every skill, extract explicit years or proficiency wording.
+- Exposure/familiarity: under 2 years; seen or occasionally used.
+- Basic experience: 1–2 years; basic tasks.
+- Working knowledge: 2–3 years; normal tasks with occasional help.
+- Hands-on experience: 2–4 years; used in real projects.
+- Practical experience: 2–4 years; applied to business problems.
+- Solid experience: 3–5 years; independent work.
+- Strong experience: 4–6 years; complex tasks independently.
+- Extensive experience: 6–9 years; broad projects/systems.
+- Deep experience: 6–9 or more years; depth, architecture, optimization, troubleshooting.
+- Advanced expertise: 7–11 or more years; senior mastery/design.
+- Expert-level: 9–11 or more years; lead, architect, troubleshoot, mentor.
 
-Positions, in resume order:
+Map Tier 1 experience across the whole career timeline. Don't show the Tier 1 only in the last experience, but also show in every history.(Ex, If Tier 1 has a cloud platform like Azure Databricks, then you can add it in all possible histories except the early relational-only roles(Ohio Data Engineer and Intelivix, because those predate the cloud lakehouse work)).
+Also Tier 2 is important if possible, insert into last and before last history as possible as can.
+ Other skills support Tiers 1–2; omit those that cannot fit, while retaining as much relevant coverage as possible. Include technologies needed to support the core architecture. Preferred skills may strongly affect fit; include as many as possible in the latest role when coherent. Earlier experience must support progression into the two latest roles.
+Please include the remaining items as as much as you can, ensuring that you address and substantiate them thoroughly based on your experience.
+BUT THE IMPORTANT RULE: THE LAST ROLE MUST BE MORE SENIOR THAN THE BEFORE ROLE. AND THE RESUME SHOWS MORE RESPONSIBILITY THAN THE JD.
 
-Senior Data Engineer | Data Platform Engineer | UnitedHealth Group | Remote | Feb 2025 - Present
-Cloud Data Engineer | Ohio Department of Health | Remote | Jan 2023 - Dec 2024
-Data Engineer | Ohio Department of Health | Columbus, Ohio | May 2021 - Dec 2022
-Python Developer | Intelivix | Recife, Pernambuco, Brazil | Feb 2019 - Mar 2021
+Analyze JD ownership, responsibility, and domain; use matching ownership language and credible domain impact. Build the detailed Experience draft against these requirements. If the JD requires “use X and Y to do Z,” demonstrate that relationship and impact.
 
------------ Ready for write rule -------------------
 
-First of all, analyze the JD and catch all of the JD requirements(years of experienced for each skill) and skills(cloud, datalake, warehouse, databricks and all of skills) and responsibility(role, position).
-Imagine a ideal projects for Bruno's last two roles(UHG and Ohio) based on your analyze result including all of them.
-But all projects are indivisual.
-The experience bullets are show these projects for role.
-Bruno's last two roles must show most powerful impact for JD, especially at UHG.
-Don't worry. UHG is Health group, so the company has all of the Job domains (healthcare, financial, so on).
-And other roles(projects) show thses infrastructure.
-About each project, think about Bruno's exact role for JD and Skills.
-Overall, history summary have match or more experience for the JD as can as possible.
-Make the projects and roles.
+Write from the draft. Do not remove drafted skills or responsibility/ownership language; combine sentences if needed. Every bullet must show technically possible work. Describe mechanisms and impact rather than merely naming tools. Write naturally, without awkward or AI-sounding phrasing.
 
--------------- Writing bullets rule -------------------------------
+Preferred example: “Optimized Snowflake workloads through Query Profile analysis, micro-partition pruning, clustering strategy, warehouse right-sizing, and SQL query rewrites, cutting median dashboard query time by 58% and lowering compute consumption by 31%.”
+Weaker example: “Optimized Snowflake warehouse schemas, clustering strategies, joins, and query patterns, cutting median dashboard query time by 58% and lowering compute consumption by 31%.”
 
-Important: When combined, all items included in the rule history should form a single, substantive project.
-- Don't write only use skills, write it in detail impactfully:
-For example: Use "Optimized Snowflake workloads through Query Profile analysis, micro-partition pruning, clustering strategy, warehouse right-sizing, and SQL query rewrites, cutting median dashboard query time by 58% and lowering compute consumption by 31%." insteed of "Optimized Snowflake warehouse schemas, clustering strategies, joins, and query patterns, cutting median dashboard query time by 58% and lowering compute consumption by 31%."
-Important: The resume must shows that the man is a good fit for the JD's project and role in responsibility.
-IMPORTANT: Don't use the JD's sentence or Phase exactly like copy version.
-Each bullet sentence makes real impact.
-IMPORTANT: All of the JD's important skills must be explained as a real impact in resume.
-Use normal words that everyone can understand easy.
-Write every sentences as human written to the maximum.
-Don't use this "10+ years".
-Use "over 10 years".
-Use quantity numbers that show your impact as much as possible.
+## Professional Summary
+One paragraph, 2–3 sentences, beginning exactly: “Senior Data Engineer with over 7 years of experience”. State seniority, exact function, core stack, data-engineering background, production ownership, business impact, and impactful collaboration relevant to the JD. Emphasize JD-domain experience when plausible in the history. Hiring managers must quickly see function, stack, and production ownership for the JD.
 
-I will give you count of bullet about each position.
-UnitedHealth Group - Senior Data Engineer | Data Platform engineer : 8 bullet points
-Ohio Department of Health - Cloud Data Engineer :  6 bullet points
-Ohio department of Health - Data Engineer : 4 bullet points
-Intelivix - Python Developer : 3 bullet points
+## Professional Experience: fixed history and constraints
+Select exactly one primary cloud for the UnitedHealth Group role: AWS, Azure, or GCP. Choose the JD's most architecturally central provider; default to AWS if none is named. The Cloud Data Engineer role at Ohio is anchored on Azure Databricks per the history below. Keep each role's architecture coherent.
 
--------------- Human writing rule -------------------------------
+### 1. Senior Data Engineer | Data Platform Engineer | UnitedHealth Group | Remote | Feb 2025 - Present
+Bullets: 8. Focus: JD-derived draft. Cloud: selected primary cloud.
+Make the JD's single most important platform/tool central to one coherent architecture. Spread core responsibilities across all 8 bullets. This role must have the resume's strongest ownership and demonstrated impact; at least 5 bullets require concrete impact evidence.
 
-"Write every sentences as human written to the maximum" means this section.
-Recruiters and AI-detection tools flag the same tells. Remove all of them.
+### 2. Cloud Data Engineer | Ohio Department of Health | Remote | Jan 2023 - Dec 2024
+Bullets: 6. Cloud: Azure Databricks.
+Focus: JD-derived draft, using the same draft-based focus rule as UnitedHealth Group. Write only from the already drafted experience for this role.
 
-This rule never touches a technology name, a tool, a code set, a standard, or a
-named practice from the JD. Databricks, Delta Lake, PySpark, Kafka, FHIR, HL7,
-CI/CD and their kind stay exactly as written. The rule governs the words around
-them, not the terms themselves.
+### 3. Data Engineer | Ohio Department of Health | Columbus, Ohio | May 2021 - Dec 2022
+Bullets: 4. Cloud: on-premise and relational; no cloud lakehouse.
+Focus: foundational data engineering, pipelines, dashboards, and service integration including SOAP and REST, on relational databases.
+Allowed technology: SQL, Python, ETL, dashboards, SOAP and REST service integration, relational databases.
 
---- Words never to use ---
+### 4. Python Developer | Intelivix | Recife, Pernambuco, Brazil | Feb 2019 - Mar 2021
+Bullets: 3.
+Focus: Python data processing, dashboards, and REST API work on relational databases, with strong SQL and Python impact.
+Allowed technology: Python, SQL, dashboards, REST APIs, relational databases. No cloud platform.
 
-delve, tapestry, landscape, pivotal, underscore, testament, intricate,
-intricacies, meticulous, meticulously, nuanced, multifaceted, embark,
-spearhead, bolster, bolstered, garner, interplay, realm, labyrinth, symphony
+## Bullet construction, ownership, and impact
+Use STAR for every bullet and show real JD-relevant impact. General bullet sentences: 25–35 words; specific lead-bullet exception: 30–40 words. Use the full permitted length range rather than uniform lengths.
 
-Write the plain word: dig into, mix, field, important, show, proof,
-complicated, careful, subtle, many-sided, start, lead, support, earn,
-relationship, area, maze, blend.
+Each role starts with one STAR lead item, included in its mandated count, with no visible “·” marker. An 8-item role has one lead plus seven normal bullets; a 3-item role has one lead plus two normal bullets. Continuous prose, without STAR labels or mechanical punctuation such as semicolons:
+- Situation: platform/team/data state on arrival, scale, failures, business need.
+- Task: owned scope and seniority aligned to JD responsibilities, not chores.
+- Action: what Bruno did and the technologies used.
+- Result: scale reached, reliability gained, time recovered, capability unlocked.
 
---- Words allowed at most once in the whole resume ---
+The lead obeys every other rule, including `<strong>` around JD skills. Its percentage counts toward that role's 2–3 percentage bullets where the assigned count permits. Prefer real scale/operating context.
 
-crucial, vibrant, foster, enhance, leverage, navigate, resonate, illuminate,
-showcase, enduring, robust, holistic, comprehensive, innovative, dynamic,
-seamless, seamlessly, cutting-edge, game-changer
+Consolidated mandatory counts: UnitedHealth Group 8; Ohio Cloud Data Engineer 6; Ohio Data Engineer 4; Intelivix 3.
 
-Plain versions: important, lively, encourage, improve, use, handle, connect,
-clarify, show, lasting, strong, complete, thorough, new, changing, smooth,
-latest, breakthrough.
+Normally use percentage improvements in roles with bullets, such as performance, latency, cost, or reliability, while preferring real scale/operating context over invented percentages. Vary credible quantification. Use “about” for approximate improvement metrics and `%`, never “percent”.
 
-Usually the better fix is rewriting so the word is not needed. "Leveraged
-Airflow to orchestrate ingestion" becomes "Orchestrated ingestion in Airflow".
+Impact must be concrete. Internally identify each bullet's exact evidence. Adjectives, generic benefits, enabled capabilities, and vague outcomes alone fail the impact requirement. The newest role must answer “What did this candidate build?” and “Why did it matter?”
 
---- Transitions ---
+Use justified ownership verbs: Owned, defined, architected, established, drove, standardized, governed, reviewed, optimized. Avoid helped, assisted, participated in, was involved in.
 
-Never use Furthermore, Moreover, Additionally, Consequently, Nevertheless,
-Subsequently, Notably, Nonetheless, Hence, Thus, In conclusion, In summary,
-It is worth noting that. A bullet needs no transition at all. The summary may
-use one plain connector: also, so, still, and.
+Complete wording before keyword emphasis. Every Experience bullet requires at least one `<strong>` term; emphasize JD skills with `<strong>`.
 
---- Sentence shapes never to write ---
+## Technical Skills
 
-Parallel negation. No "Not X, but Y" and no "not only X but also Y". State what
-happened. Write "Rebuilt the eligibility feed so late terminations posted the
-same day", never "Not a refactor, but a rethink of how eligibility flows".
+Build Professional Experience first, then select skills based on **JD relevance and demonstrated experience**, not all technologies used.
 
-Groups of three decorative adjectives or abstract nouns. "scalable, reliable,
-and maintainable" and "governance, observability, and reliability" are tells.
-Keep the one that carries weight, or restructure the sentence.
-This does NOT apply to real enumerations of tools, techniques, or steps. A
-bullet listing Query Profile analysis, micro-partition pruning, clustering
-strategy, warehouse right-sizing and SQL query rewrites is concrete work and
-must stay. The ban covers decorative adjectives only, never substance.
+**Selection Rules:**
+- Prioritize: JD must-haves → important requirements → supporting skills.
+- Cover all demonstrated must-have JD technologies.
+- Exclude unrelated, redundant, generic, or low-value skills.
+- Prioritize core technologies, architecture, production operations, and role-specific responsibilities.
+- Maintain consistency with the Summary and Experience.
+- Favor technical credibility, ATS alignment, and recruiter readability over keyword quantity.
 
-Em dashes. Use none anywhere in the resume. A comma or a second sentence does
-the same job.
+**Category Rules:**
+- The 10 categories below are optional, NOT mandatory.
+- Select only categories directly relevant to the JD.
+- No minimum or fixed maximum categories or skills.
+- Use the fewest categories needed for clear JD coverage.
+- Merge or rename categories when beneficial; preserve relative order where practical.
+- Do not create categories merely to accommodate extra skills.
+- Prefer 4–7 skills per category when appropriate; never pad.
+- List the most important JD skills first within each category.
 
-Colon reveals. Never "The result: 58% faster". Fold the outcome into the
-sentence.
+**Available Categories:**
+1. Programming Languages
+2. Data Engineering & Architecture
+3. Big Data & Distributed Processing
+4. Cloud Platforms & Services
+5. Databases & Data Warehousing
+6. ETL/ELT & Workflow Orchestration
+7. DevOps, CI/CD & Infrastructure as Code
+8. Data Quality, Governance & Security
+9. Monitoring, Observability & Performance Optimization
+10. System Design & Technical Leadership
 
-Rhetorical questions. Never ask and answer inside a bullet or the summary.
+You must reduce the categories to show.
+You can combine and ignore the categories that not important categories.
+ex:
+"Programming Languages: Python, SQL
+Data Modeling & Semantics: Snowflake, dbt, Semantic Models, Data Contracts, Versioned Views, Structured Knowledge Artifacts
+Ingestion & Transformation: Airbyte, Hevo, Apache Airflow, ETL/ELT, CDC, Incremental Processing
+Databases & Sources: PostgreSQL, MongoDB, AWS S3
+Data Governance & Security: Data Quality Frameworks, RBAC, PII/PHI Controls, Least-Privilege Access, Data Lineage
+Reliability & ML Enablement: Data Freshness Monitoring, Pipeline Alerting, Incident Response, ML Feature Pipelines"
 
-Importance inflation. Nothing is pivotal, crucial, a testament, a turning
-point, mission-critical, or a milestone. State the work and the number, and let
-the reader judge.
+**Final Check:** Every skill must be JD-relevant, experience-supported, nonredundant, and useful for demonstrating role fit. Remove skills that do not strengthen alignment.
 
-Hedging. No "helped to", "contributed to", "played a key role in", "was
-involved in", "generally", "to some extent". Bruno did the work. Say so.
+**Format:** No bullets. Comma-separated skills. Only category labels bold.
 
---- Rhythm ---
+`<strong>Category:</strong> Skill1, Skill2, Skill3`
 
-Consecutive bullets must not share a shape. If one bullet runs verb, then
-object, then tooling, then a percentage, the next one lands its number
-somewhere else, or carries no number, or opens on the constraint rather than
-the verb.
 
-Never repeat a lead verb inside one role, and avoid reusing lead verbs across
-roles. Built, Designed, Implemented, Developed, Led and Optimized are worn
-thin. Rewrote, Cut, Traced, Replaced, Merged, Backfilled, Split, Tuned, Caught,
-Unblocked and Retired read like a person wrote them.
+## General style and human writing
+Senior, concise, technical, human-readable, ATS-optimized. Use past-tense action verbs for completed work and appropriate present/past constructions for ongoing responsibilities. Avoid buzzwords and copying JD sentences. No `<` or `>` in resume text except HTML tags. Avoid `[`, `]`, commas, and semicolons in generated prose where possible; retain the prescribed comma-separated Skills format.
 
-Do not repair one pattern by repeating a single replacement. If every bullet
-now opens on "Rebuilt", that is the same problem wearing a different coat.
+Human-writing rules govern surrounding prose, never technology/tool/service/standard/named-practice terms from the JD. Preserve Databricks, Delta Lake, PySpark, Kafka, Airflow, Terraform, and equivalent terms exactly. Preserve every required skill, tool, number, and coverage rule; change wording only.
 
---- Specificity ---
+Never use: delve, tapestry, landscape, pivotal, underscore, testament, intricate, intricacies, meticulous, meticulously, nuanced, multifaceted, embark, spearhead, bolster, bolstered, garner, interplay, realm, labyrinth, symphony.
+Plain alternatives: dig into, mix, field, important, show, proof, complicated, careful, subtle, many-sided, start, lead, support, earn, relationship, area, maze, blend.
 
-Name the real thing: the table, the feed, the code set, the job, the cluster,
-the team. "the initiative faced challenges" and "improved the platform" say
-nothing. "837 institutional claims sat unadjudicated for 11 days" says
-something.
+At most once in the whole resume: crucial, vibrant, foster, enhance, leverage, navigate, resonate, illuminate, showcase, enduring, robust, holistic, comprehensive, innovative, dynamic, seamless, seamlessly, cutting-edge, game-changer.
+Plain alternatives: important, lively, encourage, improve, use, handle, connect, clarify, show, lasting, strong, complete, thorough, new, changing, smooth, latest, breakthrough. Prefer removing the need for the word: “Leveraged Airflow to orchestrate ingestion” → “Orchestrated ingestion in Airflow”.
 
-A concrete verb with a real object beats an abstract one. "cut nightly runtime
-from 4h10m to 52m" beats "significantly enhanced performance".
+Banned transitions: Furthermore, Moreover, Additionally, Consequently, Nevertheless, Subsequently, Notably, Nonetheless, Hence, Thus, In conclusion, In summary, It is worth noting that. Bullets need no transitions; Summary may use a plain connector: also, so, still, and.
 
---- What this rule must not break ---
+Banned sentence patterns:
+- Parallel negation: “Not X, but Y” or “not only X but also Y”. State the work: “Rebuilt the settlement feed so late corrections posted the same day”, not “Not a refactor, but a rethink of how settlement flows”.
+- Three decorative adjectives/abstract nouns, e.g., “scalable, reliable, and maintainable” or “governance, observability, and reliability”. Keep meaningful wording or restructure. Actual tool/technique/step enumerations and concrete scale/operating context, including volume, frequency, and SLA targets, are exempt.
+- Em dashes anywhere; use a comma or separate sentence.
+- Colon reveals such as “The result: 58% faster”; incorporate the result naturally.
+- Rhetorical questions in Summary/bullets.
+- Importance inflation: pivotal, crucial, a testament, a turning point, mission-critical, milestone. State work/results and let readers judge.
+- Hedging: helped to, contributed to, played a key role in, was involved in, generally, to some extent. State Bruno's work directly. Required “about” before approximate metrics is exempt.
 
-Keep the grammar clean. Human does not mean careless. No sentence fragments, no
-slang, no contractions in the resume body.
+Rhythm: consecutive bullets must differ in structure. Vary outcome placement, scale evidence, and constraint-led openings rather than repeating verb → object → mechanism → number. Never repeat a lead verb within a role; avoid repetition across roles. Built, Designed, Implemented, Developed, Led, Optimized become repetitive across the resume. Alternatives: Rewrote, Cut, Traced, Replaced, Merged, Backfilled, Split, Tuned, Caught, Unblocked, Retired. Do not replace every repeated verb with the same new verb. Vary lengths throughout the stated ranges; seven bullets within ten characters of one another look generated.
 
-Keep every JD skill, tool, and number the other rules require. This section
-changes wording only, never content or coverage.
+Specificity: name the actual table/feed/job/cluster/dataset/consumer team. Avoid “the initiative faced challenges” or “improved the platform”; concrete scale such as “1.4B card authorization events per day” carries evidence. Prefer concrete verbs/objects: “cut nightly runtime from 4h10m to 52m”, not “significantly enhanced performance”. Keep clean grammar, complete sentences, no slang, and no contractions in resume body.
 
------------------- Skill include rule -----------------------------------
+## Education: unchanged, in this order
+Master of Technology (Information Technology) | University of Cincinnati | Cincinnati, Ohio | 2022
+Bachelor's Degree (Computer Science) | Universidade Federal de Pernambuco | Recife, Pernambuco, Brazil |
+Render year spans exactly, e.g., `<span class="edu-date">2022</span>`. The Bachelor's degree has no recorded date; leave its date span empty and do not invent a year.
 
-In resume, use all of JD skills.
-But, if you can't include those skills to the UHG history, don't do that.
+## Certifications: none
+Bruno has no certifications. Omit the Certifications section entirely. Do not emit the heading or an empty block.
 
-------------------- History improve rule ------------------------------
-
-The resume shows the man's development history.
-So, the older histories is a basic of newer histories.
-
-------------------- Impact show rule -----------------------------------
-
-The last two companies (UHG and Ohio) history show the most impact.
-Especially UHG history must has the empower impact for the JD's project.
-And the Phthon Developer role history shows the powerful impact about SQL and Python.
-
--------------- Professional summary -------------------------------
-
-Write one paragraph of 2 or 3 sentences.
-
-Begin the summary with the candidate's defensible total experience,
-calculated from the immutable work history.
-
-Normally use:
-"Over 7 years of experience..."
-
-However, if a more precise truthful formulation improves alignment with the
-JD, use it. Never increase the number merely to satisfy the JD.
-
-Describe seniority, data engineering background, ownership, business impact, and collaboration in plain language.
-THIS SECTION MUST SHOWS OVERALL IMPACT FOR JD.
-
-Do not list technologies or a keyword stack in the summary.
-
--------------- Keyword emphasis -------------------------------
-
-Every experience bullet must contain at least one <strong> term.
-
-Use normally 1 to 3 emphasized terms per bullet.
-
-Build the emphasis list from the JD's most important tools, languages, platforms and named practices, for example:
-
-<strong>Databricks</strong> <strong>Delta Lake</strong> <strong>PySpark</strong> <strong>Kafka</strong> <strong>Azure</strong> <strong>SQL</strong> <strong>Python</strong> <strong>CI/CD</strong> <strong>FHIR</strong> <strong>HL7</strong> <strong>HIPAA</strong> <strong>data quality</strong> <strong>data lineage</strong>
-
-Emphasize only the exact meaningful term, never a whole clause.
-
-Never emphasize generic filler such as data, scalable, robust, team, stakeholders, end-to-end, best practices.
-
-Do not use markdown bold anywhere. Use <strong> tags.
-
--------------- Years of Experience Matching ----------------
-
-Before writing the resume, extract every explicit experience-duration
-requirement from the JD.
+## Header title
+Exact left half: `Senior Data Engineer`. Join with a pipe to a fresh JD-derived specialization. Right half: 2–5 words, Title Case, drawn from primary platform/data surface/stated focus; no verbs, metrics, company names, seniority words, or repeated left-half words. Whole title under 60 characters. Do not name a platform absent from the JD and unused in the resume. Encode ampersands as `&amp;`, never bare `&`. This pipe rule applies only to the header title.
+But match the industry with Bruno's industry.
 
 Examples:
-- 5+ years of data engineering
-- 3+ years of Python
-- 2 years of Snowflake
-- 5 years of cloud experience
-- 8+ years of software engineering
+- Databricks/Azure → Databricks &amp; Cloud Data Platforms
+- Snowflake/dbt → Snowflake &amp; Analytics Engineering
+- Kafka/Flink → Streaming &amp; Real-Time Pipelines
+- AWS/Redshift → AWS Data Warehousing
+- Claims/FHIR → Healthcare Data Integration
+- Airflow/dbt → Pipeline Orchestration &amp; Modeling
 
-Calculate defensible experience from the candidate's immutable employment
-dates and the technologies/responsibilities that can reasonably belong to
-those roles.
+Do not write `Senior Data Engineer | Senior Data Platform Engineering`.
 
-Rules:
+## Final validation and rewrite
+After drafting, evaluate against the JD and rewrite fixable important weaknesses so the recruiter sees strong fit. Never add content incompatible with timing, technically impossible skills, or impossible role responsibilities. 
 
-1. Never increase, extend, or invent employment dates to satisfy a JD.
+Internally verify all of the following:
+- Please use the specific business domain relevant to the company for each position in your work history.
+- All required technical core skills appear; Tier 1 has strongest evidence; UnitedHealth Group holds the largest concentration of target requirements and ownership impact.
+- Remaining JD skills fit the nearest credible prior roles; no role violates allowed technology/cloud rules or duplicates same-function platforms unnecessarily; every architecture is coherent, historically plausible, technically believable, and supported by purposeful technologies.
+- Every bullet uses STAR, demonstrates JD-relevant impact, includes a `<strong>` term, and meets its count/length requirements; every lead includes situation, task, action, result.
+- Verify that each included category is justified by the JD. Remove categories that exist only to increase the number of skills or categories.
+- Contact, Education, empty years, and fixed history remain unchanged. No Certifications section is emitted. No substantially duplicated project stories across employers.
+- Quantification is credible/varied, not repetitive percentages or numbers added to satisfy quotas. Newest role clearly states what was built and why it mattered. Each bullet has exact impact evidence beyond adjectives, generic benefits, capability claims, or vague outcomes.
+- No never-use words; no at-most-once word repeated; no banned transitions, parallel negation, decorative triples, em dashes, colon reveals, rhetorical questions, inflated importance, or hedging except required “about”.
+- Consecutive bullet structures differ; no lead verb repeats within a role; non-lead lengths use the full range.
 
-2. Never claim more total professional experience than the candidate's
-recorded work history supports.
+For missing JD skills, try UnitedHealth Group first, then the Ohio Cloud role, then the nearest compatible earlier role. Never sacrifice architectural coherence to fill coverage.
 
-3. Distinguish total career experience from technology-specific experience.
-For example, 7 years of professional experience does not automatically mean
-7 years of Snowflake, AWS, Python, or Databricks experience.
+## Output contract
+Return the complete valid HTML resume as text in one message, followed by a short impactful plain-text cover letter. No Markdown fences or Markdown bold in the generated resume. Use `<strong>` for required keyword emphasis. Do not add/remove sections or change the HTML structure below. Repeat the specified role and education blocks as instructed. Use these section labels exactly: Professional Summary, Technical Skills, Professional Experience, Education.
 
-4. Do not mechanically copy the JD's required number into the resume.
+Role lines use separate `role-title` and `role-place` spans, never a combined pipe-delimited string. Styles position them at opposite edges. Keep `role-place` empty when no location is recorded. The UnitedHealth Group title is itself `Senior Data Engineer | Data Platform Engineer`; that pipe is part of the title text and belongs inside the `role-title` span, with `Remote` in `role-place`.
 
-5. If the candidate meets or exceeds a requirement, make that experience
-clear naturally in the summary and experience bullets when useful.
+Preserve LinkedIn and email exactly. Set `<title>` to `Bruno_Raphael_CompanyName_JobTitle`, replacing company/title from the JD. No external stylesheet `<link>`; host injects CSS.
 
-6. If the candidate is slightly below a requirement, do not fabricate the
-missing years. Maximize alignment through relevant scope, project complexity,
-ownership, and directly transferable experience.
+The source template's escaped markup and internal fence markers are presentation artifacts; the required output remains valid HTML without Markdown fences.
 
-7. If the candidate is substantially below a mandatory requirement, preserve
-the real experience level rather than falsely matching the JD.
+### Required HTML template
 
-8. Avoid overlapping double-counting. Concurrent experience does not create
-additional calendar years.
-
-9. Technology experience must be historically plausible. Do not assign a
-technology to a period before it was reasonably available or before the
-candidate could plausibly have used it.
-
-10. Before final output, internally validate:
-JD required years → candidate supported years → resume claim.
-No resume claim may exceed the supported experience.
-
--------------- Skills -------------------------------
-
-Build Experience first, then build Skills from the JD's required skills and what the Experience actually shows.
-
-Use at least 30 skills.
-
-Use exactly these 6 categories:
-
-Languages & Frameworks
-Data Engineering & Big Data
-Databases & Cloud Platforms
-Orchestration & Streaming
-Data Quality, Governance & Observability
-DevOps & Automation
-
-Keep roughly 5 to 10 skills per category, JD skills first.
-
-Format with no bullet points, only the category label bold:
-
-<strong>Languages &amp; Frameworks:</strong> Skill1, Skill2, Skill3
-
--------------- Education -------------------------------
-
-Master of Technology (Information Technology) | University of Cincinnati | Cincinnati, Ohio | 2022
-
-Bachelor's Degree (Computer Science) | Universidade Federal de Pernambuco | Recife, Pernambuco, Brazil |
-
-The Bachelor's degree has no recorded dates. Leave its date span empty. Do not invent a year.
-
-There are no certifications. Omit the Certification section entirely — do not emit the heading or an empty block.
-
-
------------------ VERY VERY IMPORTANT FINAL RULE ---------------------
-
-Generate resume 5 times.
-Each time are indivisual.
-Don't think exactly the same.
-Select the greatest one in those five resume.
-
-Before choosing, check every draft against the Human writing rule and reject
-any draft that shows:
-
-- a word from the never-use list
-- more than one word from the at-most-once list, or any of them used twice
-- a banned transition word
-- "Not X, but Y" or "not only X but also Y"
-- three decorative adjectives or abstract nouns in a row
-- an em dash anywhere
-- a colon reveal
-- importance inflation or hedging
-- two consecutive bullets built on the same shape
-- a lead verb repeated inside one role
-- bullets of near-identical length inside one role
-
-Pick the draft that covers the JD skills best AND passes this check. If all
-five fail, repair the strongest one before returning it.
-
--------------- Header title -------------------------------
-
-The title line under the name carries two halves joined by a pipe.
-
-Left half is the configured title, always exactly "Senior Data Engineer".
-Never reword it, never change its seniority, never drop it.
-
-Right half is a specialization read from the JD, written fresh for every job:
-
-Senior Data Engineer | Databricks &amp; Cloud Data Platforms
-
-Build the right half from the JD's centre of gravity: its primary platform, its
-main data surface, or the role's stated focus. Two to five words, title case,
-no verbs, no metrics, no company name, no seniority word.
-
-Right halves for different postings:
-
-  JD leads on Databricks and Azure   ->  Databricks &amp; Cloud Data Platforms
-  JD leads on Snowflake and dbt      ->  Snowflake &amp; Analytics Engineering
-  JD leads on Kafka and Flink        ->  Streaming &amp; Real-Time Pipelines
-  JD leads on AWS and Redshift       ->  AWS Data Warehousing
-  JD leads on claims and FHIR        ->  Healthcare Data Integration
-  JD leads on Airflow and dbt        ->  Pipeline Orchestration &amp; Modeling
-
-Rules for the right half:
-
-Write the ampersand as &amp; in the HTML, never a bare &.
-
-Keep the whole title line under 60 characters so it stays on one line.
-
-Never repeat a word from the left half. "Senior Data Engineer | Senior Data
-Platform Engineering" is wrong.
-
-Never name a platform the JD does not mention and the resume does not use.
-
-This pipe belongs to the header title only. The role lines inside Work
-Experience still carry two spans and never a pipe.
-
-
--------------- THE MOST IMPORTANT RULE -------------------------------
-After resume draft was completed, analyze the resume based on the JD.
-If the resume have a some important weakness and you can modify it, REWRITE the resume.
-The recruiter must feels that the man is a best fit for the role.
-BUT DON'T ADD CONTAINS THAT NOT MATCHING TERMS OF TIMING OR IMPOSSIBLE SKILLS OR IMPOSSIBLE ROLES.
-
--------------- HTML output -------------------------------
-
-Return complete valid HTML using EXACTLY the structure below.
-
-Do not change the HTML structure. Do not add or remove sections.
-
-The role line carries two spans, never a pipe: the job title in role-title and the location in role-place. The stylesheet pushes them to opposite edges, so writing "Cloud Data Engineer | Remote" as one string breaks the layout.
-
-LinkedIn and email must appear exactly as provided.
-
-Put the filename in <title>: Bruno_Raphael_CompanyName_JobTitle
-
-Do NOT include an external stylesheet <link>. CSS is injected by the host.
-
-Do NOT wrap the HTML in markdown fences.
-
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -383,49 +229,82 @@ Do NOT wrap the HTML in markdown fences.
 <body>
 <div class="resume">
   <div class="header">
-    <div class="name">Bruno Raphael</div>
-    <div class="title">Senior Data Engineer | [JD specialization, see Header title]</div>
-    <div class="contact">Paulista, Pernambuco, Brazil &nbsp;&nbsp;&nbsp;&nbsp; brunoraph.97@gmail.com &nbsp;&nbsp;&nbsp;&nbsp; +55 81995616866 </div>
-    <div class="contact">https://www.linkedin.com/in/bruno-raphael-705a34207/</div>
-    <div class="header-dotted"></div>
+<div class="name">Bruno Raphael</div>
+<div class="title">Senior Data Engineer | [JD specialization, see HEADER TITLE]</div>
+<div class="contact">Paulista, Pernambuco, Brazil &nbsp;&nbsp;&nbsp;&nbsp; brunoraph.97@gmail.com &nbsp;&nbsp;&nbsp;&nbsp; +55 81995616866 &nbsp;&nbsp;&nbsp;&nbsp; <a href="https://www.linkedin.com/in/bruno-raphael-705a34207">linkedin.com/in/bruno-raphael-705a34207</a></div>
+<div class="header-dotted"></div>
   </div>
   <div class="section">
-    <div class="section-title">Professional Summary</div>
-    <p class="summary">Write summary here.</p>
+<div class="section-title">Professional Summary</div>
+<p class="summary">Write summary here.</p>
   </div>
   <div class="section">
-    <div class="section-title">Work Experience</div>
-    <!-- Repeat this block for each of the four positions, in the order given. -->
-    <div class="job">
-      <div class="job-header">
-        <span class="job-company">Company Name</span>
-        <span class="job-date">Mon YYYY - Mon YYYY</span>
-      </div>
-      <div class="job-role"><span class="role-title">Job Title</span><span class="role-place">City, State</span></div>
-      <ul>
-        <li>Bullet with <strong>tech keywords</strong> in strong tags.</li>
-      </ul>
-    </div>
+<div class="section-title">Technical Skills</div>
+<div class="skills">
+  <p><strong>Programming Languages:</strong> <span>skills here</span></p>
+</div>
   </div>
   <div class="section">
-    <div class="section-title">Skills</div>
-    <div class="skills">
-      <p><strong>Languages &amp; Frameworks:</strong> <span>skills here</span></p>
-    </div>
+<div class="section-title">Professional Experience</div>
+<!-- Repeat this block for each of the four roles, in the order given. -->
+<div class="job">
+  <div class="job-header">
+    <span class="job-company">Company Name</span>
+    <span class="job-date">Mon YYYY - Mon YYYY</span>
+  </div>
+  <div class="job-role"><span class="role-title">Job Title</span><span class="role-place">City, State</span></div>
+  <ul>
+    <li>Bullet with <strong>tech keywords</strong> in strong tags.</li>
+  </ul>
+</div>
   </div>
   <div class="section">
-    <div class="section-title">Education</div>
-    <!-- Repeat this block for each of the two education rows, in the order given. -->
-    <div class="edu">
-      <div class="edu-row">
-        <span class="edu-degree">Degree (Field)</span>
-        <span class="edu-date">YYYY</span>
-      </div>
-      <div class="edu-school">University | City, State</div>
-    </div>
+<div class="section-title">Education</div>
+<!-- Repeat this block for each of the two education rows, in the order given. -->
+<div class="edu">
+  <div class="edu-row">
+    <span class="edu-degree">Degree (Field)</span>
+    <span class="edu-date">YYYY</span>
+  </div>
+  <div class="edu-school">University | City, State</div>
+</div>
   </div>
 </div>
 </body>
 </html>
+```
 
-After the HTML resume, write a short, impactful cover letter as plain text only with no HTML.
+## Cover letter instructions
+
+After the HTML resume, based on resume and JD, write a short, impactful cover letter as plain text only with no HTML.
+------------ How you can write cover letter ----------------
+Use humanizer skill in this prompt.
+Before writing, analyze the job description (JD) and your resume.
+As part of this analysis, you should research the company to understand its strategies and projects.
+Find out what they are currently working on and what they prioritize most.
+Step 1: 
+Open with a named greeting: Address the recipient by name. "Dear Ms. Allen" or "Hi John" beats a generic salutation every time.
+Start with a targeted first line (not “I’m writing to apply…”)
+Your first sentence should create momentum. Skip the obvious “I’m writing to apply for…” and lead with a hook that immediately connects you to the role. Good hooks include a referral, a measurable result, a relevant credential, or a clear alignment with the company’s mission.
+Referral hook: “After speaking with Priya Shah on your Customer Success team, I was excited to see the Customer Success Manager opening and the focus on retention through onboarding.”
+Achievement hook: “In my last role, I reduced monthly close time by 30% by rebuilding our reporting workflow, and I’m eager to bring that same process mindset to your Finance Analyst role.”
+Mission hook: “Your commitment to accessible healthcare is exactly why I’ve built my career in patient-centered operations, from scheduling redesigns to staff training.”
+Step 2: Name the role and prove you read the posting
+In the next sentence, clearly state the  job title and add one detail that shows you understand what the role actually involves. Pull this detail from the job description, team goals, or the company’s product and translate it into your own words. This is where you move from “interested” to “relevant.”
+For example: “The Marketing Coordinator role’s emphasis on lifecycle emails and A/B testing stood out to me because I’ve managed weekly campaigns that improved click-through rates by double digits.”
+Step 3: Match your top 1 to 2 qualifications to their top needs
+Hiring managers scan for fit. Pick one or two requirements that appear most important, then answer them directly with proof. Keep it tight: one skill, one outcome, one context. If you try to cover everything, the opening loses punch.
+If they need leadership: mention team size, cross-functional partners, or a program you owned.
+If they need technical skills: name the tools and what you built, improved, or automated.
+If they need client-facing strength: include a metric like renewal rate, CSAT, or revenue retained.
+Example: “I bring three years of high-volume recruiting experience, including reducing time-to-fill from 52 to 38 days by standardizing intake meetings and improving candidate communication.”
+Step 4: Add a credibility signal that feels human
+Credibility signals make your opening believable and memorable. Choose one: a respected certification, a portfolio-type result, a recognizable project, or a short story detail that shows judgment. The key is to keep it job-relevant, not personal for its own sake.
+Example: “That work earned our team the company’s quarterly operations award, but more importantly it gave leadership clearer forecasting and fewer last-minute fire drills.”Benchmark Pay
+Step 5: Close the opening with a clear “why you, why now” bridge
+End your opening paragraph by connecting your value to what the company is trying to achieve, then transition smoothly into the body of your letter. This sets up the rest of your examples without sounding pushy.
+Bridge line example: “I’d love to bring this mix of process improvement and stakeholder management to help your team scale onboarding without sacrificing quality.”
+Bridge line example: “Below are two projects that show how I approach content strategy, measurement, and cross-team collaboration.”
+If you want a practical way to assemble and test different opening versions, draft two to three options and compare them side by side. Tools like MyCVCreator can make it easier to duplicate a cover letter, swap the first paragraph, and quickly tailor your opening for different roles without rewriting the entire document.
+A friendly closing remark.
+End with contact information (name, pnone number, email address).

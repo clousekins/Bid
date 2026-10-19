@@ -9,8 +9,17 @@
 // written goes through here.
 
 import { createJob, findByUrl, gpt, ping } from "./lib/api.js";
-import { PAGE, SEL } from "./lib/gpt-page.js";
+import { PAGE as GPT_PAGE, SEL as GPT_SEL } from "./lib/gpt-page.js";
+import { PAGE as CLAUDE_PAGE, SEL as CLAUDE_SEL } from "./lib/claude-page.js";
 import { BOARD_API } from "./lib/greenhouse.js";
+
+// The on-page steps, by engine. Each site's resume panel asks for steps under
+// its own engine id (see engine-panel.js), and the step runs against that
+// engine's selectors. The backend session calls (gpt:*) are the same for both.
+const PAGE_ENGINES = {
+  gpt: { PAGE: GPT_PAGE, SEL: GPT_SEL, name: "ChatGPT" },
+  claude: { PAGE: CLAUDE_PAGE, SEL: CLAUDE_SEL, name: "Claude" },
+};
 // Clicking the icon toggles the panel. There is no popup any more, which is
 // what makes this event fire at all.
 chrome.action.onClicked.addListener(async (tab) => {
@@ -36,14 +45,15 @@ const HANDLERS = {
   "csv:reveal": ({ id }) => chrome.downloads.show(id),
   "options:open": () => chrome.runtime.openOptionsPage(),
   "greenhouse:board": ({ slug }) => greenhouseBoard(slug),
-  // The ChatGPT panel: the backend's side of each job, and steps on the page.
+  // The resume panel: the backend's side of each job (shared by both engines),
+  // and steps on the page (run under the engine the payload names).
   "gpt:jobs": (payload) => gpt.jobs(payload),
   "gpt:start": (payload) => gpt.start(payload),
   "gpt:reply": (payload) => gpt.reply(payload),
   "gpt:fail": (payload) => gpt.fail(payload),
   "gpt:next": (payload) => gpt.next(payload),
   "gpt:cancel": (payload) => gpt.cancel(payload),
-  "gpt:page": (payload, sender) => onPage(payload, sender),
+  "engine:page": (payload, sender) => onPage(payload, sender),
 };
 
 // A frozen page never answers an injected script; without a limit the panel
@@ -51,12 +61,15 @@ const HANDLERS = {
 const PAGE_STEP_LIMIT_MS = 20000;
 
 /**
- * Run one of lib/gpt-page.js's steps in the tab that asked, in the page's own
- * world. The panel cannot: a content script shares the page's DOM but not its
- * JavaScript, and ChatGPT's copy button calls the clipboard from the latter.
+ * Run one of the engine's page steps (lib/gpt-page.js or lib/claude-page.js) in
+ * the tab that asked, in the isolated extension world. The steps only read and
+ * edit the rendered DOM — which a content-script world shares with the page — so
+ * they never need the page's own JavaScript, and never touch anything it can see.
  */
-async function onPage({ fn, args = [] }, sender) {
-  const func = PAGE[fn];
+async function onPage({ engine = "gpt", fn, args = [] }, sender) {
+  const picked = PAGE_ENGINES[engine];
+  if (!picked) throw new Error(`Unknown engine: ${engine}`);
+  const func = picked.PAGE[fn];
   if (!func) throw new Error(`Unknown page step: ${fn}`);
   const tabId = sender && sender.tab && sender.tab.id;
   if (!tabId) throw new Error("No tab to run the step in.");
@@ -66,7 +79,7 @@ async function onPage({ fn, args = [] }, sender) {
       () =>
         reject(
           new Error(
-            "chatgpt_page_frozen: the ChatGPT page stopped responding " +
+            `${engine}_page_frozen: the ${picked.name} page stopped responding ` +
               `(Chrome may be showing "Page Unresponsive")`
           )
         ),
@@ -75,7 +88,12 @@ async function onPage({ fn, args = [] }, sender) {
   });
   try {
     const [res] = await Promise.race([
-      chrome.scripting.executeScript({ target: { tabId }, func, args: [SEL, ...args], world: "MAIN" }),
+      chrome.scripting.executeScript({
+        target: { tabId },
+        func,
+        args: [picked.SEL, ...args],
+        world: "ISOLATED",
+      }),
       limit,
     ]);
     return res ? res.result : undefined;

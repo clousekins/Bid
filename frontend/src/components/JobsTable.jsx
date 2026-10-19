@@ -271,9 +271,11 @@ export default function JobsTable({
                   className={[
                     j.id === selectedId ? "active" : "",
                     checkedIds.has(j.id) ? "checked" : "",
+                    j.disabled ? "disabled-row" : "",
                   ]
                     .filter(Boolean)
                     .join(" ")}
+                  style={j.disabled ? { opacity: 0.5 } : undefined}
                   onClick={() => onSelect(j)}
                 >
                   <td className="cell-check" onClick={(e) => e.stopPropagation()}>
@@ -326,6 +328,18 @@ export default function JobsTable({
                       <span className={`pill package-status status-strong ${myStatus}`}>
                         {packageStatusLabel(myStatus)}
                       </span>
+                      {j.disabled ? (
+                        <span
+                          className="pill rejected"
+                          title={
+                            j.disabled_reason === "company_applied"
+                              ? "Disabled — already applied at this company"
+                              : "Disabled for this profile"
+                          }
+                        >
+                          Disabled
+                        </span>
+                      ) : null}
                       {generating ? (
                         <span className="pill generating" title="Resume generating in the background">
                           Generating
@@ -336,7 +350,7 @@ export default function JobsTable({
                           {pipelineLabel(j.status)}
                         </span>
                       ) : null}
-                      {needsJd && onFetchJd ? (
+                      {needsJd && onFetchJd && !j.disabled ? (
                         <button
                           type="button"
                           className="table-continue"
@@ -360,7 +374,7 @@ export default function JobsTable({
                           />
                         </span>
                       ) : null}
-                      {onContinue ? (
+                      {onContinue && !j.disabled ? (
                         <button
                           type="button"
                           className="table-continue"

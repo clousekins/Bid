@@ -708,6 +708,8 @@ export default function WorkspaceApp({ onGoHome, theme, onToggleTheme }) {
               }
             }}
             onMarkApplied={markSelectedApplied}
+            onDisable={() => ws.selected && ws.disableJob(ws.selected.id)}
+            onEnable={() => ws.selected && ws.enableJob(ws.selected.id)}
             onBlock={async () => {
               if (!ws.selected) return;
               await client.blockCompany(ws.selected.id);

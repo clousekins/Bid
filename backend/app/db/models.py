@@ -62,6 +62,9 @@ class Job(Base):
     source: Mapped[str] = mapped_column(String(64), default="manual", nullable=False)
     external_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Pay range read from the JD at ingest (services/salary_extract.py). A first
+    # guess only — editable in the detail panel, so a wrong read is one fix away.
+    salary: Mapped[str | None] = mapped_column(String(128), nullable=True)
     status: Mapped[str] = mapped_column(String(64), default="new", nullable=False, index=True)
     folder_path: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     persona_id: Mapped[str] = mapped_column(String(128), default="phong_v_cao", nullable=False)
@@ -125,6 +128,34 @@ class JobPackage(Base):
     credibility_findings: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON
 
     job: Mapped[Job] = relationship(back_populates="packages")
+
+
+class JobDisable(Base):
+    """Per-(job, profile) disabled override.
+
+    A row is one profile's explicit choice about a single listing:
+    ``disabled=True`` turns the job off for that profile, ``disabled=False``
+    forces it back on (overriding the automatic company-already-applied
+    disable). No row means the job follows the automatic rule. It is orthogonal
+    to the listing's pipeline status — a jd_ready job can be disabled for Alex
+    and active for Brian at the same time.
+    """
+
+    __tablename__ = "job_disables"
+    __table_args__ = (
+        UniqueConstraint("job_id", "persona_id", name="uq_job_disable_persona"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    job_id: Mapped[int] = mapped_column(
+        ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    persona_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    disabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
 
 
 class Application(Base):

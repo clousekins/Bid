@@ -44,7 +44,7 @@ tailor:
       start: "Feb 2023"
       end: Present
       bullets: 7
-      focus: Multi-source integration, architecture, parallelization, schema drift, modernization, ML feature pipelines (if JD), governance, env setup, cross-functional collaboration
+      focus: JD requirements
       allowed_tech: Modern data stack aligned to JD
     - company: Meta
       title: Data Engineer

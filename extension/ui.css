@@ -314,9 +314,10 @@ a {
   font-size: 11px;
 }
 
-/* --- The ChatGPT panel's job list --- */
+/* --- The resume panel's job list (ChatGPT and Claude) --- */
 
-.gpt .card > input[type="search"] {
+.gpt .card > input[type="search"],
+.claude .card > input[type="search"] {
   margin-top: 6px;
 }
 

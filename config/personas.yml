@@ -1,4 +1,4 @@
-active_option: chuan_mao
+active_option: alex_mak
 options:
 - id: phong_v_cao
   option_number: 1
@@ -60,3 +60,9 @@ options:
   persona_file: persona_identity/chuan_mao.yml
   prompt_file: persona_identity/chuan_mao.prompt.md
   enabled: true
+- id: sumanth_gottipati
+  option_number: 11
+  label: Sumanth Gottipati
+  persona_file: persona_identity/sumanth_gottipati.yml
+  prompt_file: persona_identity/sumanth_gottipati.prompt.md
+  enabled: false

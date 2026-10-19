@@ -103,6 +103,10 @@ export const client = {
     if (persona_id) q.set("persona_id", persona_id);
     return api(`/api/jobs/meta/outcomes?${q}`);
   },
+  disableJob: (id, persona_id) =>
+    api(`/api/jobs/${id}/disable`, { method: "POST", json: { persona_id } }),
+  enableJob: (id, persona_id) =>
+    api(`/api/jobs/${id}/enable`, { method: "POST", json: { persona_id } }),
   blockCompany: (id) => api(`/api/jobs/${id}/block-company`, { method: "POST" }),
   deepScanOne: (id) => api(`/api/jobs/${id}/deep-scan`, { method: "POST" }),
   manualFetch: (body) => api("/api/manual-apply/fetch", { method: "POST", json: body }),
@@ -157,6 +161,8 @@ export const client = {
   manualPrepare: (body) => api("/api/manual-apply/prepare", { method: "POST", json: body }),
   manualTailor: (body) => api("/api/manual-apply/tailor", { method: "POST", json: body }),
   manualAnswers: (body) => api("/api/manual-apply/answers", { method: "POST", json: body }),
+  manualPrompt: (body) => api("/api/manual-apply/prompt", { method: "POST", json: body }),
+  manualBuild: (body) => api("/api/manual-apply/build", { method: "POST", json: body }),
   settings: () => api("/api/settings"),
   browserDiag: () => api("/api/settings/browser-diag"),
   personas: () => api("/api/settings/personas"),

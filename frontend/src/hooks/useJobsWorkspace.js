@@ -14,6 +14,10 @@ export function useJobsWorkspace() {
   // default, but the operator can look at them.
   const [hideOwnEmployers, setHideOwnEmployers] = useState(true);
   const [ownEmployerInfo, setOwnEmployerInfo] = useState({ hidden: 0, names: [] });
+  // Applied-company duplicates are no longer hidden: they stay in the list,
+  // greyed as "disabled" for this profile. This tracks how many of the rows on
+  // screen are disabled, so the UI can show a count.
+  const [disabledInfo, setDisabledInfo] = useState({ count: 0 });
   const [searchText, setSearchText] = useState("");
   // Empty means every country. The options come from the server so only
   // countries that actually have listings can be chosen.
@@ -57,6 +61,7 @@ export function useJobsWorkspace() {
         hidden: Number(list.hidden_own_employers || 0),
         names: list.own_employer_names || [],
       });
+      setDisabledInfo({ count: Number(list.disabled_count || 0) });
       if (list.page != null && Number(list.page) !== page && Number(list.total || 0) > 0) {
         const serverPage = Number(list.page);
         if (serverPage >= 1) setPage(serverPage);
@@ -137,6 +142,18 @@ export function useJobsWorkspace() {
   const clearSelected = () => {
     selectedIdRef.current = null;
     setSelected(null);
+  };
+
+  const setJobDisabled = async (id, disabled) => {
+    try {
+      const updated = disabled
+        ? await client.disableJob(id, workingPersonaId)
+        : await client.enableJob(id, workingPersonaId);
+      if (updated && selectedIdRef.current === id) setSelected(updated);
+      await refresh();
+    } catch (e) {
+      setError(String(e.message || e));
+    }
   };
 
   const setWorkingAs = async (personaId) => {
@@ -225,6 +242,9 @@ export function useJobsWorkspace() {
     hideOwnEmployers,
     setHideOwnEmployers,
     ownEmployerInfo,
+    disabledInfo,
+    disableJob: (id) => setJobDisabled(id, true),
+    enableJob: (id) => setJobDisabled(id, false),
     setProfileStatusFilter,
     searchText,
     countryFilter,

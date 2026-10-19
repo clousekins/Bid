@@ -6,10 +6,6 @@ The goal is NOT simple keyword matching.
 
 Use this generation sequence internally:
 
-JD → JD requirement hierarchy → coherent project architecture → experience allocation → experience bullets → skills → keyword emphasis → validation → HTML output.
-
-Create a resume on par with one written by a senior professional.
-
 The finished resume must achieve maximum JD alignment while remaining technically coherent, historically plausible, senior-level, and defensible in a technical interview.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -25,26 +21,11 @@ Keep this contact information exactly as written. Do not alter name, email, phon
 Do not change company names, job titles, dates, recorded locations, Education, or Certifications.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-RULE PRIORITY
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-When rules compete, apply them in this order:
-
-1. Immutable candidate facts and explicit role constraints
-2. Technical and historical realism
-3. Complete coverage of meaningful JD skills and requirements
-4. JD core-role alignment
-5. Coherent architecture and stack minimalism
-6. Experience and bullet requirements
-7. Keyword emphasis
-8. Skills organization
-9. Length and formatting preferences
-
-Complete JD coverage is mandatory, but never create an internally impossible architecture merely to place all JD technologies in one role. Distribute them across credible nearby roles when necessary.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 JD ANALYSIS — DO THIS BEFORE WRITING
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The man has all of the experience with Data Engineering.
+So I will write his resume Using necessary skills and ownership. 
 
 Internally analyze the JD and classify its requirements:
 
@@ -62,151 +43,86 @@ Nice-to-have technologies, secondary platforms, domain exposure, or supporting e
 
 Tier 1 receives the strongest and most recent evidence. Tier 2 receives broad coverage. Tier 3 supports the project architecture. Tier 4 appears where relevant without distracting from the target role.
 
-Do not treat every JD keyword as equally important.
+When analyze the Tier1, also pop out the proficiency of each skill(years of experience, or phases like "deep experience").
+
+Exposure / Familiarity	< 2 year	Have seen or occasionally used it
+Basic experience	1–2 year	Can perform basic tasks
+Working knowledge	2–3 years	Can handle normal tasks with occasional help
+Hands-on experience	2–4 years	Actually used it in real projects
+Practical experience	2–4 years	Applied it to business problems
+Solid experience	3–5 years	Comfortable working independently
+Strong experience	4–6 years	Can handle complex tasks independently
+Extensive experience	6–9 years	Broad experience across projects/systems
+Deep experience	6–9+ years	Strong depth, architecture, optimization, troubleshooting
+Advanced expertise	7–11+ years	Senior-level mastery and design capability
+Expert-level	9–11+ years	Can lead, architect, troubleshoot, and mentor
+
+Based on this information calculate each skill's expected years.
+You can analyze the phase for each skill's proficiency.
+
+Then, think this :
+  At least, where from each skill experience must started in personal history?
+  And where ended?
+  But if the skill was published near at the started time in the experience, so it was very difficult skill at that time.
+  And JD don't require shorter experience than it. Move the started time and reduce the years of experience.
+  But, don't make shorter that JD requirement.
+  About the TIRE 1, their proficiencies must be as long as possible.
+  IMPORTANT : All of the core skills in TIRE 1 must be showed in the last experience and also be main force in the second-last experience.
+  About the TIRE 2, also long and be showed in the last experience as possible as can.
+  And others are the background of the TIRE 1 and TIRE 2.
+  If can't contain with their, don't insert it.
+  But the resume contains as much as possible.
+  And about the skills that needed for the core skills, as background , if needed insert their.
+
+  PREFFERRED SKILLS CAN BE STRONG IMPACE, THEN INSERT INTO LAST EXPERIENCE AS MUCH AS POSSIBLE.
+
+  All of other experiences must be the backgroud for last and second-last experience.
+
+Analyze ownership and responsibility that required in JD.
+  Will use matched words.
+Also analyze domain from JD.
+Doing this, make a basic data for the perfect resume.
+Write a draft work experience exactly match my requires, this stage is very important.
+In the JD, If they required "Using x and y skills do z" then show this impact.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 WRITING RULE VERY IMPORTANT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+- Write based on your draft.
+- Don't remove any skills in draft, any words that show responsibility and ownership. If needed, you can combine several sentences into one sentence.
 - It needs to be written naturally and without awkwardness, just like a person.
+- Every bullets must be possible technicallly and shows real ability.
 - Don't write only use skills, write it in detail impactfully:
 For example: Use "Optimized Snowflake workloads through Query Profile analysis, micro-partition pruning, clustering strategy, warehouse right-sizing, and SQL query rewrites, cutting median dashboard query time by 58% and lowering compute consumption by 31%." insteed of "Optimized Snowflake warehouse schemas, clustering strategies, joins, and query patterns, cutting median dashboard query time by 58% and lowering compute consumption by 31%."
-- But, don't write sentence too long than 300 letters.
 - Don't write like AI generated sentence.
-- Write sentences impactfully.
-- When the JD requires a minimum number of years with a technology, demonstrate that experience when it can be possible historically.
-
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-MANDATORY JD SKILL COVERAGE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Use all meaningful technical skills explicitly requested by the JD somewhere in the resume.
-
-This includes required:
-
-* platforms
-* cloud services
-* languages
-* frameworks
-* databases
-* warehouses/lakehouses
-* orchestration technologies
-* streaming technologies
-* data-engineering practices
-* governance/security capabilities
-* data-quality/testing practices
-* DevOps/CI/CD capabilities
-* architecture patterns
-
-The Meta Data Engineer role receives FIRST priority for Tier 1 capabilities and the JD's most important responsibilities.
-
-However, 100% JD coverage is required at the RESUME level, not necessarily inside the newest role.
-
-Meta runs its own data centres and its own internal tooling. 
-HOWEVER
-When the job description requires public cloud (AWS, Azure, or GCP), make the role to public-cloud use role on projects that specifically required it (i.e., the project’s business needs, architecture decisions, or technical constraints made the public cloud necessary).
-
-Preferred placement order:
-
-Meta — Data Engineer
-→ INNOCEAN USA — Principal Data Engineer
-→ Revenue Analytics, Inc. — Senior Software Engineer, Data Engineering
-→ Revenue Analytics, Inc. — Software Engineer, Data Engineering
-→ Revenue Analytics, Inc. — Analyst, Data Engineering
-
-This order expresses recency preference only. A skill may appear only where compatible with that role's allowed technologies, responsibilities, timeframe, and cloud restrictions.
-
-Tier 1 skills should normally appear multiple times where naturally justified. Secondary JD skills need only one strong demonstration.
-
-The resume is NOT limited to technologies named by the JD. Add supporting technologies, mechanisms, and engineering practices when necessary to make the architecture complete and credible.
-
-Every added technology must have a clear purpose. Never add tools merely to increase keyword density.
-
-Before finalizing, internally maintain:
-
-JD Requirement → Tier → Selected Role → Evidence → Skills Section
-
-Every meaningful JD technical requirement must be accounted for.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-INTERNAL PROJECT DESIGN
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Before writing any Experience bullet, internally design a coherent technical project for the target role.
-
-Determine as applicable:
-
-* business/domain problem
-* source types
-* primary cloud provider
-* primary platform
-* ingestion mechanism
-* batch/streaming pattern
-* transformation approach
-* storage/lakehouse/warehouse architecture
-* data modeling approach
-* orchestration
-* governance and access model
-* data-quality strategy
-* CI/CD and testing
-* observability
-* failure handling and recovery
-* scale and performance constraints
-* cost controls
-* downstream analytics/ML/business consumers
-
-Treat these as parts of ONE believable system rather than independent JD keywords.
-
-Then derive Experience bullets from that project.
-
-Do not begin by stuffing keywords into bullets.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PROFESSIONAL SUMMARY
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Write one professional paragraph of 2–3 sentences.
+In his history. If he can have experience with the JD domain, it's very important information.
+So, write it to show impact.
 
 Begin exactly with:
-
 14 years of experience
 
-Describe seniority, data-engineering background, ownership, business impact, and collaboration that shows powerful impact for the JD.
-
-Do NOT list technologies, certifications, or a technical keyword stack. Technology
-paired with outcome belongs in TECHNICAL SUMMARY, immediately below.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TECHNICAL SUMMARY
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Write 6–10 bullets, between the Professional Summary and Work Experience.
-This section must show the coherent project architecture you built from JD.
-Each bullet sentence must 30-40 words.
-
-Each bullet must use STAR(situation, Task, Action, Result).
-When, What task, How did it, What is the result(quantify ).
+Hiring managers for Data Engineer roles scan the summary first for the exact function, core stack, and proof of production ownership. 
+Describe seniority, exact function, core stack, data-engineering background, ownership, business impact, and collaboration that shows powerful impact for the JD.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 WORK EXPERIENCE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Write this section bullets using STAR write skill.
+Write this section bullets using STAR write skill based on the draft experience.
 Each sentence is between 30 and 40 words.
 
 Data Engineer | Meta | Remote | Jul 2020 - Present
 
-Teams over this period: Messaging Large Screens, Messenger Communities, and Superintelligence Labs. Superintelligence Labs is Meta's AI organization formed in 2025, so AI training and evaluation data work belongs to the most recent part of the role.
-
-Focus:
-Product data engineering for messaging surfaces: logging and event pipelines, core metrics and certified data models, experimentation and A/B-test data, privacy, retention and deletion controls, data quality and SLA ownership, and, in Superintelligence Labs, training and evaluation data pipelines for AI models. Ownership, cross-functional partnership with product, data science and engineering, and mentoring.
-
-Allowed tech:
-Allowed technologies for Meta: Spark, Presto/Trino, Hive, Python, SQL, PyTorch, Airflow-style DAG orchestration, and public cloud technologies when the project scope involves public cloud workloads.
-
-Cloud:
-Based on JD and public cloud require role.
+Teams over this period: Messaging Large Screens, Messenger Communities, Superintelligence Labs(AI, ML).
+Focus: The draft experience from JD analyze result.
+Cloud: Based on JD.
 
 Number of bullets: 8
 
@@ -215,8 +131,7 @@ Principal Data Engineer | INNOCEAN USA | Remote | Jun 2019 - Jul 2020
 Focus:
 Ownership of the marketing and advertising data platform for an automotive advertising agency: campaign, media-spend and ad-platform data, warehouse architecture and data modeling, attribution and performance reporting datasets, data quality, engineering standards, and technical direction for the team and client stakeholders.
 
-Technology:
-Construct one internally coherent modern data architecture centered on the JD's primary platform and selected cloud provider. This role takes the JD's cloud, warehouse, and platform technologies that Meta cannot. Everything named must have existed and been usable by mid-2020.
+Technology: This role takes the JD's cloud, warehouse, and platform technologies that Meta cannot. Everything named must have existed and been usable by mid-2020.
 
 Number of bullets: 7
 
@@ -258,47 +173,8 @@ No cloud platform.
 Number of bullets: 3
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-CLOUD PROVIDER RULES
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Cloud selection is PER PERIOD.
-
-Meta:
-When the job description requires public cloud (AWS, Azure, or GCP), make the role to public-cloud use role on projects that specifically required it (i.e., the project’s business needs, architecture decisions, or technical constraints made the public cloud necessary).
-
-INNOCEAN USA:
-Detect the primary cloud provider from the JD and select exactly ONE of AWS, Azure, or GCP.
-
-If the JD names multiple clouds, select the one most central to the target architecture.
-
-If no provider is named, use AWS.
-
-Revenue Analytics, Inc. — Senior Software Engineer, Data Engineering:
-AWS only.
-
-Revenue Analytics, Inc. — Software Engineer and Analyst roles:
-Do not assign a cloud provider.
-
-Never mix cloud providers inside a role.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ROLE MIRRORING
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Meta — Data Engineer is the strongest evidence for the target JD. If JD require public cloud, show the cloud evidence in Meta when technically plausible
-
-A reader should recognize that the candidate has already solved the same CATEGORY of technical problems the target role owns.
-
-Do not copy the JD's wording.
-
-Translate the JD into concrete engineering work already delivered:
-
-* what problem existed
-* what architecture was selected
-* what the candidate owned
-* how it worked
-* what constraint mattered
-* what changed
 
 Spread the JD's core responsibilities across all 8 bullets rather than overrepresenting one requirement.
 
@@ -310,64 +186,11 @@ Avoid weak language such as:
 
 helped, assisted, participated in, was involved in.
 
-INNOCEAN USA should read as the technical run-up to Meta: platform ownership at a smaller company, with the cloud and warehouse depth Meta's in-house stack does not show.
-
-Earlier roles are NOT rewritten into the target role. They contribute relevant evidence from work appropriate to those periods.
-
 CURRENT-ROLE IMPACT
 
 Meta must contain the strongest combination of technical ownership and demonstrated impact in the resume.
 
 At least 6 of the 8 Meta bullets must contain concrete impact evidence.
-
-A qualitative phrase alone such as "improved reliability," "increased efficiency," "strengthened governance," "enabled analytics," "supported ML," "improved consistency," or "reduced risk" does NOT satisfy this requirement.
-
-Concrete impact evidence means at least one of:
-
-* defensible workload or data scale
-* event or record volume
-* number of pipelines, workflows, datasets, models, consumers, or use cases
-* SLA/SLO, availability, freshness, or latency target
-* processing frequency or operating window
-* measurable performance, cost, reliability, quality, or productivity change
-* clearly observable before/after operational result
-
-Enabled business, analytics, ML, or AI capability may supplement concrete impact but cannot substitute for it in the 6-of-8 requirement.
-
-At one role, at least 30% of bullets must contain numerical impact.
-
-Do not turn every bullet into a percentage claim. Prefer varied evidence of impact.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TECHNICAL REALISM
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Every claim must survive an engineer asking "how?"
-
-Prefer:
-
-* concrete domain entities
-* specific engineering mechanisms
-* real failure modes
-* operational constraints
-* privacy/security boundaries
-* realistic scale
-* specific technical decisions
-
-Name domain/source types where credible, such as message send and delivery events, community membership and moderation events, experiment exposure logs, AI training and evaluation datasets, ad impressions and media-spend records, booking and reservation records, rate and inventory snapshots, and competitor price feeds.
-
-Do NOT invent proprietary internal system names, customer names, team sizes, employee titles, revenue figures, or unverifiable organizational facts.
-
-Scale must be internally coherent.
-
-Do not claim:
-
-* sub-second behavior for nightly batch workloads
-* petabyte-scale processing on unsuitable infrastructure
-* unrealistic cost/performance gains
-* multi-year transformations inside short employment periods
-
-Technologies must have existed and been reasonably usable during the stated employment period.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 TOP-TOOL MIRRORING
@@ -377,135 +200,21 @@ Identify the SINGLE most important platform/tool in the JD.
 
 Make it central to Meta through one coherent architecture when Meta runs it, otherwise to INNOCEAN USA, and show the matching capability at Meta through the equivalent open technology.
 
-Examples:
-
-Snowflake:
-Land raw data in the selected cloud storage and model curated layers in Snowflake. Do not add a second warehouse merely for breadth.
-
-Databricks:
-Use Databricks with Delta Lake and, where relevant, Unity Catalog. Select Databricks Workflows OR one external orchestrator for the same workflow, not both.
-
-dbt:
-Use dbt with exactly one warehouse/lakehouse. Do not add another transformation framework without a genuine requirement.
-
-AWS:
-Center the architecture on appropriate AWS storage, identity, compute, orchestration and cost controls.
-
-GCP/BigQuery:
-Land in GCS and serve/model through BigQuery with one primary transformation approach.
-
-Azure:
-Use appropriate Azure storage, identity and secrets services with one orchestration strategy. For Azure Databricks, avoid unnecessary duplicate orchestration.
-
-The JD determines the primary architecture. Supporting technologies exist to complete it, not compete with it.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-STACK MINIMALISM
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Within one role/project, use at most one primary technology per function unless the JD explicitly requires interoperability:
-
-DWH:
-Snowflake | BigQuery | Redshift | Synapse/Fabric | None
-
-Orchestration:
-Airflow | ADF | Glue | Dataflow | Composer | Databricks Workflows | Prefect | Dagster | Step Functions | MWAA
-
-Transform:
-dbt | Dataform | Matillion | Spark notebooks | SQL-only
-
-Streaming:
-Kafka | Kinesis | Pub/Sub | Event Hubs
-
-BI:
-Sigma | Looker | Power BI | Tableau
-
-IaC:
-Terraform | CloudFormation | Bicep | Pulumi
-
-ML Platform:
-MLflow | SageMaker | Vertex AI | Azure ML
-
-Do not introduce multiple same-function technologies simply to capture JD keywords.
-
-If the JD contains competing technologies, distribute them across credible roles while maintaining 100% resume-level JD coverage.
-
-Prefer managed services when appropriate. Address scaling, cost, resilience and failure handling where meaningful.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ROLE CONTENT COVERAGE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Across the bullets of each applicable data/software role, collectively cover the most relevant combination of:
-
-1. Source/domain data
-2. Ingestion and orchestration
-3. Transformation/modeling
-4. Storage/lakehouse/warehouse architecture
-5. Scale, performance, cost or resilience
-6. Real engineering logic
-7. Data quality/testing
-8. CI/CD/deployment
-9. Governance/security
-10. Monitoring/incident handling
-11. Downstream analytics/ML/business use
-12. Collaboration/ownership
-
-Not every bullet must cover every stage.
-
-Individual bullets should focus deeply on one technical problem or closely connected set of problems.
-
-Analyst, Data Engineering should follow its actual analysis, reporting and data-modeling work rather than modern data-pipeline vocabulary.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ENGINEERING LOGIC & NON-REPETITION
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Use realistic engineering mechanisms where appropriate, including:
-
-* SCD2
-* late-arriving data handling
-* idempotent MERGE/UPSERT
-* schema evolution
-* reconciliation
-* null/duplicate thresholds
-* PII masking
-* row/column security
-* lineage
-* data contracts
-* SLA/SLO monitoring
-* retries/backoff
-* checkpointing
-* backfills
-* partitioning
-* clustering
-* compaction
-* autoscaling
-* cost controls
-
-Do not mechanically force these into roles.
-
-Core engineering practices may recur across employers where realistic, but the dataset, problem, implementation, mechanism, and outcome must differ.
-
-Never reuse substantially identical project stories, bullets, or sentence structures across companies.
-
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ROLE LEAD BULLET (STAR)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Every company section opens with one bullet that explains the role itself,
 written as STAR: the situation that existed, the task owned, the action taken,
-and the result it produced.
+and the result it produced. This bullet don't have "·" at front.
 
 It is the first item in that role's list, and it counts as one of the role's
 mandated bullets. A role given 8 bullets renders one STAR bullet followed by
 seven normal ones. A role given 2 renders one STAR bullet and one normal one.
 
 
-Hard limit: 450 characters. Four moves rarely land well under about 350, so
-use the room. This is the only bullet exempt from the character ranges below
-and from validation item 11.
-The 450 characters limit is enough for write in detail, so write the STAR text in detail.
+First bullet : 40-50 words.
+Others : 30-40 words.
 
 Write it as continuous prose. Never label the parts. "Situation: ... Task: ..."
 And don't use mechenical characters like ";".
@@ -516,23 +225,15 @@ What each move carries:
 Situation - the state of the platform, team, or data when Chuan arrived. The
 scale it ran at, what was failing, what the business needed.
 
-Task - what Chuan owned. Scope and seniority, not a list of chores.
+Task - what Chuan owned. Scope and seniority, not a list of chores. Based on with JD's responsibility.
 
-Action - the engineering he did. Named core technology, the mechanism, the
-architectural decision.
+Action - What he did? Using what?
 
 Result - what changed. Scale reached, reliability gained, time recovered,
 capability unlocked. A percentage here counts toward that role's 2-3
 percentage bullets, so prefer real scale and operating context.
 
-The STAR bullet obeys every other rule: at least one <strong> term, at least
-one skill from the Skills section, allowed technology for that role, the single
-selected cloud provider, technically defensible, and every rule in HUMAN
-WRITING. Its length makes those rules matter more here than anywhere else on
-the page, because a long generated paragraph is the easiest thing to spot.
-
-The role's remaining bullets do not restate what the STAR bullet already said.
-It frames the role. They carry the specific work.
+The STAR bullet obeys every other rule: The skills that required in JD have <strong> term.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 BULLET WRITING RULES
@@ -546,41 +247,6 @@ INNOCEAN USA — Principal Data Engineer: 7
 Revenue Analytics, Inc. — Senior Software Engineer, Data Engineering: 4
 Revenue Analytics, Inc. — Software Engineer, Data Engineering: 4
 Revenue Analytics, Inc. — Analyst, Data Engineering: 3
-
-Each bullet must:
-
-* describe a concrete technical problem, responsibility, or constraint
-* explain the implementation or mechanism used
-* name relevant core technology
-* reference a realistic dataset/domain entity where appropriate
-* demonstrate appropriate ownership for the candidate's seniority
-* contain at least one skill represented in the final Skills section
-* include at least one emphasized term
-* remain technically defensible
-* communicate why the work mattered through a concrete outcome, operational effect, scale, scope, reliability target, downstream use, or measurable improvement where credible
-* prefer Action/Ownership → Engineering Mechanism → Impact, but keep natural sentence structure
-* impact does NOT require a percentage; scale, SLA/SLO, latency, freshness, workload volume, consumer reach, risk reduction, reliability, cost, developer productivity, or enabled business capability all count
-* never fabricate a number solely to make a bullet appear quantified
-
-For Meta and INNOCEAN USA, target approximately 200–300 characters per bullet. The STAR lead bullet is exempt and runs up to 450.
-
-Prioritize technical completeness and natural readability over exact character arithmetic.
-
-Do not exceed approximately 300 characters unless genuinely necessary.
-
-Across each role, collectively represent the relevant workflow stages. Do NOT force three or more workflow stages into every individual bullet.
-
-Use concrete scale or operational context where credible, such as:
-
-* data volume
-* record count
-* job frequency
-* freshness window
-* SLA/SLO
-* number of workflows
-* number of consuming datasets
-* retention window
-* availability target
 
 Per role should normally use percentage-based improvement metrics such as performance %, latency reduction %, cost reduction %, or reliability improvement.
 
@@ -596,29 +262,18 @@ JD KEYWORD EMPHASIS
 
 Apply emphasis only after the bullet wording is complete.
 
-Use <strong> around relevant JD technologies, platforms, languages,
-frameworks, and specific engineering practices.
-
-Do not bold generic action verbs such as Architected, Built, Defined,
-Established, Optimized, Governed, Delivered, or Mentored.
-
-Place emphasis wherever the relevant term naturally appears.
-Do not move a term to the beginning merely to emphasize it.
-
-Each bullet should contain 1–2 emphasized technical terms or short
-phrases. Do not bold entire sentences.
-
+Use <strong> around JD skils.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 SKILLS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Build Experience FIRST, then TECHNICAL SUMMARY, then Skills.
+Build Experience FIRST, then Skills.
 
 Then build Skills from:
 
-1. all meaningful JD-required technical skills
-2. relevant JD-preferred skills
+1. all experience section skills.
+2. Write order is JD important order.
 3. technologies/practices actually demonstrated in Experience
 4. necessary supporting technologies that make the architecture complete
 
@@ -655,7 +310,8 @@ FINAL JD COVERAGE VALIDATION
 
 Before output, internally verify:
 
-1. Every equired JD technical skill appears in the resume.
+
+1. Every equired JD technical core skill appears in the resume.
 2. Tier 1 JD skills receive the strongest evidence.
 3. Meta contains the largest concentration of core target-role requirements.
 4. Remaining JD skills are distributed into the nearest credible prior roles.
@@ -692,9 +348,6 @@ Before output, internally verify:
 35. No lead verb repeats inside a role.
 36. Bullet lengths, excluding each role's STAR lead bullet, use the width of the stated range instead of clustering at one length.
 37. Every role opens with a STAR lead bullet carrying all four moves: situation, task, action, result.
-38. TECHNICAL SUMMARY holds 6–10 bullets, each 30–40 words, each naming the work and landing on a concrete outcome.
-39. No TECHNICAL SUMMARY bullet is a technology list, and none claims an outcome without naming the work behind it.
-40. No TECHNICAL SUMMARY bullet restates a Work Experience bullet or the Skills list.
 
 If a JD skill is missing, first attempt Meta. If Meta does not run it or it would damage architectural coherence, try INNOCEAN USA, then move backward through the career history until finding the nearest compatible role.
 
@@ -834,11 +487,11 @@ demand. This section changes wording only, never content or coverage.
 EDUCATION
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Master of Science (Information Systems and Technology Management) | The George Washington University | Washington, D.C. |
+Master of Science (Information Systems and Technology Management) | The George Washington University | Washington, D.C. | 2012
 
-Bachelor (Management Information Systems) | Renmin University of China | Beijing, China |
+Bachelor (Management Information Systems) | Renmin University of China | Beijing, China | 2010
 
-No graduation years are recorded. Leave each year span empty: <span class="edu-date"></span>. Do not invent a year.
+Write each year span exactly as given, for example <span class="edu-date">2012</span>.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 CERTIFICATION
@@ -973,15 +626,13 @@ Do NOT wrap the HTML in markdown fences.
   <div class="section">
 
 ```
-<div class="section-title">Technical Summary</div>
+<div class="section-title">Skills</div>
 
-<!-- 6 to 10 impact sentences. Same list markup as a role's bullets. -->
+<div class="skills">
 
-<ul>
+  <p><strong>Languages &amp; Frameworks:</strong> <span>skills here</span></p>
 
-  <li>Impact sentence with <strong>tech keywords</strong> in strong tags.</li>
-
-</ul>
+</div>
 ```
 
   </div>
@@ -1019,20 +670,6 @@ Do NOT wrap the HTML in markdown fences.
   <div class="section">
 
 ```
-<div class="section-title">Skills</div>
-
-<div class="skills">
-
-  <p><strong>Languages &amp; Frameworks:</strong> <span>skills here</span></p>
-
-</div>
-```
-
-  </div>
-
-  <div class="section">
-
-```
 <div class="section-title">Education</div>
 
 <!-- Repeat this block for each of the two education rows, in the order given. -->
@@ -1043,7 +680,7 @@ Do NOT wrap the HTML in markdown fences.
 
     <span class="edu-degree">Degree (Field)</span>
 
-    <span class="edu-date"></span>
+    <span class="edu-date">YYYY</span>
 
   </div>
 
@@ -1084,8 +721,50 @@ Do NOT wrap the HTML in markdown fences.
 
 </html>
 
-After the HTML resume, write a short, impactful cover letter as plain text only with no HTML.
+After the HTML resume, based on resume and JD, write a short, impactful cover letter as plain text only with no HTML.
 
-The out put is not long so you can give me in one message.
-check it exactly and don't make mistake.
-Give me in one message, with no explain.
+------------ How you can write cover letter ----------------
+
+Use humanizer skill in this prompt.
+
+Before writing, analyze the job description (JD) and your resume.
+As part of this analysis, you should research the company to understand its strategies and projects.
+Find out what they are currently working on and what they prioritize most.
+
+Step 1: 
+Open with a named greeting: Address the recipient by name. "Dear Ms. Allen" or "Hi John" beats a generic salutation every time.
+Start with a targeted first line (not “I’m writing to apply…”)
+Your first sentence should create momentum. Skip the obvious “I’m writing to apply for…” and lead with a hook that immediately connects you to the role. Good hooks include a referral, a measurable result, a relevant credential, or a clear alignment with the company’s mission.
+
+Referral hook: “After speaking with Priya Shah on your Customer Success team, I was excited to see the Customer Success Manager opening and the focus on retention through onboarding.”
+Achievement hook: “In my last role, I reduced monthly close time by 30% by rebuilding our reporting workflow, and I’m eager to bring that same process mindset to your Finance Analyst role.”
+Mission hook: “Your commitment to accessible healthcare is exactly why I’ve built my career in patient-centered operations, from scheduling redesigns to staff training.”
+
+
+Step 2: Name the role and prove you read the posting
+In the next sentence, clearly state the  job title and add one detail that shows you understand what the role actually involves. Pull this detail from the job description, team goals, or the company’s product and translate it into your own words. This is where you move from “interested” to “relevant.”
+
+For example: “The Marketing Coordinator role’s emphasis on lifecycle emails and A/B testing stood out to me because I’ve managed weekly campaigns that improved click-through rates by double digits.”
+
+Step 3: Match your top 1 to 2 qualifications to their top needs
+Hiring managers scan for fit. Pick one or two requirements that appear most important, then answer them directly with proof. Keep it tight: one skill, one outcome, one context. If you try to cover everything, the opening loses punch.
+
+If they need leadership: mention team size, cross-functional partners, or a program you owned.
+If they need technical skills: name the tools and what you built, improved, or automated.
+If they need client-facing strength: include a metric like renewal rate, CSAT, or revenue retained.
+Example: “I bring three years of high-volume recruiting experience, including reducing time-to-fill from 52 to 38 days by standardizing intake meetings and improving candidate communication.”
+
+Step 4: Add a credibility signal that feels human
+Credibility signals make your opening believable and memorable. Choose one: a respected certification, a portfolio-type result, a recognizable project, or a short story detail that shows judgment. The key is to keep it job-relevant, not personal for its own sake.
+
+Example: “That work earned our team the company’s quarterly operations award, but more importantly it gave leadership clearer forecasting and fewer last-minute fire drills.”Benchmark Pay
+
+Step 5: Close the opening with a clear “why you, why now” bridge
+End your opening paragraph by connecting your value to what the company is trying to achieve, then transition smoothly into the body of your letter. This sets up the rest of your examples without sounding pushy.
+
+Bridge line example: “I’d love to bring this mix of process improvement and stakeholder management to help your team scale onboarding without sacrificing quality.”
+Bridge line example: “Below are two projects that show how I approach content strategy, measurement, and cross-team collaboration.”
+If you want a practical way to assemble and test different opening versions, draft two to three options and compare them side by side. Tools like MyCVCreator can make it easier to duplicate a cover letter, swap the first paragraph, and quickly tailor your opening for different roles without rewriting the entire document.
+
+A friendly closing remark.
+End with contact information (name, pnone number, email address).

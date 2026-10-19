@@ -42,16 +42,47 @@ function pin(host, overrides = {}) {
   }
 }
 
+// Chrome stops an MV3 service worker after ~30s idle. The first message after
+// that has to wake it, and Chrome sometimes closes the channel before the
+// restarted worker answers ("message channel closed…"), or briefly reports no
+// receiver. That is transient: a short wait and a resend reach the now-awake
+// worker. A reply that carries a backend status is a real answer, never retried.
+const _WAKEUP_RE =
+  /message channel closed|could not establish connection|receiving end does not exist|message port closed|no (?:sw|service worker)/i;
+
+const _delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 /** Ask the service worker to do something a content script may not. */
 export async function ask(type, payload = {}) {
-  const reply = await chrome.runtime.sendMessage({ type, payload });
-  if (!reply) throw new Error("The extension's background worker did not answer.");
-  if (!reply.ok) {
-    const error = new Error(reply.error || "Unknown failure");
-    error.status = reply.status;
-    throw error;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    let reply;
+    try {
+      reply = await chrome.runtime.sendMessage({ type, payload });
+    } catch (err) {
+      // The worker was asleep and the wake-up raced. Wait and resend.
+      if (attempt < 2 && _WAKEUP_RE.test(String((err && err.message) || err))) {
+        await _delay(200 * (attempt + 1));
+        continue;
+      }
+      throw err;
+    }
+    if (!reply) {
+      // No listener answered — usually the same cold-worker race.
+      if (attempt < 2) {
+        await _delay(200 * (attempt + 1));
+        continue;
+      }
+      throw new Error("The extension's background worker did not answer.");
+    }
+    if (!reply.ok) {
+      // A real backend answer (409 duplicate, 400, …). Surface it, do not retry.
+      const error = new Error(reply.error || "Unknown failure");
+      error.status = reply.status;
+      throw error;
+    }
+    return reply.result;
   }
-  return reply.result;
+  throw new Error("The extension's background worker did not answer.");
 }
 
 /**
