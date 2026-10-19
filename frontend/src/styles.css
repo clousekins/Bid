@@ -1209,6 +1209,14 @@ button.ats-catalog-hint.linkish:hover {
   margin-bottom: 0.55rem;
 }
 
+.domain-fetch-personas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.3rem 0 0.55rem;
+}
+
 .domain-fetch-chips {
   display: flex;
   flex-wrap: wrap;

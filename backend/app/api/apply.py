@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import Job
+from app.db.job_tables import resolve_job
 from app.db.session import get_db
 from app.services.apply import start_apply
 from app.services.apply_session import apply_sessions
@@ -20,7 +20,8 @@ class StartBody(BaseModel):
 
 @router.post("/{job_id}/start")
 async def apply_start(job_id: int, body: StartBody | None = None, db: AsyncSession = Depends(get_db)):
-    job = await db.get(Job, job_id)
+    resolved = await resolve_job(db, job_id)
+    job = resolved[1] if resolved else None
     if not job:
         raise HTTPException(404, detail="not_found")
     body = body or StartBody()

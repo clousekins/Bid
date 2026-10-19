@@ -17,13 +17,19 @@ def test_clamp_concurrency():
 async def test_parallel_tailor_progress_has_concurrency(tmp_path, monkeypatch):
     from sqlalchemy import select
 
+    import asyncio
+
     from app.config import get_settings
     from app.db import session as sess
     from app.db.enums import BackgroundJobKind, BackgroundJobStatus, JobStatus
-    from app.db.models import BackgroundJob, Job
+    from app.db.models import BackgroundJob
     from app.db.session import get_session_factory, init_db
     from app.services import bg_jobs
     from app.services.pipeline import process_listing
+
+    # The tailor batch loads jobs from the table of the persona it generates as
+    # (generate_as="andrew_nguyen"), so the rows must live in that table.
+    GEN_PID = "andrew_nguyen"
 
     db_file = tmp_path / "parallel.db"
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db_file.as_posix()}")
@@ -51,6 +57,7 @@ async def test_parallel_tailor_progress_has_concurrency(tmp_path, monkeypatch):
                     "location": "Remote, US",
                     "description": "A" * 80,
                 },
+                persona_id=GEN_PID,
                 skip_content_gates=True,
             )
             assert r.ok and r.job

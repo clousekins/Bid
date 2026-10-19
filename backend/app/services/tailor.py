@@ -11,14 +11,12 @@ from typing import Any, AsyncIterator
 from openai import APITimeoutError, AsyncOpenAI, RateLimitError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from sqlalchemy import select
-
 from app.config import get_settings
-from app.db.enums import JobStatus, PackageStatus
-from app.db.models import Job, JobPackage, as_utc
+from app.db.enums import JobStatus
+from app.db.models import JobRow
 from app.services.folder_writer import ensure_job_folder, sync_job_folder
 from app.services.pdf_export import export_pdf, markdown_to_html
-from app.services.persona import get_active_persona_id, ground_truth_payload, load_persona
+from app.services.persona import ground_truth_payload, load_persona
 from app.services import runtime_settings
 from app.services.ats_score import extract_terms, persona_corpus, score_resume
 from app.services.resume_credibility import score_credibility
@@ -28,67 +26,23 @@ from app.services.openai_compat import chat_completion
 log = logging.getLogger("poong.tailor")
 
 
-async def _upsert_package(
-    session: AsyncSession,
-    job: Job,
-    *,
-    persona_id: str,
-    status: str,
-    folder_path: str | None = None,
-    notes: str | None = None,
-) -> JobPackage:
-    pkg = (
-        await session.execute(
-            select(JobPackage).where(
-                JobPackage.job_id == job.id,
-                JobPackage.persona_id == persona_id,
-            )
-        )
-    ).scalar_one_or_none()
-    if pkg is None:
-        pkg = JobPackage(job_id=job.id, persona_id=persona_id)
-        session.add(pkg)
-    pkg.status = status
-    if folder_path is not None:
-        pkg.folder_path = folder_path
-    pkg.notes = notes
-    await session.flush()
-    return pkg
+# Statuses a (re-)tailor must not walk back. Regenerating a resume for a job
+# already applied, at interview, or set aside by hand must not reset it.
+_NO_REGEN_STATUS = {
+    JobStatus.BLOCKED.value,
+    JobStatus.SKIPPED.value,
+    JobStatus.EXPIRED.value,
+    JobStatus.REJECTED_ONSITE.value,
+    JobStatus.INTERVIEW.value,
+    JobStatus.APPLIED.value,
+    JobStatus.APPLYING.value,
+}
 
 
-async def _refresh_job_from_packages(session: AsyncSession, job: Job) -> None:
-    """Keep listing lifecycle separate from per-persona package progress."""
-    pkgs = (
-        await session.execute(select(JobPackage).where(JobPackage.job_id == job.id))
-    ).scalars().all()
-    with_folder = [p for p in pkgs if p.folder_path]
-    if with_folder:
-        latest = max(
-            with_folder,
-            key=lambda p: as_utc(p.updated_at or p.created_at),
-        )
-        job.folder_path = latest.folder_path
-    else:
-        job.folder_path = None
-
-    terminal_listing_states = {
-        JobStatus.BLOCKED.value,
-        JobStatus.SKIPPED.value,
-        JobStatus.EXPIRED.value,
-        JobStatus.REJECTED_ONSITE.value,
-        # Regenerating a resume for a job already at interview must not send
-        # the listing back to jd_ready.
-        JobStatus.INTERVIEW.value,
-    }
-    if job.status not in terminal_listing_states:
-        job.status = (
-            JobStatus.JD_READY.value
-            if job.description and len(job.description) >= 50
-            else JobStatus.NEW.value
-        )
-    # Listing notes are pipeline-level. Keep scan/manual notes; drop stale tailor errors.
-    if (job.notes or "").startswith("tailor_failed:"):
-        job.notes = None
+def _set_row_status(job: JobRow, status: str) -> None:
+    """Move the row's own status, unless it is somewhere a tailor must not undo."""
+    if job.status not in _NO_REGEN_STATUS:
+        job.status = status
 
 
 def _client() -> AsyncOpenAI:
@@ -216,7 +170,7 @@ def _save_transcript(folder: Path, llm: Any) -> None:
         log.warning("could not write chatgpt_raw.txt to %s", folder)
 
 
-def _resume_user_message(persona, job: Job) -> str:
+def _resume_user_message(persona, job: JobRow) -> str:
     gt = ground_truth_payload(persona, for_resume=True)
     jd = (job.description or "")[:20000]
     from app.services.resume_header import resume_contact_line, resume_location
@@ -244,7 +198,7 @@ def _resume_user_message(persona, job: Job) -> str:
     )
 
 
-def _html_bundle_user_message(persona, job: Job) -> str:
+def _html_bundle_user_message(persona, job: JobRow) -> str:
     gt = ground_truth_payload(persona)
     jd = (job.description or "")[:20000]
     return (
@@ -357,7 +311,7 @@ def _load_persona_css(persona) -> str:
 
 
 async def generate_resume_markdown(
-    persona, job: Job, *, extra: str = "", llm: Any = None
+    persona, job: JobRow, *, extra: str = "", llm: Any = None
 ) -> str:
     from app.services.resume_header import enforce_resume_header
 
@@ -371,7 +325,7 @@ async def generate_resume_markdown(
 
 
 async def generate_html_bundle(
-    persona, job: Job, *, extra: str = "", llm: Any = None
+    persona, job: JobRow, *, extra: str = "", llm: Any = None
 ) -> tuple[str, str]:
     llm = llm or _ApiEngine()
     raw = await llm.ask(
@@ -390,7 +344,7 @@ async def generate_html_bundle(
     return html, cover
 
 
-async def generate_cover_letter(persona, job: Job, resume_md: str, *, llm: Any = None) -> str:
+async def generate_cover_letter(persona, job: JobRow, resume_md: str, *, llm: Any = None) -> str:
     gt = ground_truth_payload(persona)
     user = (
         f"Candidate ground truth:\n{json.dumps(gt, indent=2, ensure_ascii=False)}\n\n"
@@ -404,7 +358,7 @@ async def generate_cover_letter(persona, job: Job, resume_md: str, *, llm: Any =
     return await llm.ask(_cover_letter_system(persona), user, reply_format=_COVER_REPLY_FORMAT)
 
 
-async def generate_answers(persona, job: Job, *, llm: Any = None) -> dict[str, str]:
+async def generate_answers(persona, job: JobRow, *, llm: Any = None) -> dict[str, str]:
     questions = [a.get("question") for a in persona.screening_answers if a.get("question")]
     jd = job.description or ""
     for m in re.finditer(r"(?m)^\s*(?:\d+[.)]\s*)?([A-Z][^?\n]{8,120}\?)\s*$", jd):
@@ -450,7 +404,7 @@ def _keyword_retry_hint(breakdown) -> str:
 
 async def tailor_job(
     session: AsyncSession,
-    job: Job,
+    job: JobRow,
     *,
     persona_id: str | None = None,
     engine: str = "api",
@@ -461,8 +415,14 @@ async def tailor_job(
     if not (job.description and len(job.description) >= 50):
         return {"job_id": job.id, "ok": False, "reason": "not_jd_ready"}
 
-    # Generate for requested persona; do NOT overwrite listing job.persona_id
-    pid = persona_id or get_active_persona_id() or job.persona_id
+    # The row belongs to one persona's table — that is who we tailor for. A
+    # persona_id that disagrees is a caller passing the wrong row; honour the row.
+    pid = job.persona_id
+    if persona_id and persona_id != pid:
+        log.warning(
+            "tailor_job persona_id=%s but job %s is in %s's table; using the row's persona",
+            persona_id, job.id, pid,
+        )
     persona = load_persona(pid)
     generate_pid = persona.persona_id
     folder = ensure_job_folder(generate_pid, job.seq_no or 0, job.company)
@@ -587,34 +547,20 @@ async def tailor_job(
             title=job.title,
             url=job.url,
             location=job.location,
-            status=PackageStatus.RESUME_READY.value,
+            status=JobStatus.RESUME_READY.value,
             description=job.description,
             job_id=job.id,
             extra={"tailored": True, "persona_id": generate_pid},
         )
-        pkg = await _upsert_package(
-            session,
-            job,
-            persona_id=generate_pid,
-            status=PackageStatus.RESUME_READY.value,
-            folder_path=str(folder),
-            notes=None,
-        )
-        pkg.ats_score = breakdown.score
-        pkg.ats_breakdown = json.dumps(score_payload, ensure_ascii=False)
-        pkg.credibility_score = credibility.score
-        pkg.credibility_findings = json.dumps(credibility.as_dict(), ensure_ascii=False)
-        try:
-            await _refresh_job_from_packages(session, job)
-        except Exception:  # noqa: BLE001
-            log.exception(
-                "listing refresh failed after successful tailor job_id=%s persona=%s",
-                job.id,
-                generate_pid,
-            )
-            # Package is already saved; listing aggregation must not fail the tailor.
-            if job.description and len(job.description) >= 50:
-                job.status = JobStatus.JD_READY.value
+        # Fold the result straight onto the persona's own row.
+        job.folder_path = str(folder)
+        job.ats_score = breakdown.score
+        job.ats_breakdown = json.dumps(score_payload, ensure_ascii=False)
+        job.credibility_score = credibility.score
+        job.credibility_findings = json.dumps(credibility.as_dict(), ensure_ascii=False)
+        if (job.notes or "").startswith("tailor_failed:"):
+            job.notes = None
+        _set_row_status(job, JobStatus.RESUME_READY.value)
         log.info(
             "tailor ok job_id=%s seq=%s persona=%s engine=%s folder=%s",
             job.id,
@@ -636,10 +582,10 @@ async def tailor_job(
             "credibility_score": credibility.score,
             "credibility": credibility.as_dict(),
             "package": {
-                "id": pkg.id,
-                "persona_id": pkg.persona_id,
-                "status": pkg.status,
-                "folder_path": pkg.folder_path,
+                "id": job.id,
+                "persona_id": job.persona_id,
+                "status": job.status,
+                "folder_path": job.folder_path,
             },
         }
     except Exception as exc:  # noqa: BLE001
@@ -651,18 +597,7 @@ async def tailor_job(
             generate_pid,
             reason,
         )
-        pkg = await _upsert_package(
-            session,
-            job,
-            persona_id=generate_pid,
-            status=PackageStatus.FAILED.value,
-            notes=f"tailor_failed:{reason}",
-        )
-        try:
-            await _refresh_job_from_packages(session, job)
-        except Exception:  # noqa: BLE001
-            if job.description and len(job.description) >= 50:
-                job.status = JobStatus.JD_READY.value
+        _set_row_status(job, JobStatus.TAILOR_FAILED.value)
         job.notes = f"tailor_failed:{reason}"
         await session.flush()
         return {
@@ -672,11 +607,11 @@ async def tailor_job(
             "reason": reason,
             "persona_id": generate_pid,
             "package": {
-                "id": pkg.id,
-                "persona_id": pkg.persona_id,
-                "status": pkg.status,
-                "folder_path": pkg.folder_path,
-                "notes": pkg.notes,
+                "id": job.id,
+                "persona_id": job.persona_id,
+                "status": job.status,
+                "folder_path": job.folder_path,
+                "notes": job.notes,
             },
         }
     finally:
@@ -687,7 +622,7 @@ async def tailor_job(
             log.exception("closing the %s engine failed job_id=%s", engine, job.id)
 
 
-def build_tailor_prompt(persona, job: Job) -> dict[str, str]:
+def build_tailor_prompt(persona, job: JobRow) -> dict[str, str]:
     """The exact system + user messages tailor_job would send for this job.
 
     Lets the UI show (and copy) the full prompt, so a resume can be generated by
@@ -706,7 +641,7 @@ def build_tailor_prompt(persona, job: Job) -> dict[str, str]:
 
 async def build_package_from_text(
     session: AsyncSession,
-    job: Job,
+    job: JobRow,
     *,
     persona_id: str,
     raw_text: str,
@@ -717,10 +652,10 @@ async def build_package_from_text(
     This is the post-generation half of tailor_job: it takes the chat output a
     person produced from build_tailor_prompt, writes the same files (HTML, PDF,
     ats_score.json, answers from the persona's static screening_answers, cover
-    letter when the paste carried one), scores it, and upserts the package as
-    resume_ready. No API key and no network are touched.
+    letter when the paste carried one), scores it, and folds the result onto the
+    persona's own row as resume_ready. No API key and no network are touched.
     """
-    persona = load_persona(persona_id)
+    persona = load_persona(job.persona_id)
     generate_pid = persona.persona_id
     display = persona.display_name
     mode = (persona.tailor or {}).get("mode") or "strategist_resume"
@@ -810,33 +745,19 @@ async def build_package_from_text(
         title=job.title,
         url=job.url,
         location=job.location,
-        status=PackageStatus.RESUME_READY.value,
+        status=JobStatus.RESUME_READY.value,
         description=job.description,
         job_id=job.id,
         extra={"tailored": True, "persona_id": generate_pid, "source": engine_label},
     )
-    pkg = await _upsert_package(
-        session,
-        job,
-        persona_id=generate_pid,
-        status=PackageStatus.RESUME_READY.value,
-        folder_path=str(folder),
-        notes=None,
-    )
-    pkg.ats_score = breakdown.score
-    pkg.ats_breakdown = json.dumps(score_payload, ensure_ascii=False)
-    pkg.credibility_score = credibility.score
-    pkg.credibility_findings = json.dumps(credibility.as_dict(), ensure_ascii=False)
-    try:
-        await _refresh_job_from_packages(session, job)
-    except Exception:  # noqa: BLE001
-        log.exception(
-            "listing refresh failed after manual build job_id=%s persona=%s",
-            job.id,
-            generate_pid,
-        )
-        if job.description and len(job.description) >= 50:
-            job.status = JobStatus.JD_READY.value
+    job.folder_path = str(folder)
+    job.ats_score = breakdown.score
+    job.ats_breakdown = json.dumps(score_payload, ensure_ascii=False)
+    job.credibility_score = credibility.score
+    job.credibility_findings = json.dumps(credibility.as_dict(), ensure_ascii=False)
+    if (job.notes or "").startswith("tailor_failed:"):
+        job.notes = None
+    _set_row_status(job, JobStatus.RESUME_READY.value)
     await session.flush()
     log.info(
         "manual build ok job_id=%s seq=%s persona=%s cover=%s folder=%s",
@@ -859,9 +780,9 @@ async def build_package_from_text(
         "credibility_score": credibility.score,
         "credibility": credibility.as_dict(),
         "package": {
-            "id": pkg.id,
-            "persona_id": pkg.persona_id,
-            "status": pkg.status,
-            "folder_path": pkg.folder_path,
+            "id": job.id,
+            "persona_id": job.persona_id,
+            "status": job.status,
+            "folder_path": job.folder_path,
         },
     }

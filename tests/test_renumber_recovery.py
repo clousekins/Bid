@@ -12,7 +12,7 @@ import pytest
 
 from app.config import get_settings
 from app.db import session as sess
-from app.db.models import Job, JobPackage
+from app.db.job_tables import allocate_job_id, job_model, resolve_job
 from app.db.session import get_session_factory, init_db
 from app.services.renumber import heal_stuck_renumber_folders
 
@@ -29,21 +29,23 @@ async def _setup(tmp_path, monkeypatch):
 
 
 async def _job(seq_no: int, company: str, persona: str = "brian_gou") -> int:
+    """Create one row in a persona's own jobs table (folder-less, no package)."""
     factory = get_session_factory()
     async with factory() as db:
-        job = Job(
+        model = job_model(persona)
+        jid = await allocate_job_id(db, persona, company.lower())
+        job = model(
+            id=jid,
             seq_no=seq_no,
             company=company,
             normalized_company=company.lower(),
             title="Data Engineer",
             url=f"https://example.com/{seq_no}",
-            persona_id=persona,
+            status="applied",
         )
         db.add(job)
-        await db.flush()
-        db.add(JobPackage(job_id=job.id, persona_id=persona, status="applied"))
         await db.commit()
-        return job.id
+        return jid
 
 
 @pytest.mark.asyncio
@@ -80,14 +82,13 @@ async def test_db_paths_follow_the_recovered_folder(tmp_path, monkeypatch):
     async with factory() as db:
         await heal_stuck_renumber_folders(db)
     async with factory() as db:
-        job = await db.get(Job, job_id)
-        from sqlalchemy import select
-
-        pkg = (await db.execute(select(JobPackage))).scalars().one()
+        resolved = await resolve_job(db, job_id)
+        assert resolved is not None
+        job = resolved[1]
+        # folder_path (folded from the old JobPackage onto the row) now follows
+        # the recovered folder and no longer carries the __renum_ temp name.
         assert job.folder_path is not None
         assert "__renum_" not in job.folder_path
-        assert "__renum_" not in (pkg.folder_path or "")
-        assert pkg.folder_path == job.folder_path
 
 
 @pytest.mark.asyncio

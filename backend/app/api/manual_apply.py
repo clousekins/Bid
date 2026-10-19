@@ -8,12 +8,11 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.db.enums import JobStatus
-from app.db.models import Job, JobPackage
+from app.db.job_tables import resolve_job
+from app.db.models import JobRow
 from app.db.session import get_db
 from app.services.apply_answers import generate_field_answers
 from app.services.folder_writer import ensure_job_folder
@@ -121,20 +120,13 @@ def _fallback_url(company: str, title: str, jd: str) -> str:
     return f"https://manual.poong.local/jobs/{digest}"
 
 
-async def _package_for_persona(
-    db: AsyncSession, job_id: int, persona_id: str
-) -> JobPackage | None:
-    return (
-        await db.execute(
-            select(JobPackage).where(
-                JobPackage.job_id == job_id,
-                JobPackage.persona_id == persona_id,
-            )
-        )
-    ).scalar_one_or_none()
+async def _load_job(db: AsyncSession, job_id: int) -> JobRow | None:
+    """One row by its global id, routed to the right persona table."""
+    resolved = await resolve_job(db, job_id)
+    return resolved[1] if resolved else None
 
 
-def _job_payload(job: Job) -> dict[str, Any]:
+def _job_payload(job: JobRow) -> dict[str, Any]:
     return {
         "id": job.id,
         "seq_no": job.seq_no,
@@ -147,14 +139,14 @@ def _job_payload(job: Job) -> dict[str, Any]:
         "status": job.status,
         "description": job.description,
         "folder_path": job.folder_path,
+        # The row itself is this persona's package now (no separate package rows).
         "packages": [
             {
-                "id": p.id,
-                "persona_id": p.persona_id,
-                "status": p.status,
-                "folder_path": p.folder_path,
+                "id": job.id,
+                "persona_id": job.persona_id,
+                "status": job.status,
+                "folder_path": job.folder_path,
             }
-            for p in (job.packages or [])
         ],
     }
 
@@ -168,11 +160,7 @@ async def manual_fetch(body: ManualFetchBody, db: AsyncSession = Depends(get_db)
 
     job = None
     if body.job_id is not None:
-        job = (
-            await db.execute(
-                select(Job).options(selectinload(Job.packages)).where(Job.id == body.job_id)
-            )
-        ).scalar_one_or_none()
+        job = await _load_job(db, body.job_id)
         if not job:
             raise HTTPException(404, detail="not_found")
         url = (body.url or job.apply_url or job.url or "").strip()
@@ -180,11 +168,7 @@ async def manual_fetch(body: ManualFetchBody, db: AsyncSession = Depends(get_db)
             db, url=url, persona_id=body.persona_id, job=job
         )
         await db.commit()
-        job = (
-            await db.execute(
-                select(Job).options(selectinload(Job.packages)).where(Job.id == job.id)
-            )
-        ).scalar_one()
+        job = await _load_job(db, body.job_id)
         preview["job"] = _job_payload(job)
         return preview
 
@@ -192,11 +176,7 @@ async def manual_fetch(body: ManualFetchBody, db: AsyncSession = Depends(get_db)
     preview = await preview_url_fetch(db, url=url, persona_id=body.persona_id)
     await db.commit()
     if preview.get("job_id"):
-        job = (
-            await db.execute(
-                select(Job).options(selectinload(Job.packages)).where(Job.id == preview["job_id"])
-            )
-        ).scalar_one_or_none()
+        job = await _load_job(db, preview["job_id"])
         if job:
             preview["job"] = _job_payload(job)
     return preview
@@ -231,13 +211,9 @@ async def manual_prepare(body: ManualPrepareBody, db: AsyncSession = Depends(get
     }
     # A match older than the re-insert window is let through to process_listing,
     # which adds it again at the end rather than reusing the stale row.
-    existing = await find_job_by_url(db, url)
+    existing = await find_job_by_url(db, body.persona_id, url)
     if existing and not url_inferred and not is_stale_duplicate(existing):
-        job = (
-            await db.execute(
-                select(Job).options(selectinload(Job.packages)).where(Job.id == existing.id)
-            )
-        ).scalar_one()
+        job = existing
         if jd and len(jd) >= 50 and (not job.description or len(job.description) < 50):
             job.description = jd
             job.status = JobStatus.JD_READY.value
@@ -246,11 +222,7 @@ async def manual_prepare(body: ManualPrepareBody, db: AsyncSession = Depends(get
 
                 job.salary = extract_salary(jd)
             await db.commit()
-            job = (
-                await db.execute(
-                    select(Job).options(selectinload(Job.packages)).where(Job.id == job.id)
-                )
-            ).scalar_one()
+            job = await _load_job(db, job.id)
         return {
             "ok": True,
             "job": _job_payload(job),
@@ -272,11 +244,7 @@ async def manual_prepare(body: ManualPrepareBody, db: AsyncSession = Depends(get
     )
     await db.commit()
     if result.reason in {"duplicate_url", "duplicate_company"} and result.job:
-        job = (
-            await db.execute(
-                select(Job).options(selectinload(Job.packages)).where(Job.id == result.job.id)
-            )
-        ).scalar_one()
+        job = await _load_job(db, result.job.id)
         return {
             "ok": True,
             "job": _job_payload(job),
@@ -293,23 +261,14 @@ async def manual_prepare(body: ManualPrepareBody, db: AsyncSession = Depends(get
     if not result.job:
         raise HTTPException(400, detail=result.reason or "insert_failed")
 
-    job = (
-        await db.execute(
-            select(Job).options(selectinload(Job.packages)).where(Job.id == result.job.id)
-        )
-    ).scalar_one()
+    job = await _load_job(db, result.job.id)
     # Manual JD paste should always be ready for generate/apply
     if job.description and len(job.description) >= 50:
         job.status = JobStatus.JD_READY.value
         if (job.notes or "").startswith("upload_gate:"):
             job.notes = None
         await db.commit()
-        # refresh() expires relationships; reload with selectinload for async SQLite
-        job = (
-            await db.execute(
-                select(Job).options(selectinload(Job.packages)).where(Job.id == job.id)
-            )
-        ).scalar_one()
+        job = await _load_job(db, job.id)
 
     return {
         "ok": True,
@@ -325,7 +284,7 @@ async def manual_prepare(body: ManualPrepareBody, db: AsyncSession = Depends(get
 
 @router.post("/tailor")
 async def manual_tailor(body: ManualTailorBody, db: AsyncSession = Depends(get_db)):
-    job = await db.get(Job, body.job_id)
+    job = await _load_job(db, body.job_id)
     if not job:
         raise HTTPException(404, detail="not_found")
     try:
@@ -340,18 +299,13 @@ async def manual_tailor(body: ManualTailorBody, db: AsyncSession = Depends(get_d
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, detail=str(exc)) from exc
 
-    job = (
-        await db.execute(
-            select(Job).options(selectinload(Job.packages)).where(Job.id == body.job_id)
-        )
-    ).scalar_one()
-    pkg = await _package_for_persona(db, body.job_id, body.persona_id)
+    job = await _load_job(db, body.job_id)
     return {
         **result,
         "job": _job_payload(job),
-        "resume_folder": (pkg.folder_path if pkg else result.get("folder")),
+        "resume_folder": (job.folder_path if job else result.get("folder")),
         "resume_files": {
-            "pdf": f"{(pkg.folder_path if pkg else result.get('folder'))}",
+            "pdf": f"{(job.folder_path if job else result.get('folder'))}",
             "note": "PDF/HTML/MD live in this folder for Assisted apply upload",
         },
     }
@@ -364,7 +318,7 @@ async def manual_prompt(body: ManualPromptBody, db: AsyncSession = Depends(get_d
     system + user are the two messages; combined is the two joined with a
     separator, ready to paste into a chat window in one go.
     """
-    job = await db.get(Job, body.job_id)
+    job = await _load_job(db, body.job_id)
     if not job:
         raise HTTPException(404, detail="not_found")
     try:
@@ -395,7 +349,7 @@ async def manual_prompt(body: ManualPromptBody, db: AsyncSession = Depends(get_d
 @router.post("/build")
 async def manual_build(body: ManualBuildBody, db: AsyncSession = Depends(get_db)):
     """Build the resume + cover package from text pasted by hand (no LLM call)."""
-    job = await db.get(Job, body.job_id)
+    job = await _load_job(db, body.job_id)
     if not job:
         raise HTTPException(404, detail="not_found")
     try:
@@ -415,11 +369,7 @@ async def manual_build(body: ManualBuildBody, db: AsyncSession = Depends(get_db)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, detail=str(exc)) from exc
 
-    job = (
-        await db.execute(
-            select(Job).options(selectinload(Job.packages)).where(Job.id == body.job_id)
-        )
-    ).scalar_one()
+    job = await _load_job(db, body.job_id)
     return {**result, "job": _job_payload(job)}
 
 
@@ -434,7 +384,7 @@ async def manual_answers(body: ManualAnswersBody, db: AsyncSession = Depends(get
     if not questions:
         raise HTTPException(400, detail="no_questions")
 
-    job: Job | None = None
+    job: JobRow | None = None
     resume_excerpt = ""
     jd_excerpt = (body.description or "").strip()
     company = body.company
@@ -442,17 +392,14 @@ async def manual_answers(body: ManualAnswersBody, db: AsyncSession = Depends(get
     url = body.url
 
     if body.job_id is not None:
-        job = await db.get(Job, body.job_id)
+        job = await _load_job(db, body.job_id)
         if not job:
             raise HTTPException(404, detail="job_not_found")
         company = company or job.company
         title = title or job.title
         url = url or job.url
         jd_excerpt = jd_excerpt or (job.description or "")
-        pkg = await _package_for_persona(db, job.id, body.persona_id)
-        if pkg and pkg.folder_path:
-            resume_excerpt = _resume_excerpt_from_folder(pkg.folder_path)
-        if not resume_excerpt and job.folder_path:
+        if job.folder_path:
             resume_excerpt = _resume_excerpt_from_folder(job.folder_path)
 
     if not jd_excerpt or len(jd_excerpt) < 40:
@@ -480,17 +427,15 @@ async def manual_answers(body: ManualAnswersBody, db: AsyncSession = Depends(get
 
     saved_folder: str | None = None
     if job is not None:
-        pkg = await _package_for_persona(db, job.id, body.persona_id)
-        if pkg and pkg.folder_path:
-            folder = Path(pkg.folder_path)
+        if job.folder_path:
+            folder = Path(job.folder_path)
             folder.mkdir(parents=True, exist_ok=True)
         else:
             folder = ensure_job_folder(
                 body.persona_id, int(job.seq_no or 0), job.company or "Company"
             )
-            if pkg:
-                pkg.folder_path = str(folder)
-                await db.commit()
+            job.folder_path = str(folder)
+            await db.commit()
         (folder / "questions.json").write_text(
             json.dumps(questions, indent=2, ensure_ascii=False),
             encoding="utf-8",

@@ -7,8 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.pool import NullPool
 
 from app.config import get_settings
-from app.db.enums import JobStatus
-from app.db.models import Base, Job, JobPackage
+from app.db.models import Base
 
 _engine = None
 _session_factory: async_sessionmaker[AsyncSession] | None = None
@@ -42,6 +41,11 @@ def get_engine():
         if "sqlite" in settings.sqlalchemy_url:
             event.listen(_engine.sync_engine, "connect", _configure_sqlite)
         _session_factory = async_sessionmaker(_engine, expire_on_commit=False)
+        # The created-table cache is per-engine; a fresh engine (tests reset it)
+        # must forget what an earlier engine had created.
+        from app.db import job_tables
+
+        job_tables._ENSURED.clear()
     return _engine
 
 
@@ -51,102 +55,17 @@ def get_session_factory() -> async_sessionmaker[AsyncSession]:
     return _session_factory
 
 
-async def _backfill_packages(session: AsyncSession) -> int:
-    """Create packages for legacy resume_ready jobs that have no package rows yet."""
-    from sqlalchemy import select
-
-    rows = (
-        await session.execute(select(Job).where(Job.status == JobStatus.RESUME_READY.value))
-    ).scalars().all()
-    created = 0
-    for job in rows:
-        existing = (
-            await session.execute(
-                select(JobPackage).where(
-                    JobPackage.job_id == job.id,
-                    JobPackage.persona_id == job.persona_id,
-                )
-            )
-        ).scalar_one_or_none()
-        if existing:
-            continue
-        session.add(
-            JobPackage(
-                job_id=job.id,
-                persona_id=job.persona_id or "phong_v_cao",
-                status=JobStatus.RESUME_READY.value,
-                folder_path=job.folder_path,
-            )
-        )
-        created += 1
-    if created:
-        await session.commit()
-    return created
-
-
-async def _heal_legacy_listing_statuses(session: AsyncSession) -> int:
-    """Move package-backed jobs back to the shared listing/JD lifecycle."""
-    from sqlalchemy import case, func, update
-
-    package_derived_states = [
-        JobStatus.RESUME_READY.value,
-        JobStatus.APPLYING.value,
-        JobStatus.APPLIED.value,
-    ]
-    result = await session.execute(
-        update(Job)
-        .where(Job.status.in_(package_derived_states))
-        .values(
-            status=case(
-                (
-                    func.length(func.coalesce(Job.description, "")) >= 50,
-                    JobStatus.JD_READY.value,
-                ),
-                else_=JobStatus.NEW.value,
-            ),
-        )
-    )
-    await session.commit()
-    return int(result.rowcount or 0)
-
-
-async def _heal_datetime_failed_packages(session: AsyncSession) -> int:
-    """Resume files were written; only listing timestamp compare failed."""
-    from sqlalchemy import update
-
-    result = await session.execute(
-        update(JobPackage)
-        .where(
-            JobPackage.status == "failed",
-            JobPackage.notes.like("%offset-naive and offset-aware datetimes%"),
-            JobPackage.folder_path.is_not(None),
-        )
-        .values(status="resume_ready", notes=None)
-    )
-    await session.execute(
-        update(Job)
-        .where(Job.notes.like("%offset-naive and offset-aware datetimes%"))
-        .values(notes=None)
-    )
-    await session.commit()
-    return int(result.rowcount or 0)
-
-
 def _backfill_country(conn) -> None:
-    """Give existing rows a country, read from the location they already have.
+    """Give legacy `jobs` rows a country, read from the location they already have.
 
-    Runs once, immediately after the column is added. The DEFAULT 'US' on the
-    ALTER already made every row valid, so this only moves the rows whose
-    location names somewhere else — a couple of dozen out of a thousand-odd.
+    Runs once on the legacy table immediately after the column is added and
+    before the per-persona migration copies the rows.
     """
     from sqlalchemy import text
 
     from app.services.job_country import DEFAULT, country_code
 
-    import logging
-
     rows = conn.execute(text("SELECT id, location FROM jobs")).fetchall()
-    moved = 0
     for row_id, location in rows:
         code = country_code(location)
         if code == DEFAULT:
@@ -155,29 +74,17 @@ def _backfill_country(conn) -> None:
             text("UPDATE jobs SET country = :code WHERE id = :id"),
             {"code": code, "id": row_id},
         )
-        moved += 1
-    logging.getLogger("poong.country").info(
-        "country backfill: %s of %s rows are not US", moved, len(rows)
-    )
 
 
 def _backfill_salary(conn) -> None:
-    """Read a pay range out of the JD every existing row already holds.
-
-    Runs once, right after the column is added, so jobs fetched before this
-    feature show a salary without needing a re-scan. Only rows with a real JD
-    are touched; the rest stay NULL and read as "—" until one arrives.
-    """
+    """Read a pay range out of the JD every legacy `jobs` row already holds."""
     from sqlalchemy import text
-
-    import logging
 
     from app.services.salary_extract import extract_salary
 
     rows = conn.execute(
         text("SELECT id, description FROM jobs WHERE description IS NOT NULL")
     ).fetchall()
-    filled = 0
     for row_id, description in rows:
         salary = extract_salary(description)
         if not salary:
@@ -186,14 +93,15 @@ def _backfill_salary(conn) -> None:
             text("UPDATE jobs SET salary = :salary WHERE id = :id"),
             {"salary": salary, "id": row_id},
         )
-        filled += 1
-    logging.getLogger("poong.salary").info(
-        "salary backfill: found a pay range in %s of %s JD rows", filled, len(rows)
-    )
 
 
 def _ensure_sqlite_columns(conn) -> None:
-    """Add columns that create_all will not alter on existing SQLite DBs."""
+    """Add columns the legacy `jobs`/`job_packages` tables may be missing.
+
+    Runs only while the old single-table schema is still present, so the
+    per-persona migration copies complete rows. A no-op once migrated (the old
+    `jobs` table has been renamed away).
+    """
     from sqlalchemy import text
 
     tables = {
@@ -204,10 +112,7 @@ def _ensure_sqlite_columns(conn) -> None:
     }
     if "jobs" not in tables:
         return
-    cols = {
-        str(r[1])
-        for r in conn.execute(text("PRAGMA table_info(jobs)")).fetchall()
-    }
+    cols = {str(r[1]) for r in conn.execute(text("PRAGMA table_info(jobs)")).fetchall()}
     if "domains" not in cols:
         conn.execute(text("ALTER TABLE jobs ADD COLUMN domains VARCHAR(64)"))
     if "feasibility_score" not in cols:
@@ -220,7 +125,6 @@ def _ensure_sqlite_columns(conn) -> None:
             text("ALTER TABLE jobs ADD COLUMN country VARCHAR(2) NOT NULL DEFAULT 'US'")
         )
         _backfill_country(conn)
-    conn.execute(text("CREATE INDEX IF NOT EXISTS ix_jobs_country ON jobs (country)"))
 
     if "job_packages" not in tables:
         return
@@ -245,42 +149,204 @@ def _ensure_sqlite_columns(conn) -> None:
         if name not in pkg_cols:
             conn.execute(text(ddl))
     if "applied_at" not in pkg_cols:
-        # Backfill already-submitted packages. updated_at is the closest record
-        # we have of when they went out; it is approximate but ordered right.
         conn.execute(
             text(
                 "UPDATE job_packages SET applied_at = updated_at "
                 "WHERE status = 'applied' AND applied_at IS NULL"
             )
         )
-    conn.execute(
-        text(
-            "CREATE INDEX IF NOT EXISTS ix_job_packages_outcome "
-            "ON job_packages (outcome)"
-        )
+
+
+# Old per-persona package status -> the folded single row status.
+_PKG_STATUS_MAP = {
+    "resume_ready": "resume_ready",
+    "applying": "applying",
+    "applied": "applied",
+    "failed": "tailor_failed",
+}
+# Folded columns, in insert order (minus id/seq_no/persona which are handled apart).
+_FOLD_COLS = [
+    "company", "normalized_company", "company_id", "title", "url", "apply_url",
+    "location", "country", "source", "external_id", "description", "salary",
+    "status", "folder_path", "staffing_firm", "domains", "jd_fetched",
+    "feasibility_score", "notes", "applied_at", "outcome", "outcome_at",
+    "outcome_notes", "ats_score", "ats_breakdown", "credibility_score",
+    "credibility_findings", "enabled", "created_at", "updated_at",
+]
+
+
+def _migrate_to_per_persona(conn) -> None:
+    """One-time: split the shared `jobs` table into per-persona `jobs__{id}` tables.
+
+    Idempotent and self-detecting: runs only when the old `jobs` table exists and
+    `job_index` does not; archives the old tables by rename at the end so the
+    marker flips. Runs inside init_db's single transaction, so a crash rolls back
+    whole and never leaves it half-done. Keeps each row's original global seq_no
+    (the on-disk folders are named by it) — a later per-persona Renumber tidies.
+    """
+    from collections import defaultdict
+
+    from sqlalchemy import text
+
+    from app.db.job_tables import job_model
+    from app.db.models import JobIndex
+    from app.services.persona import all_persona_ids
+
+    tables = {
+        str(r[0])
+        for r in conn.execute(
+            text("SELECT name FROM sqlite_master WHERE type='table'")
+        ).fetchall()
+    }
+    if "jobs" not in tables or "job_index" in tables:
+        return  # fresh DB, or already migrated
+
+    jobs = [dict(r) for r in conn.execute(text("SELECT * FROM jobs")).mappings().all()]
+    has_packages = "job_packages" in tables
+    has_disables = "job_disables" in tables
+    pkgs = (
+        [dict(r) for r in conn.execute(text("SELECT * FROM job_packages")).mappings().all()]
+        if has_packages
+        else []
     )
+    dis_rows = (
+        conn.execute(text("SELECT job_id, persona_id, disabled FROM job_disables")).all()
+        if has_disables
+        else []
+    )
+    disabled_by = {(int(d[0]), str(d[1])): bool(d[2]) for d in dis_rows}
+
+    pkgs_by_job: dict[int, list[dict]] = defaultdict(list)
+    for p in pkgs:
+        pkgs_by_job[int(p["job_id"])].append(p)
+
+    # Every persona that needs a table: config plus any referenced by legacy data.
+    pids = set(all_persona_ids())
+    for j in jobs:
+        pids.add(str(j.get("persona_id") or "phong_v_cao"))
+    for p in pkgs:
+        pids.add(str(p["persona_id"]))
+    for (_jid, pid) in disabled_by:
+        pids.add(pid)
+
+    import re as _re
+
+    pids = {p for p in pids if _re.match(r"^[A-Za-z0-9_]+$", p)}
+    new_tables = [JobIndex.__table__] + [job_model(p).__table__ for p in sorted(pids)]
+    Base.metadata.create_all(conn, tables=new_tables, checkfirst=True)
+
+    def enabled_from_disable(key):
+        d = disabled_by.get(key)
+        if d is None:
+            return None
+        return False if d else True  # disabled=True -> off; disabled=False -> forced on
+
+    def mint_id(persona: str, normcomp) -> int:
+        res = conn.execute(
+            text(
+                "INSERT INTO job_index (persona_id, normalized_company, created_at) "
+                "VALUES (:p, :c, CURRENT_TIMESTAMP)"
+            ),
+            {"p": persona, "c": normcomp},
+        )
+        return int(res.lastrowid)
+
+    def insert_row(persona: str, new_id: int, seq_no, values: dict) -> None:
+        cols = ["id", "seq_no", *_FOLD_COLS]
+        placeholders = ", ".join(f":{c}" for c in cols)
+        params = {"id": new_id, "seq_no": seq_no, **{c: values.get(c) for c in _FOLD_COLS}}
+        conn.execute(
+            text(f'INSERT INTO "jobs__{persona}" ({", ".join(cols)}) VALUES ({placeholders})'),
+            params,
+        )
+
+    newid_map: dict[tuple[int, str], int] = {}
+
+    for j in jobs:
+        old_id = int(j["id"])
+        normcomp = j.get("normalized_company")
+        desc = j.get("description") or ""
+        solid = len(desc) >= 50
+        base = {c: j.get(c) for c in _FOLD_COLS if c in j}
+        base.setdefault("outcome", "pending")
+        base.setdefault("country", j.get("country") or "US")
+
+        job_pkgs = pkgs_by_job.get(old_id, [])
+        if job_pkgs:
+            for p in job_pkgs:
+                persona = str(p["persona_id"])
+                if persona not in pids:
+                    continue
+                vals = dict(base)
+                vals["status"] = _PKG_STATUS_MAP.get(p.get("status"), "jd_ready")
+                vals["folder_path"] = p.get("folder_path") or j.get("folder_path")
+                vals["notes"] = p.get("notes") or j.get("notes")
+                for c in (
+                    "applied_at", "outcome", "outcome_at", "outcome_notes",
+                    "ats_score", "ats_breakdown", "credibility_score",
+                    "credibility_findings",
+                ):
+                    vals[c] = p.get(c) if p.get(c) is not None else (
+                        "pending" if c == "outcome" else None
+                    )
+                vals["enabled"] = enabled_from_disable((old_id, persona))
+                new_id = mint_id(persona, normcomp)
+                insert_row(persona, new_id, j.get("seq_no"), vals)
+                newid_map[(old_id, persona)] = new_id
+        else:
+            persona = str(j.get("persona_id") or "phong_v_cao")
+            if persona not in pids:
+                persona = "phong_v_cao"
+                pids.add(persona)
+                Base.metadata.create_all(
+                    conn, tables=[job_model(persona).__table__], checkfirst=True
+                )
+            vals = dict(base)
+            status = j.get("status")
+            # No package for this persona: an old shared resume/apply status was
+            # never really this persona's, so walk it back to the JD lifecycle.
+            if status in ("resume_ready", "applying", "applied"):
+                status = "jd_ready" if solid else "new"
+            if status == "new" and str(j.get("notes") or "").startswith("deep_scan_failed:"):
+                status = "scan_failed"
+            vals["status"] = status
+            vals["enabled"] = enabled_from_disable((old_id, persona))
+            new_id = mint_id(persona, normcomp)
+            insert_row(persona, new_id, j.get("seq_no"), vals)
+            newid_map[(old_id, persona)] = new_id
+
+    # Repoint Application.job_id at the copy in its own persona's table.
+    if "applications" in tables:
+        apps = conn.execute(text("SELECT id, persona_id, job_id FROM applications")).all()
+        for app_id, persona_id, job_id in apps:
+            if job_id is None:
+                continue
+            new = newid_map.get((int(job_id), str(persona_id)))
+            conn.execute(
+                text("UPDATE applications SET job_id = :n WHERE id = :i"),
+                {"n": new, "i": app_id},
+            )
+
+    conn.execute(text("ALTER TABLE jobs RENAME TO jobs_legacy"))
+    if has_packages:
+        conn.execute(text("ALTER TABLE job_packages RENAME TO job_packages_legacy"))
+    if has_disables:
+        conn.execute(text("ALTER TABLE job_disables RENAME TO job_disables_legacy"))
 
 
 async def init_db() -> None:
+    from app.db.job_tables import prewarm_job_models
+
+    prewarm_job_models()  # register every persona's table before create_all
     engine = get_engine()
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
         if "sqlite" in str(engine.url):
             await conn.run_sync(_ensure_sqlite_columns)
-    from sqlalchemy import text
+            await conn.run_sync(_migrate_to_per_persona)
+        await conn.run_sync(Base.metadata.create_all)
 
-    async with engine.begin() as conn:
-        await conn.execute(
-            text(
-                "UPDATE jobs SET status = 'scan_failed' "
-                "WHERE status = 'new' AND notes LIKE 'deep_scan_failed:%'"
-            )
-        )
     factory = get_session_factory()
     async with factory() as session:
-        await _backfill_packages(session)
-        await _heal_legacy_listing_statuses(session)
-        await _heal_datetime_failed_packages(session)
         from app.services.renumber import heal_stuck_renumber_folders
 
         healed = await heal_stuck_renumber_folders(session)

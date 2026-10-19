@@ -5,7 +5,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.db.enums import JobStatus
-from app.db.models import Job
+from app.db.job_tables import job_model
+from app.db.models import JobRow
 from app.services.employer_resolve import apply_employer_to_job_fields, resolve_employer
 from app.services.folder_writer import job_folder_name, remove_job_folder, sync_job_folder
 from app.services.jd_fetch import FetchResult, fetch_jd_http
@@ -24,7 +25,7 @@ from app.validators.remote_us import check_remote_us
 SOLID_JD_CHARS = 400
 
 
-def has_solid_jd(job: Job) -> bool:
+def has_solid_jd(job: JobRow) -> bool:
     desc = job.description or ""
     return bool(job.jd_fetched and len(desc) >= SOLID_JD_CHARS)
 
@@ -45,7 +46,7 @@ async def fetch_description(url: str) -> tuple[FetchResult, str]:
     return result, http_reason
 
 
-def _drop_stale_company_folder(job: Job, old_company: str, new_folder) -> None:
+def _drop_stale_company_folder(job: JobRow, old_company: str, new_folder) -> None:
     if not job.seq_no or old_company == job.company:
         return
     stale = get_settings().output_root / job.persona_id / job_folder_name(job.seq_no, old_company)
@@ -57,7 +58,7 @@ def _drop_stale_company_folder(job: Job, old_company: str, new_folder) -> None:
 
 
 async def _apply_resolved_employer(
-    session: AsyncSession, job: Job, jd_text: str
+    session: AsyncSession, job: JobRow, jd_text: str
 ) -> dict:
     """Resolve client company from JD; update job; gate on applied/blocked client."""
     resolved = await resolve_employer(
@@ -90,7 +91,7 @@ async def _apply_resolved_employer(
     return {"employer": change}
 
 
-async def deep_scan_job(session: AsyncSession, job: Job, *, force: bool = False) -> dict:
+async def deep_scan_job(session: AsyncSession, job: JobRow, *, force: bool = False) -> dict:
     if not force and has_solid_jd(job):
         return {
             "job_id": job.id,
@@ -227,13 +228,13 @@ async def deep_scan_range(
     limit: int = 50,
     cancel_check=None,
 ) -> dict:
+    model = job_model(persona_id)
     q = (
-        select(Job)
+        select(model)
         .where(
-            Job.persona_id == persona_id,
-            Job.seq_no >= seq_from,
-            Job.seq_no <= seq_to,
-            Job.status.in_(
+            model.seq_no >= seq_from,
+            model.seq_no <= seq_to,
+            model.status.in_(
                 [
                     JobStatus.NEW.value,
                     JobStatus.JD_READY.value,
@@ -241,7 +242,7 @@ async def deep_scan_range(
                 ]
             ),
         )
-        .order_by(Job.seq_no.asc())
+        .order_by(model.seq_no.asc())
         .limit(limit)
     )
     rows = (await session.execute(q)).scalars().all()
@@ -259,7 +260,7 @@ async def preview_url_fetch(
     *,
     url: str,
     persona_id: str,
-    job: Job | None = None,
+    job: JobRow | None = None,
 ) -> dict:
     """Fetch a JD without always inserting. Same HTTP→browser path as Deep-scan.
 
@@ -269,7 +270,7 @@ async def preview_url_fetch(
     if not url or not url.lower().startswith(("http://", "https://")):
         return {"ok": False, "reason": "url_required", "blockers": ["url_required"], "warnings": []}
 
-    existing = job or await find_job_by_url(session, url)
+    existing = job or await find_job_by_url(session, persona_id, url)
     if existing:
         explicit = job is not None
         if explicit or not has_solid_jd(existing):

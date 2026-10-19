@@ -159,13 +159,14 @@ class ExtensionChat:
 
 
 async def _run(s: _Session) -> None:
-    from app.db.models import Job
+    from app.db.job_tables import resolve_job
     from app.db.session import get_session_factory
     from app.services.tailor import tailor_job
 
     try:
         async with get_session_factory()() as db:
-            job = await db.get(Job, s.job_id)
+            resolved = await resolve_job(db, s.job_id)
+            job = resolved[1] if resolved else None
             if job is None:
                 s.error = "job_missing"
                 return

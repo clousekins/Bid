@@ -375,6 +375,7 @@ export default function WorkspaceApp({ onGoHome, theme, onToggleTheme }) {
           runOrError(() =>
             batch.startBg("discover", {
               persona_id: ws.workingPersonaId,
+              persona_ids: [...ws.ingestPersonaIds],
               domains,
             })
           )
@@ -383,6 +384,7 @@ export default function WorkspaceApp({ onGoHome, theme, onToggleTheme }) {
           runOrError(() =>
             batch.startBg("discover_fresh", {
               persona_id: ws.workingPersonaId,
+              persona_ids: [...ws.ingestPersonaIds],
               domains,
             })
           )
@@ -397,6 +399,7 @@ export default function WorkspaceApp({ onGoHome, theme, onToggleTheme }) {
           runOrError(() =>
             batch.startBg("discover_site", {
               persona_id: ws.workingPersonaId,
+              persona_ids: [...ws.ingestPersonaIds],
               site,
               window,
               max_jobs,
@@ -405,6 +408,9 @@ export default function WorkspaceApp({ onGoHome, theme, onToggleTheme }) {
             })
           )
         }
+        personas={ws.personas}
+        ingestPersonaIds={ws.ingestPersonaIds}
+        setIngestPersonaIds={ws.setIngestPersonaIds}
         onSectorImport={async (rows) => {
           // Reuse the normal ingest path so the gates, dedupe and folder
           // creation behave exactly as they do for any other listing.

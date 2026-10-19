@@ -15,8 +15,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
-from app.db.models import AtsBoard, Job
+from app.db.job_tables import job_model
+from app.db.models import AtsBoard
 from app.services.ats_catalog import add_boards, catalog_stats, seed_ats_catalog
+from app.services.persona import all_persona_ids
 from app.validators.dedupe import normalize_company
 
 log = logging.getLogger("poong.company_discovery")
@@ -443,22 +445,37 @@ async def collect_probe_candidates(session: AsyncSession, cfg: dict[str, Any]) -
     for s in cfg.get("probe_slugs") or []:
         _add(s)
 
+    # Jobs now live in one table per persona, so gather the same columns across
+    # every persona's table and union them in Python before dedup/limit.
+    companies: list[str] = []
+    job_urls: list[str] = []
+    for pid in all_persona_ids():
+        model = job_model(pid)
+        company_rows = (
+            await session.execute(
+                select(model.company)
+                .where(model.company.is_not(None))
+                .order_by(model.id.desc())
+                .limit(400)
+            )
+        ).all()
+        companies.extend(str(company) for (company,) in company_rows)
+        url_rows = (
+            await session.execute(
+                select(model.url)
+                .where(model.url.is_not(None))
+                .order_by(model.id.desc())
+                .limit(500)
+            )
+        ).all()
+        job_urls.extend(str(url) for (url,) in url_rows)
+
     # Recent job companies → candidate slugs (best practice: derive from known employers)
-    rows = (
-        await session.execute(
-            select(Job.company).where(Job.company.is_not(None)).order_by(Job.id.desc()).limit(400)
-        )
-    ).all()
-    for (company,) in rows:
-        _add(str(company))
+    for company in companies:
+        _add(company)
 
     # Also harvest ATS tokens already present in job URLs
-    urls = (
-        await session.execute(
-            select(Job.url).where(Job.url.is_not(None)).order_by(Job.id.desc()).limit(500)
-        )
-    ).all()
-    for (url,) in urls:
+    for url in job_urls:
         pair = extract_ats_from_url(str(url or ""))
         if pair:
             _add(pair[1])

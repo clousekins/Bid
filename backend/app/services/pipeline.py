@@ -6,16 +6,18 @@ from typing import Any
 
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
-from app.config import get_settings
-from app.db.enums import JobStatus, PackageStatus
+from app.db.enums import JobStatus
+from app.db.job_tables import (
+    allocate_job_id,
+    ensure_job_table,
+    job_model,
+    persona_accepts_country,
+)
 from app.db.models import (
     Application,
     Company,
-    Job,
-    JobDisable,
-    JobPackage,
+    JobRow,
     JobSourceSeen,
     RejectedJob,
     as_utc,
@@ -23,7 +25,7 @@ from app.db.models import (
 )
 from app.services.folder_writer import sync_job_folder
 from app.services.job_country import country_code
-from app.services.persona import get_active_persona_id
+from app.services.persona import all_persona_ids, get_active_persona_id
 from app.validators.dedupe import canonicalize_url, normalize_company, normalize_title
 from app.validators.it_domain import check_it_domain
 from app.validators.remote_us import check_remote_us
@@ -38,12 +40,13 @@ SOLID_JD = 50
 REINSERT_STALE_DAYS = 7
 
 
-def is_stale_duplicate(job: Job) -> bool:
+def is_stale_duplicate(job: JobRow) -> bool:
     """True when this existing match is old enough to re-insert rather than reuse."""
     created = getattr(job, "created_at", None)
     if created is None:
         return False
     return as_utc(created) < utcnow() - timedelta(days=REINSERT_STALE_DAYS)
+
 
 # An apply older than this no longer counts as "applied at this company". Past
 # it the company reopens: ingest takes its listings again, and the job list
@@ -55,25 +58,20 @@ def _applied_cutoff():
     """Applies on or after this instant still count; older ones are ignored."""
     return utcnow() - timedelta(days=APPLIED_WINDOW_DAYS)
 
-# The profiles that make up the apply crew. Ingest is closed to a company only
-# once every one of them has already applied there — so a listing is skipped at
-# ingest when both Alex and Brian have applied to that company, and let in
-# otherwise. (The job list's hide is separate and keyed on the viewing profile,
-# not this crew.) Edit this list to change the crew.
-APPLY_GROUP: tuple[str, ...] = ("alex_mak", "brian_gou")
-
 
 @dataclass
 class ProcessResult:
     ok: bool
-    job: Job | None = None
+    job: JobRow | None = None
     skipped: bool = False
     reason: str = ""
     status: str | None = None
 
 
-async def _next_seq(session: AsyncSession) -> int:
-    result = await session.execute(select(func.coalesce(func.max(Job.seq_no), 0)))
+async def _next_seq(session: AsyncSession, persona_id: str) -> int:
+    """The next sequence number *within this persona's own table*."""
+    model = job_model(persona_id)
+    result = await session.execute(select(func.coalesce(func.max(model.seq_no), 0)))
     return int(result.scalar_one()) + 1
 
 
@@ -91,193 +89,110 @@ async def _get_or_create_company(session: AsyncSession, company: str, normalized
 
 
 async def company_is_applied(session: AsyncSession, persona_id: str, normalized: str) -> bool:
-    """Has this persona already applied at this company?
+    """Has this persona already applied at this company, within the window?
 
-    Three places record it, because an apply can be logged from three: an
-    Application row, the listing's own status, and a per-persona package.
-
-    A rejected listing counts for none of them. That is the point of rejecting
-    one — it says this application is written off, so the company should be
-    open again for the next job that comes from there. Without the exclusions
-    below, marking a job rejected would change how it looks and nothing else:
-    the Application row and the applied package would still hold the door shut.
-
-    Only applies from the last APPLIED_WINDOW_DAYS count. One older than that is
-    treated as spent: the company reopens, so a listing applied to long ago no
-    longer blocks ingest or hides the company's other openings.
+    Two records now say so: an ``Application`` row (company-level, durable) and
+    the persona's own applied job row in ``jobs__{persona}``. A rejected listing
+    counts for neither — rejecting one writes its application off, so the company
+    reopens for the next job from there. Only applies inside
+    ``APPLIED_WINDOW_DAYS`` count.
     """
+    model = job_model(persona_id)
     rejected = JobStatus.REJECTED.value
     cutoff = _applied_cutoff()
 
-    # An Application either names the listing it came from or predates the
-    # link. One tied to a rejected listing is written off with it; a free
-    # standing one is all the record there is, so it still counts.
+    # Application: company-level. One tied to a now-rejected job is written off
+    # with it; a standalone one is the whole record, so it still counts.
     result = await session.execute(
         select(Application.id)
-        .outerjoin(Job, Job.id == Application.job_id)
+        .outerjoin(model, model.id == Application.job_id)
         .where(
             Application.persona_id == persona_id,
             Application.normalized_company == normalized,
             Application.status == "applied",
             Application.created_at >= cutoff,
-            or_(Application.job_id.is_(None), Job.status != rejected),
+            or_(Application.job_id.is_(None), model.status != rejected),
         )
         .limit(1)
     )
     if result.scalar_one_or_none() is not None:
         return True
 
-    # The listing's own status needs no exclusion: a job is applied or
-    # rejected, never both. updated_at is the best apply time it carries.
+    # The persona's own applied row at this company.
     result = await session.execute(
-        select(Job.id)
+        select(model.id)
         .where(
-            Job.persona_id == persona_id,
-            Job.normalized_company == normalized,
-            Job.status == JobStatus.APPLIED.value,
-            Job.updated_at >= cutoff,
+            model.normalized_company == normalized,
+            model.status == JobStatus.APPLIED.value,
+            func.coalesce(model.applied_at, model.updated_at) >= cutoff,
         )
         .limit(1)
     )
-    if result.scalar_one_or_none() is not None:
-        return True
-
-    pkg = await session.execute(
-        select(JobPackage.id)
-        .join(Job, Job.id == JobPackage.job_id)
-        .where(
-            JobPackage.persona_id == persona_id,
-            JobPackage.status == PackageStatus.APPLIED.value,
-            func.coalesce(JobPackage.applied_at, JobPackage.updated_at) >= cutoff,
-            Job.normalized_company == normalized,
-            Job.status != rejected,
-        )
-        .limit(1)
-    )
-    return pkg.scalar_one_or_none() is not None
-
-
-async def group_company_applied(
-    session: AsyncSession, normalized: str, crew: tuple[str, ...] = APPLY_GROUP
-) -> bool:
-    """Has every profile in the crew already applied at this company?
-
-    Ingest is gated on the crew as a whole, not on the fetching profile: a
-    listing is only worth skipping once none of them could still use it. Until
-    then it is kept even if the profile doing the fetch is itself already
-    applied. company_is_applied answers it per profile and already discounts an
-    apply written off with a rejected listing, so the company reopens for the
-    crew the moment any one of them is freed up again.
-
-    The crew is the US pair (Alex and Brian) by default, but a Brazil listing
-    passes crew=("bruno_raphael",), since Brazil jobs are Bruno's.
-    """
-    for persona_id in crew:
-        if not await company_is_applied(session, persona_id, normalized):
-            return False
-    return True
+    return result.scalar_one_or_none() is not None
 
 
 async def applied_scope(
     session: AsyncSession, persona_id: str
 ) -> tuple[set[str], set[int]]:
-    """Companies this profile has applied at, and the jobs it applied to.
+    """Companies this persona has applied at, and the jobs it applied to.
 
     Returns (companies, job_ids). Applying at a company closes its *other*
-    openings to this profile in the list, but the one listing the profile
-    actually applied to stays visible — so job_ids is the exception the company
-    set is read against. Gathered in a few indexed passes rather than a
-    correlated subquery per row, the way the own-employers hide is. Same three
-    records as company_is_applied, and the same rule that a rejected listing
-    writes its own applies off.
+    openings to this persona in the list, but the one listing it actually
+    applied to stays visible — so job_ids is the exception the company set is
+    read against. Same records and window as :func:`company_is_applied`.
     """
+    model = job_model(persona_id)
     rejected = JobStatus.REJECTED.value
-    applied = PackageStatus.APPLIED.value
-    # Only applies from the last APPLIED_WINDOW_DAYS count; an older one leaves
-    # the company unhidden, so its openings drop back into the list.
     cutoff = _applied_cutoff()
     companies: set[str] = set()
     job_ids: set[int] = set()
 
-    # A standalone Application (no job) is the whole record, so it still closes
-    # the company; one tied to a rejected listing is written off with it.
     rows = await session.execute(
         select(Application.normalized_company, Application.job_id)
-        .outerjoin(Job, Job.id == Application.job_id)
+        .outerjoin(model, model.id == Application.job_id)
         .where(
             Application.persona_id == persona_id,
             Application.status == "applied",
             Application.created_at >= cutoff,
-            or_(Application.job_id.is_(None), Job.status != rejected),
+            or_(Application.job_id.is_(None), model.status != rejected),
         )
     )
     for company, job_id in rows:
         if company:
             companies.add(company)
         if job_id is not None:
-            job_ids.add(job_id)
+            job_ids.add(int(job_id))
 
     rows = await session.execute(
-        select(Job.id, Job.normalized_company).where(
-            Job.persona_id == persona_id,
-            Job.status == JobStatus.APPLIED.value,
-            Job.updated_at >= cutoff,
+        select(model.id, model.normalized_company).where(
+            model.status == JobStatus.APPLIED.value,
+            func.coalesce(model.applied_at, model.updated_at) >= cutoff,
         )
     )
     for job_id, company in rows:
-        job_ids.add(job_id)
-        if company:
-            companies.add(company)
-
-    rows = await session.execute(
-        select(Job.id, Job.normalized_company)
-        .join(JobPackage, JobPackage.job_id == Job.id)
-        .where(
-            JobPackage.persona_id == persona_id,
-            JobPackage.status == applied,
-            func.coalesce(JobPackage.applied_at, JobPackage.updated_at) >= cutoff,
-            Job.status != rejected,
-        )
-    )
-    for job_id, company in rows:
-        job_ids.add(job_id)
+        job_ids.add(int(job_id))
         if company:
             companies.add(company)
 
     return companies, job_ids
 
 
-async def profile_disable_overrides(
-    session: AsyncSession, persona_id: str
-) -> dict[int, bool]:
-    """job_id -> this profile's explicit choice (True=off, False=forced back on)."""
-    rows = await session.execute(
-        select(JobDisable.job_id, JobDisable.disabled).where(
-            JobDisable.persona_id == persona_id
-        )
-    )
-    return {int(jid): bool(d) for jid, d in rows}
-
-
 async def explicit_disabled_ids(session: AsyncSession, persona_id: str) -> set[int]:
-    """Jobs this profile turned off by hand (override disabled=True)."""
+    """Jobs this persona turned off by hand (``enabled = False``)."""
     if not persona_id:
         return set()
-    rows = await session.execute(
-        select(JobDisable.job_id).where(
-            JobDisable.persona_id == persona_id, JobDisable.disabled.is_(True)
-        )
-    )
+    model = job_model(persona_id)
+    rows = await session.execute(select(model.id).where(model.enabled.is_(False)))
     return {int(r[0]) for r in rows}
 
 
 def auto_disabled(
-    job: Job, applied_company_set: set[str], applied_job_ids: set[int]
+    job: JobRow, applied_company_set: set[str], applied_job_ids: set[int]
 ) -> bool:
-    """A company's other opening, auto-disabled because the profile applied there.
+    """A company's other opening, auto-disabled because the persona applied there.
 
-    True when the job is at a company the profile has applied to (within the
-    30-day window applied_scope enforces) but is not itself one it applied to.
+    True when the job is at a company the persona applied to (within the 30-day
+    window applied_scope enforces) but is not itself the one it applied to.
     """
     return (
         job.normalized_company in applied_company_set
@@ -286,16 +201,18 @@ def auto_disabled(
 
 
 def effective_disabled(
-    job: Job,
+    job: JobRow,
     applied_company_set: set[str],
     applied_job_ids: set[int],
-    overrides: dict[int, bool],
 ) -> tuple[bool, str | None]:
-    """Is this job disabled for the profile, and why. An explicit override wins."""
-    override = overrides.get(job.id)
-    if override is True:
+    """Is this job disabled for its persona, and why. An explicit choice wins.
+
+    Reads the row's folded tri-state ``enabled``: ``False`` = off by hand,
+    ``True`` = forced on, ``None`` = follow the automatic company-applied rule.
+    """
+    if job.enabled is False:
         return True, "manual"
-    if override is False:
+    if job.enabled is True:
         return False, None
     if auto_disabled(job, applied_company_set, applied_job_ids):
         return True, "company_applied"
@@ -303,74 +220,68 @@ def effective_disabled(
 
 
 async def disabled_job_ids_for(session: AsyncSession, persona_id: str) -> set[int]:
-    """Every job id disabled for this profile — applied-company siblings and
-    hand-disabled jobs, minus any the profile forced back on. Used to keep the
-    resume-build batch off disabled jobs."""
+    """Every job id disabled for this persona — applied-company siblings and
+    hand-disabled rows, minus any forced back on. Keeps the resume-build batch
+    off disabled jobs."""
     if not persona_id:
         return set()
+    model = job_model(persona_id)
     companies, applied_ids = await applied_scope(session, persona_id)
-    overrides = await profile_disable_overrides(session, persona_id)
-    effective: set[int] = set()
-    if companies:
-        clauses = [Job.normalized_company.in_(companies)]
-        if applied_ids:
-            clauses.append(Job.id.notin_(applied_ids))
-        rows = await session.execute(select(Job.id).where(*clauses))
-        for (jid,) in rows:
-            if overrides.get(int(jid)) is not False:  # auto, unless forced on
-                effective.add(int(jid))
-    for jid, dis in overrides.items():
-        if dis:
-            effective.add(jid)
-        else:
-            effective.discard(jid)
-    return effective
+    rows = await session.execute(
+        select(model.id, model.normalized_company, model.enabled)
+    )
+    out: set[int] = set()
+    for jid, comp, enabled in rows:
+        jid = int(jid)
+        if enabled is False:
+            out.add(jid)
+        elif enabled is True:
+            continue
+        elif comp in companies and jid not in applied_ids:
+            out.add(jid)
+    return out
 
 
 async def is_disabled_for(
-    session: AsyncSession, job: Job, persona_id: str | None
+    session: AsyncSession, job: JobRow, persona_id: str | None
 ) -> tuple[bool, str | None]:
-    """Disabled state of one job for one profile (for the single-job view)."""
+    """Disabled state of one job for its persona (for the single-job view)."""
     if not persona_id:
         return False, None
-    override = (
-        await session.execute(
-            select(JobDisable.disabled).where(
-                JobDisable.job_id == job.id, JobDisable.persona_id == persona_id
-            )
-        )
-    ).scalar_one_or_none()
-    if override is not None:
-        return (bool(override), "manual" if override else None)
+    if job.enabled is False:
+        return True, "manual"
+    if job.enabled is True:
+        return False, None
     companies, applied_ids = await applied_scope(session, persona_id)
     auto = auto_disabled(job, companies, applied_ids)
     return (auto, "company_applied" if auto else None)
 
 
 async def find_job_by_url(
-    session: AsyncSession, url: str, *, exclude_ids: set[int] | None = None
-) -> Job | None:
+    session: AsyncSession,
+    persona_id: str,
+    url: str,
+    *,
+    exclude_ids: set[int] | None = None,
+) -> JobRow | None:
+    model = job_model(persona_id)
     canon = canonicalize_url(url)
     if not canon:
         return None
     exclude = exclude_ids or set()
     variants = {url.strip(), url.strip().rstrip("/"), canon}
-    where = [or_(Job.url.in_(variants), Job.apply_url.in_(variants))]
+    where = [or_(model.url.in_(variants), model.apply_url.in_(variants))]
     if exclude:
-        where.append(Job.id.notin_(exclude))
+        where.append(model.id.notin_(exclude))
     row = (
         await session.execute(
-            select(Job)
-            .options(selectinload(Job.packages))
-            .where(*where)
-            .order_by(Job.id.desc())
-            .limit(1)
+            select(model).where(*where).order_by(model.id.desc()).limit(1)
         )
     ).scalar_one_or_none()
     if row:
         return row
     jobs = (
-        await session.execute(select(Job).options(selectinload(Job.packages)).order_by(Job.id.desc()).limit(400))
+        await session.execute(select(model).order_by(model.id.desc()).limit(400))
     ).scalars().all()
     for job in jobs:
         if job.id in exclude:
@@ -380,20 +291,19 @@ async def find_job_by_url(
     return None
 
 
-
 async def find_job_by_company_title(
-    session: AsyncSession, normalized_company: str, title: str
-) -> Job | None:
-    """An existing listing for the same company and the same role."""
+    session: AsyncSession, persona_id: str, normalized_company: str, title: str
+) -> JobRow | None:
+    """An existing listing in this persona's table for the same company and role."""
+    model = job_model(persona_id)
     key = normalize_title(title)
     if not normalized_company or not key:
         return None
     rows = (
         await session.execute(
-            select(Job)
-            .options(selectinload(Job.packages))
-            .where(Job.normalized_company == normalized_company)
-            .order_by(Job.id.desc())
+            select(model)
+            .where(model.normalized_company == normalized_company)
+            .order_by(model.id.desc())
         )
     ).scalars().all()
     for job in rows:
@@ -403,31 +313,32 @@ async def find_job_by_company_title(
 
 
 async def find_recent_job_by_company(
-    session: AsyncSession, normalized_company: str, *, exclude_ids: set[int] | None = None
-) -> Job | None:
-    """The newest non-rejected listing from this company still inside the window.
+    session: AsyncSession,
+    persona_id: str,
+    normalized_company: str,
+    *,
+    exclude_ids: set[int] | None = None,
+) -> JobRow | None:
+    """The newest non-rejected listing from this company in this persona's table
+    still inside the window.
 
-    One job per company per REINSERT_STALE_DAYS: any such match (regardless of
-    role or domain) holds the company closed to ingest until it ages out. A
-    rejected listing is written off, so it frees the company and is skipped here.
-    exclude_ids drops jobs the ingesting profile has disabled, so a disabled
-    listing no longer blocks a fresh one.
+    One job per company per REINSERT_STALE_DAYS, per persona: a company that
+    already has a non-rejected listing in this table takes no more until it ages
+    out. A rejected listing is written off, so it frees the company. exclude_ids
+    drops rows the persona disabled by hand.
     """
+    model = job_model(persona_id)
     if not normalized_company:
         return None
     where = [
-        Job.normalized_company == normalized_company,
-        Job.status != JobStatus.REJECTED.value,
+        model.normalized_company == normalized_company,
+        model.status != JobStatus.REJECTED.value,
     ]
     if exclude_ids:
-        where.append(Job.id.notin_(exclude_ids))
+        where.append(model.id.notin_(exclude_ids))
     row = (
         await session.execute(
-            select(Job)
-            .options(selectinload(Job.packages))
-            .where(*where)
-            .order_by(Job.created_at.desc())
-            .limit(1)
+            select(model).where(*where).order_by(model.created_at.desc()).limit(1)
         )
     ).scalar_one_or_none()
     if row is not None and not is_stale_duplicate(row):
@@ -460,14 +371,17 @@ async def process_listing(
     insert_rejects: bool = False,
     bypass_gates: bool = False,
 ) -> ProcessResult:
-    """Insert a job listing.
+    """Insert one job listing as a copy in one persona's own table.
 
     When description is present and gates are enabled, classify as jd_ready or
     rejected_* at insert time. Deep-scan remains available for status=new /
-    scan_failed rows.
+    scan_failed rows. The caller decides which personas get a copy
+    (:func:`ingest_listing_for_personas`); this writes exactly one.
     """
     del fetch_jd
     pid = persona_id or get_active_persona_id()
+    await ensure_job_table(pid)
+    model = job_model(pid)
     company = str(listing.get("company") or "").strip()
     title = str(listing.get("title") or "").strip()
     url = str(listing.get("url") or "").strip()
@@ -503,17 +417,10 @@ async def process_listing(
         )
         return ProcessResult(ok=False, skipped=True, reason="company_blocked")
 
-    # Brazil listings are Bruno's; everywhere else is the US pair. A Brazil job
-    # is closed to ingest once Bruno has applied at the company; any other job
-    # once the whole US crew (Alex and Brian) has. Until then at least one of
-    # the crew can still use the listing, so it is kept — even when the profile
-    # doing the fetch is itself already applied.
-    job_country = country_code(location)
-    crew = ("bruno_raphael",) if job_country == "BR" else APPLY_GROUP
-    if (
-        not bypass_gates
-        and await group_company_applied(session, normalized, crew=crew)
-    ):
+    # Per-person gate: skip only if *this* persona has already applied at the
+    # company within the window. Another persona's apply does not close it here —
+    # each person owns their own copy.
+    if not bypass_gates and await company_is_applied(session, pid, normalized):
         session.add(
             RejectedJob(
                 company=company,
@@ -525,24 +432,21 @@ async def process_listing(
         )
         return ProcessResult(ok=False, skipped=True, reason="company_already_applied")
 
-    # Ingestion does not care about jobs this profile disabled by hand: a
-    # disabled listing no longer holds its URL or its company against a fresh
-    # one, so a new opening comes in instead of being deduped away.
+    # Ingestion ignores jobs this persona disabled by hand: a disabled listing no
+    # longer holds its URL or company against a fresh one.
     disabled_exclude = await explicit_disabled_ids(session, pid)
 
     # A match ingested more than REINSERT_STALE_DAYS ago is let through as a
     # fresh listing — the old row stays and a new one is added at the end.
-    existing_url = await find_job_by_url(session, url, exclude_ids=disabled_exclude)
+    existing_url = await find_job_by_url(session, pid, url, exclude_ids=disabled_exclude)
     if existing_url and not is_stale_duplicate(existing_url):
         return ProcessResult(
             ok=False, skipped=True, reason="duplicate_url", job=existing_url
         )
 
-    # One job per company per the re-insert window: a company that already has a
-    # non-rejected listing from the last REINSERT_STALE_DAYS takes no more — any
-    # role or domain — until that listing ages out. A rejected job frees it.
+    # One job per company per the re-insert window (per persona).
     recent_company = await find_recent_job_by_company(
-        session, normalized, exclude_ids=disabled_exclude
+        session, pid, normalized, exclude_ids=disabled_exclude
     )
     if recent_company:
         return ProcessResult(
@@ -598,6 +502,8 @@ async def process_listing(
         if already_marked is None:
             session.add(JobSourceSeen(source=source, external_id=external_id))
 
+    job_country = country_code(location)
+
     if reject_reason:
         status = _gate_status(reject_reason)
         notes = f"upload_gate:{reject_reason}"
@@ -622,7 +528,8 @@ async def process_listing(
         notes = None
 
     company_row = await _get_or_create_company(session, company, normalized)
-    seq = await _next_seq(session)
+    seq = await _next_seq(session, pid)
+    job_id = await allocate_job_id(session, pid, normalized)
 
     domains = listing.get("domains")
     if not domains:
@@ -636,7 +543,8 @@ async def process_listing(
         description
     )
 
-    job = Job(
+    job = model(
+        id=job_id,
         seq_no=seq,
         company=company,
         normalized_company=normalized,
@@ -653,7 +561,6 @@ async def process_listing(
         description=description,
         salary=salary,
         status=status,
-        persona_id=pid,
         staffing_firm=(listing.get("staffing_firm") or None),
         domains=domains if isinstance(domains, str) else None,
         jd_fetched=has_solid_jd,
@@ -689,26 +596,52 @@ async def process_listing(
     )
 
 
-async def forget_job_markers(session: AsyncSession, jobs: list[Job]) -> dict[str, int]:
+async def ingest_listing_for_personas(
+    session: AsyncSession,
+    listing: dict[str, Any],
+    *,
+    persona_ids: list[str],
+    skip_content_gates: bool = False,
+    insert_rejects: bool = False,
+    bypass_gates: bool = False,
+) -> dict[str, ProcessResult]:
+    """Ingest one listing as a separate copy for each selected, eligible persona.
+
+    Country routing filters the set: a Brazil listing lands only in Bruno's
+    table, a US listing in the US-eligible selected personas. Returns the
+    per-persona result keyed by persona id (eligible personas only).
+    """
+    country = country_code(
+        (listing.get("location") or None) and str(listing.get("location")).strip()
+    )
+    results: dict[str, ProcessResult] = {}
+    for pid in persona_ids:
+        if not persona_accepts_country(pid, country):
+            continue
+        results[pid] = await process_listing(
+            session,
+            listing,
+            persona_id=pid,
+            skip_content_gates=skip_content_gates,
+            insert_rejects=insert_rejects,
+            bypass_gates=bypass_gates,
+        )
+    return results
+
+
+async def forget_job_markers(session: AsyncSession, jobs: list[JobRow]) -> dict[str, int]:
     """Erase the bookkeeping that would stop a deleted job coming back.
 
-    Deleting a job used to leave two traces behind, neither of them reachable
-    from the UI. The `job_source_seen` marker is the damaging one: every later
-    fetch reads it and skips the listing as `already_seen`, so a job deleted
-    once could never be re-added no matter how often the board was fetched.
-    341 Jobright listings were stranded that way in a single table.
-
-    `applications` is deliberately left alone. That row records applying to a
-    *company*, not to this job — it is unique per persona and company — so
-    dropping it would let a later fetch offer an employer already applied to.
+    Deleting a job used to leave two traces behind. The `job_source_seen` marker
+    is the damaging one: every later fetch reads it and skips the listing as
+    `already_seen`, so a job deleted once could never be re-added. `applications`
+    is deliberately left alone — it records applying to a *company*, not this job.
     """
     pairs = [(j.source, j.external_id) for j in jobs if j.external_id]
     urls = [j.url for j in jobs if j.url]
     out = {"seen_markers": 0, "rejected_rows": 0}
 
     for source, external_id in pairs:
-        # Source has been written both ways ("Jobright" / "jobright"), so a
-        # case-sensitive match would leave half the markers in place.
         result = await session.execute(
             delete(JobSourceSeen).where(
                 func.lower(JobSourceSeen.source) == str(source or "").lower(),
@@ -725,16 +658,24 @@ async def forget_job_markers(session: AsyncSession, jobs: list[Job]) -> dict[str
     return out
 
 
-async def prune_orphan_seen_markers(session: AsyncSession) -> int:
-    """Drop seen-markers whose job is gone, and report how many.
+async def live_external_ids(session: AsyncSession) -> set[str]:
+    """Every external_id still present across all persona tables."""
+    live: set[str] = set()
+    for pid in all_persona_ids():
+        model = job_model(pid)
+        rows = await session.execute(
+            select(model.external_id).where(model.external_id.is_not(None))
+        )
+        live.update(str(r[0]) for r in rows if r[0] is not None)
+    return live
 
-    Markers are only ever written beside a job row (a listing rejected before
-    that point returns earlier and is never marked), so a marker with no job
-    means the job was deleted while the marker outlived it. Clearing them lets
-    those listings be fetched into the table again.
-    """
-    live = select(Job.external_id).where(Job.external_id.is_not(None))
+
+async def prune_orphan_seen_markers(session: AsyncSession) -> int:
+    """Drop seen-markers whose job is gone (across every persona table)."""
+    live = await live_external_ids(session)
     result = await session.execute(
         delete(JobSourceSeen).where(JobSourceSeen.external_id.not_in(live))
+        if live
+        else delete(JobSourceSeen)
     )
     return int(result.rowcount or 0)

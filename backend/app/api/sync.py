@@ -4,10 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
-from app.db.enums import BackgroundJobKind, JobStatus, PackageStatus
-from app.db.models import Job, JobPackage
+from app.db.enums import BackgroundJobKind, JobStatus
+from app.db.job_tables import job_model
 from app.db.session import get_db
 from app.services import bg_jobs
 from app.services.ats_catalog import catalog_stats, list_boards, seed_ats_catalog
@@ -25,6 +24,9 @@ router = APIRouter(prefix="/api/sync", tags=["sync"])
 
 class RangeBody(BaseModel):
     persona_id: str | None = None
+    # Who to ingest a copy for (discover/fresh). Each selected persona gets its
+    # own copy, country-routed. Falls back to persona_id when unset.
+    persona_ids: list[str] | None = None
     seq_from: int | None = 1
     seq_to: int | None = 50
     limit: int = 50
@@ -36,6 +38,7 @@ class RangeBody(BaseModel):
 
 class DiscoverSiteBody(BaseModel):
     persona_id: str | None = None
+    persona_ids: list[str] | None = None
     site: str
     window: str = "7d"  # 24h | 7d | all
     # None means "as many as this window allows" — a day of listings is
@@ -94,16 +97,22 @@ async def fetch_sites_catalog():
 async def sync_discover(body: RangeBody):
     pid = body.persona_id or get_active_persona_id()
     domains = normalize_domain_ids(body.domains)
+    opts: dict = {}
+    if domains:
+        opts["domains"] = domains
+    if body.persona_ids:
+        opts["persona_ids"] = body.persona_ids
     row = await bg_jobs.enqueue(
         kind=BackgroundJobKind.DISCOVER,
         persona_id=pid,
-        options={"domains": domains} if domains else None,
+        options=opts or None,
     )
     return {
         "job_id": row.id,
         "kind": row.kind,
         "status": row.status,
         "persona_id": pid,
+        "persona_ids": body.persona_ids or [pid],
         "domains": domains,
     }
 
@@ -113,16 +122,22 @@ async def sync_discover_fresh(body: RangeBody):
     """Deep fetch jobs posted within ~24 hours from feeds + ATS boards."""
     pid = body.persona_id or get_active_persona_id()
     domains = normalize_domain_ids(body.domains)
+    opts: dict = {}
+    if domains:
+        opts["domains"] = domains
+    if body.persona_ids:
+        opts["persona_ids"] = body.persona_ids
     row = await bg_jobs.enqueue(
         kind=BackgroundJobKind.DISCOVER_FRESH,
         persona_id=pid,
-        options={"domains": domains} if domains else None,
+        options=opts or None,
     )
     return {
         "job_id": row.id,
         "kind": row.kind,
         "status": row.status,
         "persona_id": pid,
+        "persona_ids": body.persona_ids or [pid],
         "domains": domains,
     }
 
@@ -157,6 +172,7 @@ async def sync_discover_site(body: DiscoverSiteBody):
             "roles": body.roles or [],
             "site_label": site["label"],
             "domains": domains,
+            "persona_ids": body.persona_ids or None,
         },
     )
     return {
@@ -208,7 +224,8 @@ async def sync_tailor(body: RangeBody):
         raise HTTPException(400, detail="job_ids empty")
     if ids is None and (body.seq_from is None or body.seq_to is None):
         raise HTTPException(400, detail="seq_from/seq_to or job_ids required")
-    # Job rows are usually under the active import persona; generation persona is separate
+    # The batch filters jobs from this persona's table; generation persona is
+    # the same here (each persona owns its own rows now).
     filter_persona = get_active_persona_id()
     row = await bg_jobs.enqueue(
         kind=BackgroundJobKind.TAILOR,
@@ -231,30 +248,17 @@ async def sync_tailor(body: RangeBody):
 @router.post("/apply-preview")
 async def apply_preview(body: RangeBody, db: AsyncSession = Depends(get_db)):
     pid = body.persona_id or get_active_persona_id()
+    model = job_model(pid)
     q = (
-        select(Job)
-        .options(selectinload(Job.packages))
-        .join(
-            JobPackage,
-            (JobPackage.job_id == Job.id)
-            & (JobPackage.persona_id == pid)
-            & (JobPackage.status == PackageStatus.RESUME_READY.value)
-            & (JobPackage.folder_path.is_not(None)),
-        )
+        select(model)
         .where(
-            Job.seq_no >= body.seq_from,
-            Job.seq_no <= body.seq_to,
-            Job.description.is_not(None),
-            Job.status.not_in(
-                [
-                    JobStatus.BLOCKED.value,
-                    JobStatus.SKIPPED.value,
-                    JobStatus.EXPIRED.value,
-                    JobStatus.REJECTED_ONSITE.value,
-                ]
-            ),
+            model.seq_no >= body.seq_from,
+            model.seq_no <= body.seq_to,
+            model.description.is_not(None),
+            model.status == JobStatus.RESUME_READY.value,
+            model.folder_path.is_not(None),
         )
-        .order_by(Job.seq_no.asc())
+        .order_by(model.seq_no.asc())
         .limit(body.limit)
     )
     rows = (await db.execute(q)).scalars().all()
@@ -269,12 +273,11 @@ async def apply_preview(body: RangeBody, db: AsyncSession = Depends(get_db)):
                 "status": j.status,
                 "packages": [
                     {
-                        "id": p.id,
-                        "persona_id": p.persona_id,
-                        "status": p.status,
-                        "folder_path": p.folder_path,
+                        "id": j.id,
+                        "persona_id": j.persona_id,
+                        "status": j.status,
+                        "folder_path": j.folder_path,
                     }
-                    for p in j.packages
                 ],
             }
             for j in rows

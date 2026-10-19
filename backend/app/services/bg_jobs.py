@@ -9,8 +9,9 @@ from typing import Any
 from sqlalchemy import select
 
 from app.config import get_settings
-from app.db.enums import BackgroundJobKind, BackgroundJobStatus, JobStatus, PackageStatus
-from app.db.models import BackgroundJob, Job, JobPackage
+from app.db.enums import BackgroundJobKind, BackgroundJobStatus, JobStatus
+from app.db.job_tables import job_model, resolve_job
+from app.db.models import BackgroundJob, JobRow
 from app.db.session import get_session_factory
 from app.services.deep_scan import deep_scan_job
 
@@ -148,65 +149,44 @@ async def _load_jobs_for_bg(
     row: BackgroundJob,
     *,
     statuses: list[str],
-    match_listing_persona: bool = True,
-) -> list[Job]:
+    persona_id: str,
+) -> list[JobRow]:
+    """Jobs to scan/tailor, from one persona's own table."""
+    model = job_model(persona_id)
     ids = _progress_job_ids(row)
     if ids is not None:
-        # Selected-ID batches ignore Job.persona_id — generation persona comes from progress
         q = (
-            select(Job)
-            .where(
-                Job.id.in_(ids),
-                Job.status.in_(statuses),
-            )
-            .order_by(Job.seq_no.asc())
+            select(model)
+            .where(model.id.in_(ids), model.status.in_(statuses))
+            .order_by(model.seq_no.asc())
         )
         return list((await session.execute(q)).scalars().all())
-    clauses = [
-        Job.seq_no >= (row.seq_from or 0),
-        Job.seq_no <= (row.seq_to or 10**9),
-        Job.status.in_(statuses),
-    ]
-    # Range tailor is shared across personas — do not require Job.persona_id == active
-    if match_listing_persona:
-        clauses.insert(0, Job.persona_id == row.persona_id)
-    q = select(Job).where(*clauses).order_by(Job.seq_no.asc())
+    q = (
+        select(model)
+        .where(
+            model.seq_no >= (row.seq_from or 0),
+            model.seq_no <= (row.seq_to or 10**9),
+            model.status.in_(statuses),
+        )
+        .order_by(model.seq_no.asc())
+    )
     return list((await session.execute(q)).scalars().all())
 
 
 async def _filter_jobs_needing_persona_package(
     session,
-    jobs: list[Job],
+    jobs: list[JobRow],
     *,
     persona_id: str,
-) -> list[Job]:
-    """Keep jobs that still need a resume package for this persona.
-
-    Skip only when THAT persona already has resume_ready / applying / applied.
-    Jobs Applied by another persona remain eligible.
-    """
-    if not jobs or not persona_id:
-        return jobs
-    job_ids = [j.id for j in jobs]
-    rows = (
-        await session.execute(
-            select(JobPackage.job_id, JobPackage.status).where(
-                JobPackage.job_id.in_(job_ids),
-                JobPackage.persona_id == persona_id,
-            )
-        )
-    ).all()
-    done_ids = {
-        jid
-        for jid, st in rows
-        if st
-        in (
-            PackageStatus.RESUME_READY.value,
-            PackageStatus.APPLYING.value,
-            PackageStatus.APPLIED.value,
-        )
+) -> list[JobRow]:
+    """Keep jobs that still need a resume. The row carries its own status now,
+    so skip only those already resume_ready / applying / applied."""
+    done = {
+        JobStatus.RESUME_READY.value,
+        JobStatus.APPLYING.value,
+        JobStatus.APPLIED.value,
     }
-    return [j for j in jobs if j.id not in done_ids]
+    return [j for j in jobs if j.status not in done]
 
 
 def _force_regenerate(row: BackgroundJob) -> bool:
@@ -451,6 +431,7 @@ async def _exec_deep_scan(session, row: BackgroundJob) -> None:
     settings = get_settings()
     concurrency = _clamp_concurrency(settings.deep_scan_concurrency, default=3)
 
+    scan_pid = _generate_persona_id(row) or row.persona_id
     jobs = await _load_jobs_for_bg(
         session,
         row,
@@ -459,6 +440,7 @@ async def _exec_deep_scan(session, row: BackgroundJob) -> None:
             JobStatus.JD_READY.value,
             JobStatus.SCAN_FAILED.value,
         ],
+        persona_id=scan_pid,
     )
     job_ids = [j.id for j in jobs]
     bg_id = row.id
@@ -491,7 +473,8 @@ async def _exec_deep_scan(session, row: BackgroundJob) -> None:
                 return
             try:
                 async with factory() as work:
-                    job = await work.get(Job, job_id)
+                    resolved = await resolve_job(work, job_id)
+                    job = resolved[1] if resolved else None
                     if not job:
                         result = {"job_id": job_id, "ok": False, "reason": "job_missing"}
                     else:
@@ -540,13 +523,14 @@ async def _exec_tailor(session, row: BackgroundJob) -> None:
             JobStatus.NEW.value,
             JobStatus.JD_READY.value,
             JobStatus.SCAN_FAILED.value,
+            JobStatus.TAILOR_FAILED.value,
             JobStatus.NEEDS_MANUAL.value,
-            # Legacy package-derived listing states are accepted until startup healing.
+            # Rows that already carry a resume; a forced run retailors them.
             JobStatus.RESUME_READY.value,
             JobStatus.APPLYING.value,
             JobStatus.APPLIED.value,
         ],
-        match_listing_persona=False,
+        persona_id=gen_pid,
     )
     # A forced run retailors everything picked, overwriting packages this persona already has.
     if not force:
@@ -593,7 +577,8 @@ async def _exec_tailor(session, row: BackgroundJob) -> None:
                 return
             try:
                 async with factory() as work:
-                    job = await work.get(Job, job_id)
+                    resolved = await resolve_job(work, job_id)
+                    job = resolved[1] if resolved else None
                     if not job:
                         result: dict[str, Any] = {
                             "job_id": job_id,
@@ -627,7 +612,8 @@ async def _exec_tailor(session, row: BackgroundJob) -> None:
                 result = {"job_id": job_id, "ok": False, "reason": reason}
                 try:
                     async with factory() as work:
-                        job = await work.get(Job, job_id)
+                        resolved = await resolve_job(work, job_id)
+                        job = resolved[1] if resolved else None
                         if job:
                             job.notes = f"tailor_failed:{reason}"
                             await work.commit()
@@ -659,7 +645,7 @@ async def _exec_tailor(session, row: BackgroundJob) -> None:
 async def _exec_discover(session, row: BackgroundJob, *, mode: str = "standard") -> None:
     from app.services.discover import collect_new_listings, collect_site_listings
     from app.services.fetch_export import write_fetch_csv
-    from app.services.pipeline import process_listing
+    from app.services.pipeline import ingest_listing_for_personas
 
     bg_id = row.id
     persona_id = row.persona_id
@@ -674,6 +660,10 @@ async def _exec_discover(session, row: BackgroundJob, *, mode: str = "standard")
     max_jobs = int(opts.get("max_jobs") or prog0.get("max_jobs") or 100)
     domains = opts.get("domains") if isinstance(opts.get("domains"), list) else []
     roles = opts.get("roles") if isinstance(opts.get("roles"), list) else []
+    # Which personas to ingest a copy for. The UI sends a set; fall back to the
+    # job's owning persona. Country routing filters it per listing downstream.
+    sel_personas = opts.get("persona_ids") if isinstance(opts.get("persona_ids"), list) else None
+    sel_personas = [str(p) for p in sel_personas] if sel_personas else [persona_id]
 
     progress: dict[str, Any] = {
         "done": 0,
@@ -782,37 +772,41 @@ async def _exec_discover(session, row: BackgroundJob, *, mode: str = "standard")
         }
         try:
             async with factory() as work:
-                result = await process_listing(
+                results = await ingest_listing_for_personas(
                     work,
                     listing,
-                    persona_id=persona_id,
+                    persona_ids=sel_personas,
                     skip_content_gates=False,
                     insert_rejects=False,
                 )
                 await work.commit()
-                if result.job and result.ok:
-                    result_row["ok"] = True
-                    result_row["job_id"] = result.job.id
-                    result_row["seq_no"] = result.job.seq_no
-                    result_row["status"] = result.job.status
+            ok_results = [(pid, r) for pid, r in results.items() if r.job and r.ok]
+            if ok_results:
+                # One listing can land a copy in several personas' tables.
+                result_row["ok"] = True
+                result_row["personas"] = [pid for pid, _ in ok_results]
+                _, first = ok_results[0]
+                result_row["job_id"] = first.job.id
+                result_row["seq_no"] = first.job.seq_no
+                result_row["status"] = first.job.status
+                for _pid, r in ok_results:
                     progress["inserted"] = int(progress.get("inserted") or 0) + 1
-                    if result.job.status == JobStatus.JD_READY.value:
+                    if r.job.status == JobStatus.JD_READY.value:
                         progress["jd_ready"] = int(progress.get("jd_ready") or 0) + 1
-                    elif result.job.status == JobStatus.NEW.value:
+                    elif r.job.status == JobStatus.NEW.value:
                         progress["needs_scan"] = int(progress.get("needs_scan") or 0) + 1
-                        new_job_ids.append(result.job.id)
-                elif result.skipped or not result.ok:
-                    result_row["reason"] = result.reason or "skipped"
-                    if result.reason in skip_reasons:
-                        progress["skipped"] = int(progress.get("skipped") or 0) + 1
-                    elif result.reason in gate_reasons:
-                        progress["gated"] = int(progress.get("gated") or 0) + 1
-                        progress["rejected"] = int(progress.get("gated") or 0)
-                    else:
-                        progress["gated"] = int(progress.get("gated") or 0) + 1
-                        progress["rejected"] = int(progress.get("gated") or 0)
+                        new_job_ids.append(r.job.id)
+            else:
+                # No persona took it — same reason for all (or none eligible).
+                reasons = [r.reason for r in results.values() if r.reason]
+                reason = reasons[0] if reasons else "no_eligible_persona"
+                result_row["reason"] = reason
+                if reason in skip_reasons:
+                    progress["skipped"] = int(progress.get("skipped") or 0) + 1
+                elif reason in gate_reasons:
+                    progress["gated"] = int(progress.get("gated") or 0) + 1
+                    progress["rejected"] = int(progress.get("gated") or 0)
                 else:
-                    result_row["reason"] = result.reason or "unknown"
                     progress["skipped"] = int(progress.get("skipped") or 0) + 1
         except Exception as exc:  # noqa: BLE001
             result_row["reason"] = str(exc)[:400]

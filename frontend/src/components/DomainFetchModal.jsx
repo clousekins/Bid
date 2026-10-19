@@ -23,7 +23,16 @@ export default function DomainFetchModal({
   busy,
   onClose,
   onConfirm,
+  personas = [],
+  ingestPersonaIds,
+  setIngestPersonaIds,
 }) {
+  const togglePersona = (id) =>
+    setIngestPersonaIds?.((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
   const [domains, setDomains] = useState(FALLBACK_DOMAINS);
   const [selected, setSelected] = useState(() => new Set(FALLBACK_DOMAINS.map((d) => d.id)));
   // Titles inside a domain. Empty means "the whole domain", which is what
@@ -114,6 +123,27 @@ export default function DomainFetchModal({
           {subtitle ||
             "Pick tech domains to keep. Only matching jobs are fetched. The table Dom column shows 2-letter codes (AI, DE, FS, SF, …)."}
         </p>
+        {personas.length ? (
+          <div className="domain-fetch-personas">
+            <span className="muted">Ingest a copy for:</span>
+            <div className="domain-role-chips">
+              {personas.map((p) => {
+                const on = Boolean(ingestPersonaIds?.has?.(p.id));
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    className={on ? "role-chip active" : "role-chip"}
+                    disabled={busy}
+                    onClick={() => togglePersona(p.id)}
+                  >
+                    {p.label || p.id}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
         <div className="domain-fetch-actions">
           <button type="button" disabled={busy} onClick={selectAll}>
             Select all
@@ -199,7 +229,11 @@ export default function DomainFetchModal({
           <button
             type="button"
             className="primary"
-            disabled={busy || selectedList.length === 0}
+            disabled={
+              busy ||
+              selectedList.length === 0 ||
+              (personas.length > 0 && !ingestPersonaIds?.size)
+            }
             onClick={() => onConfirm?.(selectedList, roleList)}
           >
             Fetch{" "}

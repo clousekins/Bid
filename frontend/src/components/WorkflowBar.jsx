@@ -44,6 +44,9 @@ export default function WorkflowBar({
   onDeleteSelected,
   busy,
   workingLabel,
+  personas = [],
+  ingestPersonaIds,
+  setIngestPersonaIds,
 }) {
   const fileRef = useRef(null);
   const [stage, setStage] = useState("ingest");
@@ -218,7 +221,13 @@ export default function WorkflowBar({
                 }}
               />
             </div>
-            <SiteFetchPanel busy={busy} onFetchSite={onFetchSite} />
+            <SiteFetchPanel
+              busy={busy}
+              onFetchSite={onFetchSite}
+              personas={personas}
+              ingestPersonaIds={ingestPersonaIds}
+              setIngestPersonaIds={setIngestPersonaIds}
+            />
           </>
         ) : null}
 
@@ -294,6 +303,9 @@ export default function WorkflowBar({
           if (kind === "discover_fresh") onDiscoverFresh?.(domains);
           else if (kind === "discover") onDiscover?.(domains);
         }}
+        personas={personas}
+        ingestPersonaIds={ingestPersonaIds}
+        setIngestPersonaIds={setIngestPersonaIds}
       />
     </section>
   );

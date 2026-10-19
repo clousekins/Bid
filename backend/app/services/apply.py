@@ -11,9 +11,9 @@ from app.db.enums import (
     ApplicationOutcome,
     ApplySessionStatus,
     JobStatus,
-    PackageStatus,
 )
-from app.db.models import Application, Job, JobPackage, utcnow
+from app.db.job_tables import resolve_job
+from app.db.models import Application, JobRow, utcnow
 from app.services.apply_nav import detect_hard_block, promote_application
 from app.services.apply_session import ApplySession, apply_sessions
 from app.services.browser_attach import BrowserAttach
@@ -31,45 +31,32 @@ from app.validators.dedupe import normalize_company
 
 async def _resolve_package(
     session: AsyncSession,
-    job: Job,
+    job: JobRow,
     *,
     persona_id: str | None = None,
     package_id: int | None = None,
-) -> JobPackage:
-    if package_id is not None:
-        pkg = await session.get(JobPackage, package_id)
-        if not pkg or pkg.job_id != job.id:
-            raise ValueError("package_not_found")
-        return pkg
+) -> JobRow:
+    """The row is its own package now. Validate it is applyable and return it.
 
-    pkgs = (
-        await session.execute(select(JobPackage).where(JobPackage.job_id == job.id))
-    ).scalars().all()
-    ready = [
-        p
-        for p in pkgs
-        if p.status
-        in (
-            PackageStatus.RESUME_READY.value,
-            PackageStatus.APPLYING.value,
-        )
-        and p.folder_path
-    ]
-    if persona_id:
-        for p in ready:
-            if p.persona_id == persona_id:
-                return p
+    ``persona_id``/``package_id`` are kept for signature stability — a row lives
+    in exactly one persona's table, so a persona_id that disagrees is an error,
+    and a package_id that is not this row's id is too.
+    """
+    if persona_id and persona_id != job.persona_id:
         raise ValueError(f"no_package_for_persona:{persona_id}")
-    if len(ready) == 1:
-        return ready[0]
-    if len(ready) == 0:
+    if package_id is not None and package_id != job.id:
+        raise ValueError("package_not_found")
+    if not job.folder_path or job.status not in (
+        JobStatus.RESUME_READY.value,
+        JobStatus.APPLYING.value,
+    ):
         raise ValueError("no_resume_package")
-    raise ValueError("multiple_packages_pick_persona")
+    return job
 
 
 async def start_apply(
     session: AsyncSession,
-    job: Job,
+    job: JobRow,
     *,
     ui_opened_tab: bool = True,
     persona_id: str | None = None,
@@ -87,7 +74,7 @@ async def start_apply(
         session, job, persona_id=persona_id, package_id=package_id
     )
     apply_url = job.apply_url or job.url
-    pkg.status = PackageStatus.APPLYING.value
+    pkg.status = JobStatus.APPLYING.value
     await session.commit()
 
     target_persona = pkg.persona_id
@@ -193,7 +180,8 @@ async def _run_apply(
 
         factory = get_session_factory()
         async with factory() as db:
-            job = await db.get(Job, apply_sess.job_id)
+            resolved = await resolve_job(db, apply_sess.job_id)
+            job = resolved[1] if resolved else None
             if not job:
                 apply_sess.status = ApplySessionStatus.FAILED
                 apply_sess.error = "job_missing"
@@ -516,17 +504,17 @@ async def _click_submit(page, apply_sess: ApplySession) -> bool:
 
 
 async def _revert_applying(job_id: int, *, package_id: int | None = None) -> None:
-    """If attach fails, don't leave the target package stuck in applying."""
+    """If attach fails, don't leave the row stuck in applying."""
     try:
         from app.db.session import get_session_factory
 
         factory = get_session_factory()
         async with factory() as db:
-            job = await db.get(Job, job_id)
-            if package_id is not None:
-                pkg = await db.get(JobPackage, package_id)
-                if pkg and pkg.status == PackageStatus.APPLYING.value:
-                    pkg.status = PackageStatus.RESUME_READY.value
+            resolved = await resolve_job(db, job_id)
+            if resolved:
+                _, job = resolved
+                if job.status == JobStatus.APPLYING.value:
+                    job.status = JobStatus.RESUME_READY.value
             await db.commit()
     except Exception:  # noqa: BLE001
         pass
@@ -534,54 +522,33 @@ async def _revert_applying(job_id: int, *, package_id: int | None = None) -> Non
 
 async def mark_job_applied(
     session: AsyncSession,
-    job: Job,
+    job: JobRow,
     *,
     persona_id: str | None = None,
     package_id: int | None = None,
-) -> Job:
-    pkgs = (
-        await session.execute(select(JobPackage).where(JobPackage.job_id == job.id))
-    ).scalars().all()
-    pkg: JobPackage | None = None
-    if package_id is not None:
-        pkg = next((p for p in pkgs if p.id == package_id), None)
-        if not pkg:
-            raise ValueError("package_not_found")
-        if persona_id and pkg.persona_id != persona_id:
-            raise ValueError("package_persona_mismatch")
-    elif persona_id:
-        pkg = next((p for p in pkgs if p.persona_id == persona_id), None)
-        if not pkg:
-            raise ValueError(f"no_package_for_persona:{persona_id}")
-    elif len(pkgs) == 1:
-        pkg = pkgs[0]
-    elif not pkgs:
-        raise ValueError("no_resume_package")
-    else:
-        raise ValueError("multiple_packages_pick_persona")
+) -> JobRow:
+    # The row is the persona's own copy; a persona_id/package_id that disagrees
+    # is a caller passing the wrong row.
+    if persona_id and persona_id != job.persona_id:
+        raise ValueError(f"no_package_for_persona:{persona_id}")
+    if package_id is not None and package_id != job.id:
+        raise ValueError("package_not_found")
 
-    apply_persona = pkg.persona_id
-    pkg.status = PackageStatus.APPLIED.value
-    if pkg.applied_at is None:
-        pkg.applied_at = utcnow()
-    if not pkg.outcome:
-        pkg.outcome = ApplicationOutcome.PENDING.value
-
-    # Listing is a shared JD pipeline. Applying is recorded only on the package.
+    apply_persona = job.persona_id
+    # Record the apply on the row. Don't walk back from a hand-set terminal
+    # stage (an interview already reached, a rejection, etc.).
     if job.status not in {
         JobStatus.BLOCKED.value,
         JobStatus.SKIPPED.value,
         JobStatus.EXPIRED.value,
         JobStatus.REJECTED_ONSITE.value,
-        # Applying with a second persona must not walk the listing back from
-        # an interview already reached with the first.
         JobStatus.INTERVIEW.value,
     }:
-        job.status = (
-            JobStatus.JD_READY.value
-            if job.description and len(job.description) >= 50
-            else JobStatus.NEW.value
-        )
+        job.status = JobStatus.APPLIED.value
+    if job.applied_at is None:
+        job.applied_at = utcnow()
+    if not job.outcome:
+        job.outcome = ApplicationOutcome.PENDING.value
 
     normalized = job.normalized_company or normalize_company(job.company)
 
@@ -606,16 +573,15 @@ async def mark_job_applied(
             )
         )
 
-    folder_persona = pkg.persona_id
     if job.seq_no:
         sync_job_folder(
-            persona_id=folder_persona,
+            persona_id=apply_persona,
             seq_no=job.seq_no,
             company=job.company,
             title=job.title,
             url=job.url,
             location=job.location,
-            status=pkg.status,
+            status=job.status,
             description=job.description,
             job_id=job.id,
         )
@@ -656,16 +622,11 @@ async def mark_job_applied(
 
 async def stop_apply_for_job(
     session: AsyncSession,
-    job: Job,
+    job: JobRow,
     *,
     revert_packages: bool = True,
 ) -> None:
-    """End in-memory apply session and optionally revert package applying → resume_ready."""
-    if revert_packages:
-        pkgs = (
-            await session.execute(select(JobPackage).where(JobPackage.job_id == job.id))
-        ).scalars().all()
-        for p in pkgs:
-            if p.status == PackageStatus.APPLYING.value:
-                p.status = PackageStatus.RESUME_READY.value
+    """End the in-memory apply session and optionally revert applying → resume_ready."""
+    if revert_packages and job.status == JobStatus.APPLYING.value:
+        job.status = JobStatus.RESUME_READY.value
     await apply_sessions.end_session(job.id, status=ApplySessionStatus.CANCELLED)

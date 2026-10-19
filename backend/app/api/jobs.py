@@ -10,7 +10,6 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import delete, func, select, update
-from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
@@ -18,10 +17,10 @@ from app.db.enums import (
     RESPONSE_OUTCOMES,
     ApplicationOutcome,
     JobStatus,
-    PackageStatus,
     can_transition,
 )
-from app.db.models import Application, Job, JobDisable, JobPackage, utcnow
+from app.db.job_tables import job_model, resolve_job
+from app.db.models import Application, JobIndex, JobRow, utcnow
 from app.db.session import get_db
 from app.services.apply import mark_job_applied, stop_apply_for_job
 from app.services.artifacts import KINDS, folder_is_allowed, resolve_artifacts, resolve_kind
@@ -37,7 +36,7 @@ from app.services.manual_ingest import parse_upload
 from app.services.ats_score import score_resume, technical_feasibility
 from app.services.employer_conflicts import conflict_reason, persona_employers
 from app.services import runtime_settings
-from app.services.persona import get_active_persona_id, load_persona
+from app.services.persona import all_persona_ids, get_active_persona_id, load_persona
 from app.services.pipeline import (
     _get_or_create_company,
     applied_scope,
@@ -45,7 +44,6 @@ from app.services.pipeline import (
     forget_job_markers,
     is_disabled_for,
     process_listing,
-    profile_disable_overrides,
 )
 from app.services.renumber import renumber_all_jobs
 from app.services.tailor import tailor_job
@@ -113,51 +111,73 @@ class IdsDelete(BaseModel):
     remove_folders: bool = True
 
 
-def _package_dict(pkg: JobPackage) -> dict[str, Any]:
+def _row_pkg_dict(job: JobRow) -> dict[str, Any]:
+    """The row's own resume/apply state, in the shape the UI expects of a package."""
     return {
-        "id": pkg.id,
-        "persona_id": pkg.persona_id,
-        "status": pkg.status,
-        "folder_path": pkg.folder_path,
-        "notes": pkg.notes,
-        "applied_at": pkg.applied_at.isoformat() if pkg.applied_at else None,
-        "outcome": pkg.outcome or ApplicationOutcome.PENDING.value,
-        "outcome_at": pkg.outcome_at.isoformat() if pkg.outcome_at else None,
-        "outcome_notes": pkg.outcome_notes,
-        "ats_score": pkg.ats_score,
-        "ats_breakdown": json.loads(pkg.ats_breakdown) if pkg.ats_breakdown else None,
-        "credibility_score": pkg.credibility_score,
-        "credibility": json.loads(pkg.credibility_findings) if pkg.credibility_findings else None,
-        "created_at": pkg.created_at.isoformat() if pkg.created_at else None,
-        "updated_at": pkg.updated_at.isoformat() if pkg.updated_at else None,
+        "id": job.id,
+        "persona_id": job.persona_id,
+        "status": job.status,
+        "folder_path": job.folder_path,
+        "notes": job.notes,
+        "applied_at": job.applied_at.isoformat() if job.applied_at else None,
+        "outcome": job.outcome or ApplicationOutcome.PENDING.value,
+        "outcome_at": job.outcome_at.isoformat() if job.outcome_at else None,
+        "outcome_notes": job.outcome_notes,
+        "ats_score": job.ats_score,
+        "ats_breakdown": json.loads(job.ats_breakdown) if job.ats_breakdown else None,
+        "credibility_score": job.credibility_score,
+        "credibility": json.loads(job.credibility_findings) if job.credibility_findings else None,
+        "created_at": job.created_at.isoformat() if job.created_at else None,
+        "updated_at": job.updated_at.isoformat() if job.updated_at else None,
     }
 
 
-async def _get_job_with_packages(db: AsyncSession, job_id: int) -> Job | None:
-    return (
-        await db.execute(
-            select(Job).options(selectinload(Job.packages)).where(Job.id == job_id)
-        )
-    ).scalar_one_or_none()
+async def _get_job(db: AsyncSession, job_id: int) -> JobRow | None:
+    """One row by its global id, routed to the right persona table."""
+    resolved = await resolve_job(db, job_id)
+    return resolved[1] if resolved else None
+
+
+async def _all_job_rows(
+    db: AsyncSession, *, seq_from: int | None = None, seq_to: int | None = None
+) -> list[JobRow]:
+    """Every job row across every persona table, optionally within a seq range.
+
+    seq_no is per-persona now, so a range spans each persona's own numbering.
+    """
+    out: list[JobRow] = []
+    for pid in all_persona_ids():
+        model = job_model(pid)
+        conds = []
+        if seq_from is not None:
+            conds.append(model.seq_no >= seq_from)
+        if seq_to is not None:
+            conds.append(model.seq_no <= seq_to)
+        stmt = select(model)
+        if conds:
+            stmt = stmt.where(*conds)
+        out.extend((await db.execute(stmt.order_by(model.seq_no.asc()))).scalars().all())
+    return out
+
+
+async def _rows_by_ids(db: AsyncSession, ids: list[int]) -> list[JobRow]:
+    rows = []
+    for jid in ids:
+        row = await _get_job(db, jid)
+        if row is not None:
+            rows.append(row)
+    return rows
 
 
 async def _purge_jobs(
     db: AsyncSession,
-    jobs: list[Job],
+    jobs: list[JobRow],
     *,
     remove_folders: bool = True,
 ) -> tuple[list[dict[str, Any]], int]:
     deleted: list[dict[str, Any]] = []
     folders_removed = 0
-    purge_ids = [j.id for j in jobs]
-    if purge_ids:
-        # SQLite FK cascade is not enforced here, so drop the per-profile
-        # disabled overrides for these jobs by hand.
-        await db.execute(delete(JobDisable).where(JobDisable.job_id.in_(purge_ids)))
     for job in jobs:
-        pkgs = (
-            await db.execute(select(JobPackage).where(JobPackage.job_id == job.id))
-        ).scalars().all()
         deleted.append(
             {
                 "id": job.id,
@@ -165,20 +185,21 @@ async def _purge_jobs(
                 "company": job.company,
                 "title": job.title,
                 "folder_path": job.folder_path,
-                "packages": [_package_dict(p) for p in pkgs],
+                "packages": [_row_pkg_dict(job)],
             }
         )
         if remove_folders:
             if remove_all_persona_outputs(
                 seq_no=job.seq_no,
                 company=job.company,
-                folder_paths=[job.folder_path, *[p.folder_path for p in pkgs]],
-                persona_ids=[job.persona_id, *[p.persona_id for p in pkgs]],
+                folder_paths=[job.folder_path],
+                persona_ids=[job.persona_id],
             ):
                 folders_removed += 1
         await db.execute(
             update(Application).where(Application.job_id == job.id).values(job_id=None)
         )
+        await db.execute(delete(JobIndex).where(JobIndex.id == job.id))
         await apply_sessions.end_session(job.id)
         await db.delete(job)
 
@@ -193,39 +214,14 @@ async def _purge_jobs(
     return deleted, folders_removed
 
 
-_PACKAGE_DERIVED_LISTING = {
-    JobStatus.RESUME_READY.value,
-    JobStatus.APPLYING.value,
-    JobStatus.APPLIED.value,
+# A row "needs a resume" when its own status is still in the JD lifecycle — no
+# resume has been generated (or the last run failed and can be retried).
+_NEEDS_RESUME_STATUS = {
+    JobStatus.NEW.value,
+    JobStatus.JD_READY.value,
+    JobStatus.SCAN_FAILED.value,
+    JobStatus.TAILOR_FAILED.value,
 }
-
-
-def _listing_pipeline_status(job: Job) -> str:
-    """Listing status is pipeline-only; never treat one persona apply as global done."""
-    terminal = {
-        JobStatus.BLOCKED.value,
-        JobStatus.SKIPPED.value,
-        JobStatus.EXPIRED.value,
-        JobStatus.REJECTED_ONSITE.value,
-        # Without this, a rejected job that still carries a resume package
-        # would be re-derived as jd_ready and look ready to work on again.
-        JobStatus.REJECTED.value,
-        JobStatus.SCAN_FAILED.value,
-        JobStatus.NEEDS_MANUAL.value,
-        # An interview outranks anything the packages can say. Deriving from
-        # them would put the listing back to jd_ready the moment a resume is
-        # regenerated, and the stage a person set by hand would be gone.
-        JobStatus.INTERVIEW.value,
-    }
-    if job.status in terminal:
-        return job.status
-    if job.status in _PACKAGE_DERIVED_LISTING:
-        return (
-            JobStatus.JD_READY.value
-            if job.description and len(job.description) >= 50
-            else JobStatus.NEW.value
-        )
-    return job.status
 
 
 def _load_profile(profile: str | None):
@@ -242,7 +238,7 @@ def _load_profile(profile: str | None):
         return None
 
 
-def _feasibility_for(job: Job, persona: Any) -> dict[str, Any] | None:
+def _feasibility_for(job: JobRow, persona: Any) -> dict[str, Any] | None:
     """How well the viewing profile matches this posting.
 
     Computed rather than stored: the answer depends on which persona is
@@ -261,7 +257,7 @@ def _feasibility_for(job: Job, persona: Any) -> dict[str, Any] | None:
 
 
 def _job_dict(
-    job: Job,
+    job: JobRow,
     *,
     profile: str | None = None,
     persona: Any = _UNSET,
@@ -269,15 +265,15 @@ def _job_dict(
     disabled_reason: str | None = None,
 ) -> dict[str, Any]:
     if persona is _UNSET:
-        persona = _load_profile(profile)
-    packages = [_package_dict(p) for p in getattr(job, "packages", None) or []]
-    packages.sort(key=lambda p: p.get("persona_id") or "")
-    my_package = next((p for p in packages if p["persona_id"] == profile), None)
+        persona = _load_profile(profile or job.persona_id)
+    # The row is the persona's own copy, so it is its own single "package".
+    row_pkg = _row_pkg_dict(job)
     domains = getattr(job, "domains", None)
     if not domains and job.title:
         from app.services.job_domains import classify_domains, domains_storage
 
         domains = domains_storage(classify_domains(job.title, job.description))
+    needs_resume = job.status in _NEEDS_RESUME_STATUS
     return {
         "id": job.id,
         "seq_no": job.seq_no,
@@ -292,26 +288,26 @@ def _job_dict(
         "source": job.source,
         "external_id": job.external_id,
         "description": job.description,
-        "status": _listing_pipeline_status(job),
+        "status": job.status,
         "folder_path": job.folder_path,
         "persona_id": job.persona_id,
         "staffing_firm": job.staffing_firm,
         "domains": domains,
         "jd_fetched": job.jd_fetched,
-        # Disabled for the viewing profile: an applied-company sibling
+        # Disabled for this persona: an applied-company sibling
         # ("company_applied") or one turned off by hand ("manual"). The UI
         # greys it and keeps ingestion / resume build off it.
         "disabled": disabled,
         "disabled_reason": disabled_reason,
         "feasibility": _feasibility_for(job, persona),
-        "ats_score": (my_package or {}).get("ats_score"),
-        "credibility_score": (my_package or {}).get("credibility_score"),
-        "notes": (my_package or {}).get("notes") or job.notes,
-        "packages": packages,
-        "package_count": len(packages),
-        "my_status": my_package["status"] if my_package else "need_resume",
-        "my_package_id": my_package["id"] if my_package else None,
-        "applied_count": sum(1 for p in packages if p["status"] == PackageStatus.APPLIED.value),
+        "ats_score": job.ats_score,
+        "credibility_score": job.credibility_score,
+        "notes": job.notes,
+        "packages": [row_pkg],
+        "package_count": 1,
+        "my_status": "need_resume" if needs_resume else job.status,
+        "my_package_id": job.id,
+        "applied_count": 1 if job.status == JobStatus.APPLIED.value else 0,
         "created_at": job.created_at.isoformat() if job.created_at else None,
         "updated_at": job.updated_at.isoformat() if job.updated_at else None,
     }
@@ -324,19 +320,22 @@ async def job_countries(db: AsyncSession = Depends(get_db)):
     Only what is present is offered, so the filter can never select an empty
     set. Ordered by count so the busiest country sits at the top.
     """
-    rows = (
-        await db.execute(
-            select(Job.country, func.count(Job.id))
-            .group_by(Job.country)
-            .order_by(func.count(Job.id).desc())
-        )
-    ).all()
-    total = 0
-    countries = []
-    for code, count in rows:
-        code = (code or "US").upper()
-        total += int(count)
-        countries.append({"code": code, "name": country_name(code), "count": int(count)})
+    counts: dict[str, int] = {}
+    for pid in all_persona_ids():
+        model = job_model(pid)
+        rows = (
+            await db.execute(
+                select(model.country, func.count(model.id)).group_by(model.country)
+            )
+        ).all()
+        for code, count in rows:
+            code = (code or "US").upper()
+            counts[code] = counts.get(code, 0) + int(count)
+    total = sum(counts.values())
+    countries = [
+        {"code": code, "name": country_name(code), "count": n}
+        for code, n in sorted(counts.items(), key=lambda kv: kv[1], reverse=True)
+    ]
     return {"countries": countries, "total": total}
 
 
@@ -363,96 +362,62 @@ async def list_jobs(
     sort_dir: str | None = Query("asc", description="asc|desc"),
     db: AsyncSession = Depends(get_db),
 ):
-    """List jobs with pagination. No hard cap on total rows — page through all matches."""
-    from sqlalchemy import and_, or_
-    from app.services.persona import list_personas
+    """List one persona's own jobs, paginated. The table is the persona, so a
+    ``profile`` (or ``persona_id``) selects which list; it falls back to the
+    active persona."""
+    from sqlalchemy import or_
 
+    pid = profile or persona_id or get_active_persona_id()
+    model = job_model(pid)
     filters = []
-    if persona_id:
-        filters.append(Job.persona_id == persona_id)
 
     # Empty means every country, which is the default the operator asked for.
-    # Rows written before the column existed carry the 'US' the migration gave
-    # them, so no NULL handling is needed here.
     wanted_country = (country or "").strip().upper()
     if wanted_country:
-        filters.append(Job.country == wanted_country)
+        filters.append(model.country == wanted_country)
 
     # A resume claiming to work at UnitedHealth cannot be sent to UnitedHealth,
-    # and an Optum posting is the same employer. Hidden per profile, never
+    # and an Optum posting is the same employer. Hidden per persona, never
     # deleted — another persona can still apply to it.
     own_employers: set[str] = set()
     own_filter = None
-    page_persona = _load_profile(profile)
+    page_persona = _load_profile(pid)
     if hide_own_employers and page_persona is not None:
         own_employers = persona_employers(page_persona)
         if own_employers:
-            own_filter = Job.normalized_company.notin_(own_employers)
+            own_filter = model.normalized_company.notin_(own_employers)
             filters.append(own_filter)
-    if profile and profile_status:
+
+    # A per-persona status filter on the row's own status.
+    if profile_status:
         if profile_status == "need_resume":
-            filters.append(~Job.packages.any(JobPackage.persona_id == profile))
+            filters.append(model.status.in_(list(_NEEDS_RESUME_STATUS)))
         else:
-            filters.append(
-                Job.packages.any(
-                    and_(
-                        JobPackage.persona_id == profile,
-                        JobPackage.status == profile_status,
-                    )
-                )
-            )
+            filters.append(model.status == profile_status)
 
     # Applied-company duplicates are no longer hidden. They stay in the list and
-    # are marked disabled per viewing profile at serialization time (below), so
-    # the UI can grey them out while keeping them visible.
+    # are marked disabled at serialization time (below), so the UI can grey them.
     if status:
-        if status == JobStatus.JD_READY.value:
-            filters.append(
-                or_(
-                    Job.status == JobStatus.JD_READY.value,
-                    Job.status.in_(list(_PACKAGE_DERIVED_LISTING)),
-                )
-            )
-        else:
-            filters.append(Job.status == status)
+        filters.append(model.status == status)
     if seq_from is not None:
-        filters.append(Job.seq_no >= seq_from)
+        filters.append(model.seq_no >= seq_from)
     if seq_to is not None:
-        filters.append(Job.seq_no <= seq_to)
+        filters.append(model.seq_no <= seq_to)
     if q:
         term = q.strip()
         if term:
             like = f"%{term}%"
-            normalized_term = term.casefold().replace("_", " ")
-            matching_profiles = [
-                persona["id"]
-                for persona in list_personas()
-                if normalized_term
-                in f"{persona['id']} {persona.get('display_name') or ''}".casefold().replace(
-                    "_", " "
+            filters.append(
+                or_(
+                    model.company.ilike(like),
+                    model.title.ilike(like),
+                    # Searching "dice" or "greenhouse" finds jobs by their host.
+                    model.url.ilike(like),
+                    model.apply_url.ilike(like),
                 )
-            ]
-            search_clauses = [
-                Job.company.ilike(like),
-                Job.title.ilike(like),
-                # Where the listing lives and where the application is made.
-                # Searching "dice" or "greenhouse" finds jobs by their host,
-                # which no other searchable field carries.
-                Job.url.ilike(like),
-                Job.apply_url.ilike(like),
-                Job.packages.any(JobPackage.persona_id.ilike(like)),
-                Job.persona_id.ilike(like),
-            ]
-            if matching_profiles:
-                search_clauses.extend(
-                    [
-                        Job.packages.any(JobPackage.persona_id.in_(matching_profiles)),
-                        Job.persona_id.in_(matching_profiles),
-                    ]
-                )
-            filters.append(or_(*search_clauses))
+            )
 
-    count_stmt = select(func.count(Job.id))
+    count_stmt = select(func.count(model.id))
     if filters:
         count_stmt = count_stmt.where(*filters)
     total = int((await db.execute(count_stmt)).scalar_one() or 0)
@@ -467,62 +432,53 @@ async def list_jobs(
     sort_key = (sort or "seq").strip().lower()
     descending = (sort_dir or "asc").strip().lower() == "desc"
     order_cols = {
-        "seq": Job.seq_no,
-        "domains": Job.domains,
-        "country": Job.country,
-        "company": Job.company,
-        "title": Job.title,
-        "status": Job.status,
+        "seq": model.seq_no,
+        "domains": model.domains,
+        "country": model.country,
+        "company": model.company,
+        "title": model.title,
+        "status": model.status,
     }
-    primary = order_cols.get(sort_key, Job.seq_no)
+    primary = order_cols.get(sort_key, model.seq_no)
     primary_order = primary.desc() if descending else primary.asc()
     # Keep null/empty domains at the end when sorting by Dom
     if sort_key == "domains":
         from sqlalchemy import case
 
-        nulls_last = case((Job.domains.is_(None), 1), (Job.domains == "", 1), else_=0)
-        order_by = (nulls_last.asc(), primary_order, Job.id.desc())
+        nulls_last = case((model.domains.is_(None), 1), (model.domains == "", 1), else_=0)
+        order_by = (nulls_last.asc(), primary_order, model.id.desc())
     else:
-        order_by = (primary_order, Job.id.desc())
+        order_by = (primary_order, model.id.desc())
 
-    # How many the employer filter removed, so the operator sees a number
-    # rather than silently missing rows.
+    # How many the employer filter removed, so the operator sees a number.
     hidden_own = 0
     if own_filter is not None:
         others = [f for f in filters if f is not own_filter]
-        without = select(func.count(Job.id))
+        without = select(func.count(model.id))
         if others:
             without = without.where(*others)
         total_without = int((await db.execute(without)).scalar() or 0)
         hidden_own = max(0, total_without - total)
 
-    stmt = select(Job).options(selectinload(Job.packages)).order_by(*order_by)
+    stmt = select(model).order_by(*order_by)
     if filters:
         stmt = stmt.where(*filters)
     stmt = stmt.offset(start).limit(size)
     rows = (await db.execute(stmt)).scalars().all()
 
-    # Mark each row disabled for the viewing profile — applied-company siblings
-    # and hand-disabled listings alike — from a couple of indexed passes rather
-    # than a subquery per row, so the list stays fast.
-    applied_company_set: set[str] = set()
-    applied_job_ids: set[int] = set()
-    overrides: dict[int, bool] = {}
-    if profile:
-        applied_company_set, applied_job_ids = await applied_scope(db, profile)
-        overrides = await profile_disable_overrides(db, profile)
+    # Mark each row disabled — applied-company siblings and hand-disabled rows
+    # alike — from a couple of indexed passes rather than a subquery per row.
+    applied_company_set, applied_job_ids = await applied_scope(db, pid)
     job_dicts: list[dict[str, Any]] = []
     disabled_count = 0
     for j in rows:
-        dis, reason = effective_disabled(
-            j, applied_company_set, applied_job_ids, overrides
-        )
+        dis, reason = effective_disabled(j, applied_company_set, applied_job_ids)
         if dis:
             disabled_count += 1
         job_dicts.append(
             _job_dict(
                 j,
-                profile=profile,
+                profile=pid,
                 persona=page_persona,
                 disabled=dis,
                 disabled_reason=reason,
@@ -548,53 +504,55 @@ async def list_jobs(
 async def job_stats(db: AsyncSession = Depends(get_db)):
     from app.services.persona import list_personas
 
-    rows = (
-        await db.execute(select(Job.status, func.count()).group_by(Job.status))
-    ).all()
-    by_status = {s: c for s, c in rows}
-    total = sum(by_status.values())
-    max_seq = int((await db.execute(select(func.max(Job.seq_no)))).scalar() or 0)
-    min_seq = int((await db.execute(select(func.min(Job.seq_no)))).scalar() or 0)
-    pkg_rows = (
-        await db.execute(
-            select(JobPackage.persona_id, JobPackage.status, func.count()).group_by(
-                JobPackage.persona_id, JobPackage.status
-            )
-        )
-    ).all()
+    start_local = runtime_settings.applied_counter_since() or (
+        datetime.now().astimezone().replace(hour=0, minute=0, second=0, microsecond=0)
+    )
+    cutoff = start_local.astimezone(timezone.utc)
+
+    by_status: dict[str, int] = {}
     by_profile: dict[str, dict[str, int]] = {}
-    for pid, st, c in pkg_rows:
-        by_profile.setdefault(pid, {})[st] = c
+    applied_today: dict[str, int] = {}
+    max_seq = 0
+    min_seq = 0
+    pids = all_persona_ids()
+    for pid in pids:
+        model = job_model(pid)
+        rows = (
+            await db.execute(select(model.status, func.count()).group_by(model.status))
+        ).all()
+        counts = {s: int(c) for s, c in rows}
+        if counts:
+            by_profile[pid] = dict(counts)
+        for s, c in counts.items():
+            by_status[s] = by_status.get(s, 0) + c
+        mx = int((await db.execute(select(func.max(model.seq_no)))).scalar() or 0)
+        mn = int((await db.execute(select(func.min(model.seq_no)))).scalar() or 0)
+        max_seq = max(max_seq, mx)
+        if mn and (min_seq == 0 or mn < min_seq):
+            min_seq = mn
+        n_today = int(
+            (
+                await db.execute(
+                    select(func.count()).where(
+                        model.status == JobStatus.APPLIED.value,
+                        model.applied_at.is_not(None),
+                        model.applied_at >= cutoff,
+                    )
+                )
+            ).scalar()
+            or 0
+        )
+        if n_today:
+            applied_today[pid] = n_today
+    total = sum(by_status.values())
     for persona in list_personas():
         pid = persona["id"]
         statuses = by_profile.setdefault(pid, {})
-        packaged = sum(statuses.values())
-        statuses["need_resume"] = max(0, total - packaged)
+        statuses["need_resume"] = sum(statuses.get(s, 0) for s in _NEEDS_RESUME_STATUS)
     from app.services.ats_catalog import catalog_stats
 
     # Do not seed here — every UI poll would write and fight bg workers on SQLite.
     ats = await catalog_stats(db)
-
-    # Applications sent since the counter was last reset. That reset is
-    # manual: an automatic midnight rollover wiped the number mid-session,
-    # and a run that spans midnight is still one sitting's work. Until it has
-    # ever been reset this falls back to the local day — a UTC boundary would
-    # have rolled over mid-afternoon in US timezones.
-    start_local = runtime_settings.applied_counter_since() or (
-        datetime.now().astimezone().replace(hour=0, minute=0, second=0, microsecond=0)
-    )
-    today_rows = (
-        await db.execute(
-            select(JobPackage.persona_id, func.count())
-            .where(
-                JobPackage.status == PackageStatus.APPLIED.value,
-                JobPackage.applied_at.is_not(None),
-                JobPackage.applied_at >= start_local.astimezone(timezone.utc),
-            )
-            .group_by(JobPackage.persona_id)
-        )
-    ).all()
-    applied_today = {pid: count for pid, count in today_rows}
 
     return {
         "total": total,
@@ -624,12 +582,10 @@ async def create_job(body: JobCreate, db: AsyncSession = Depends(get_db)):
     # A URL repeat or another recent listing from the same company: hand back
     # the row already on file instead of a raw error.
     if result.reason in {"duplicate_url", "duplicate_company"} and result.job:
-        job = await _get_job_with_packages(db, result.job.id)
-        return _job_dict(job or result.job)
+        return _job_dict(result.job)
     if not result.ok:
         raise HTTPException(400, detail=result.reason or "insert_failed")
-    job = await _get_job_with_packages(db, result.job.id)
-    return _job_dict(job or result.job)
+    return _job_dict(result.job)
 
 
 @router.post("/import")
@@ -700,7 +656,7 @@ async def wipe_jobs(
     remove_folders: bool = True,
     db: AsyncSession = Depends(get_db),
 ):
-    rows = (await db.execute(select(Job))).scalars().all()
+    rows = await _all_job_rows(db)
     deleted, folders_removed = await _purge_jobs(db, list(rows), remove_folders=remove_folders)
     if not keep_applied_history:
         await db.execute(delete(Application))
@@ -718,7 +674,7 @@ async def wipe_jobs(
 async def reset_today_counter():
     """Start the Today counter from now.
 
-    Nothing is deleted. The count is derived from JobPackage.applied_at, so
+    Nothing is deleted. The count is derived from each row's applied_at, so
     clearing it would mean erasing real applied history; this moves the mark
     the count runs from instead, and every application stays on record.
     """
@@ -739,12 +695,7 @@ async def renumber_jobs(db: AsyncSession = Depends(get_db)):
 async def delete_jobs_range(body: RangeDelete, db: AsyncSession = Depends(get_db)):
     if body.seq_to < body.seq_from:
         raise HTTPException(400, detail="seq_to must be >= seq_from")
-    q = (
-        select(Job)
-        .where(Job.seq_no >= body.seq_from, Job.seq_no <= body.seq_to)
-        .order_by(Job.seq_no.asc())
-    )
-    rows = list((await db.execute(q)).scalars().all())
+    rows = await _all_job_rows(db, seq_from=body.seq_from, seq_to=body.seq_to)
     deleted, folders_removed = await _purge_jobs(db, rows, remove_folders=body.remove_folders)
     renumber = await renumber_all_jobs(db)
     await db.commit()
@@ -764,8 +715,7 @@ async def delete_jobs_ids(body: IdsDelete, db: AsyncSession = Depends(get_db)):
     ids = sorted(set(body.ids))
     if not ids:
         raise HTTPException(400, detail="no_ids")
-    q = select(Job).where(Job.id.in_(ids)).order_by(Job.seq_no.asc())
-    rows = list((await db.execute(q)).scalars().all())
+    rows = await _rows_by_ids(db, ids)
     deleted, folders_removed = await _purge_jobs(db, rows, remove_folders=body.remove_folders)
     renumber = await renumber_all_jobs(db)
     await db.commit()
@@ -785,12 +735,11 @@ async def get_job(
     profile: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
 ):
-    job = await _get_job_with_packages(db, job_id)
+    job = await _get_job(db, job_id)
     if not job:
         raise HTTPException(404, detail="not_found")
-    # Without the profile there is no "my package" and no fit score — the
-    # single-job fetch has to answer for the same persona the list did.
-    prof = profile or get_active_persona_id()
+    # The row belongs to one persona's table — answer for that persona.
+    prof = job.persona_id
     dis, reason = await is_disabled_for(db, job, prof)
     return _job_dict(job, profile=prof, disabled=dis, disabled_reason=reason)
 
@@ -801,11 +750,10 @@ async def get_job_qa(
     persona_id: str = Query(...),
     db: AsyncSession = Depends(get_db),
 ):
-    job = await _get_job_with_packages(db, job_id)
+    job = await _get_job(db, job_id)
     if not job:
         raise HTTPException(404, detail="not_found")
-    pkg = next((p for p in (job.packages or []) if p.persona_id == persona_id), None)
-    folder = Path(pkg.folder_path) if pkg and pkg.folder_path else None
+    folder = Path(job.folder_path) if job.folder_path else None
     if not folder or not folder.exists():
         return {"ok": True, "questions": [], "answers": [], "folder": None}
 
@@ -843,17 +791,8 @@ async def get_job_qa(
     }
 
 
-def _package_folder(job: Job, persona_id: str | None) -> tuple[JobPackage | None, Path | None]:
-    pkgs = list(job.packages or [])
-    pkg = None
-    if persona_id:
-        pkg = next((p for p in pkgs if p.persona_id == persona_id), None)
-    if pkg is None:
-        pkg = next((p for p in pkgs if p.folder_path), None)
-    folder = Path(pkg.folder_path) if pkg and pkg.folder_path else None
-    if folder is None and job.folder_path:
-        folder = Path(job.folder_path)
-    return pkg, folder
+def _row_folder(job: JobRow) -> Path | None:
+    return Path(job.folder_path) if job.folder_path else None
 
 
 @router.get("/{job_id}/artifacts")
@@ -863,10 +802,10 @@ async def list_job_artifacts(
     db: AsyncSession = Depends(get_db),
 ):
     """List generated resume/cover files for in-app preview (no folder browsing)."""
-    job = await _get_job_with_packages(db, job_id)
+    job = await _get_job(db, job_id)
     if not job:
         raise HTTPException(404, detail="not_found")
-    pkg, folder = _package_folder(job, persona_id)
+    folder = _row_folder(job)
     if folder is not None and not folder_is_allowed(folder):
         folder = None
     artifacts = resolve_artifacts(folder)
@@ -881,7 +820,7 @@ async def list_job_artifacts(
     return {
         "ok": True,
         "job_id": job.id,
-        "persona_id": pkg.persona_id if pkg else persona_id,
+        "persona_id": job.persona_id,
         "folder": str(folder) if folder else None,
         "available": sorted(files.keys()),
         "files": files,
@@ -898,10 +837,10 @@ async def get_job_artifact(
     """Serve a generated resume/cover file inline so the UI can preview it."""
     if kind not in KINDS:
         raise HTTPException(404, detail="unknown_artifact")
-    job = await _get_job_with_packages(db, job_id)
+    job = await _get_job(db, job_id)
     if not job:
         raise HTTPException(404, detail="not_found")
-    _pkg, folder = _package_folder(job, persona_id)
+    folder = _row_folder(job)
     try:
         art = resolve_kind(folder, kind)
     except KeyError:
@@ -916,7 +855,7 @@ async def get_job_artifact(
     )
 
 
-def _rename_job_folders(job: Job, old_company: str, new_company: str) -> None:
+def _rename_job_folders(job: JobRow, old_company: str, new_company: str) -> None:
     if not job.seq_no or old_company == new_company:
         return
     old_name = job_folder_name(job.seq_no, old_company)
@@ -935,16 +874,13 @@ def _rename_job_folders(job: Job, old_company: str, new_company: str) -> None:
             old_path.rename(new_path)
     if job.folder_path:
         job.folder_path = job.folder_path.replace(old_name, new_name)
-    for pkg in job.packages or []:
-        if pkg.folder_path:
-            pkg.folder_path = pkg.folder_path.replace(old_name, new_name)
 
 
 @router.patch("/{job_id}")
 async def patch_job_fields(
     job_id: int, body: JobFieldsPatch, db: AsyncSession = Depends(get_db)
 ):
-    job = await _get_job_with_packages(db, job_id)
+    job = await _get_job(db, job_id)
     if not job:
         raise HTTPException(404, detail="not_found")
 
@@ -983,25 +919,20 @@ async def patch_job_fields(
         _rename_job_folders(job, old_company, job.company)
 
     if job.seq_no:
-        personas = {job.persona_id}
-        for pkg in job.packages or []:
-            if pkg.persona_id:
-                personas.add(pkg.persona_id)
-        for pid in personas:
-            sync_job_folder(
-                persona_id=pid,
-                seq_no=job.seq_no,
-                company=job.company,
-                title=job.title,
-                url=job.url,
-                location=job.location,
-                status=job.status,
-                description=job.description,
-                job_id=job.id,
-            )
+        sync_job_folder(
+            persona_id=job.persona_id,
+            seq_no=job.seq_no,
+            company=job.company,
+            title=job.title,
+            url=job.url,
+            location=job.location,
+            status=job.status,
+            description=job.description,
+            job_id=job.id,
+        )
 
     await db.commit()
-    return _job_dict(await _get_job_with_packages(db, job.id) or job)
+    return _job_dict(job)
 
 
 @router.delete("/{job_id}")
@@ -1010,7 +941,7 @@ async def delete_job(
     remove_folders: bool = True,
     db: AsyncSession = Depends(get_db),
 ):
-    job = await db.get(Job, job_id)
+    job = await _get_job(db, job_id)
     if not job:
         raise HTTPException(404, detail="not_found")
     deleted, folders_removed = await _purge_jobs(db, [job], remove_folders=remove_folders)
@@ -1027,7 +958,7 @@ async def delete_job(
 
 @router.patch("/{job_id}/status")
 async def patch_status(job_id: int, body: StatusPatch, db: AsyncSession = Depends(get_db)):
-    job = await db.get(Job, job_id)
+    job = await _get_job(db, job_id)
     if not job:
         raise HTTPException(404, detail="not_found")
     target = body.status
@@ -1046,9 +977,10 @@ async def patch_status(job_id: int, body: StatusPatch, db: AsyncSession = Depend
             )
         except ValueError as exc:
             raise HTTPException(400, detail=str(exc)) from exc
-        return _job_dict(await _get_job_with_packages(db, job.id) or job)
+        return _job_dict(job)
     if target in {JobStatus.RESUME_READY.value, JobStatus.APPLYING.value}:
-        raise HTTPException(400, detail="package_status_requires_profile")
+        # These are reached by the tailor/apply flow, not set by hand.
+        raise HTTPException(400, detail="status_set_by_tailor_or_apply")
 
     if not can_transition(job.status, target):
         raise HTTPException(400, detail=f"cannot_transition:{job.status}->{target}")
@@ -1070,7 +1002,7 @@ async def patch_status(job_id: int, body: StatusPatch, db: AsyncSession = Depend
             job_id=job.id,
         )
     await db.commit()
-    return _job_dict(await _get_job_with_packages(db, job.id) or job)
+    return _job_dict(job)
 
 
 @router.patch("/{job_id}/outcome")
@@ -1083,29 +1015,19 @@ async def patch_outcome(
     except ValueError as exc:
         raise HTTPException(400, detail=f"invalid_outcome:{body.outcome}") from exc
 
-    job = await _get_job_with_packages(db, job_id)
+    job = await _get_job(db, job_id)
     if not job:
         raise HTTPException(404, detail="not_found")
-
-    pkgs = list(job.packages or [])
-    if body.package_id is not None:
-        pkg = next((p for p in pkgs if p.id == body.package_id), None)
-    elif body.persona_id:
-        pkg = next((p for p in pkgs if p.persona_id == body.persona_id), None)
-    elif len(pkgs) == 1:
-        pkg = pkgs[0]
-    else:
-        raise HTTPException(400, detail="multiple_packages_pick_profile")
-    if not pkg:
+    if body.persona_id and body.persona_id != job.persona_id:
         raise HTTPException(404, detail="package_not_found")
-    if pkg.status != PackageStatus.APPLIED.value:
-        raise HTTPException(400, detail=f"not_applied:{pkg.status}")
+    if job.status != JobStatus.APPLIED.value:
+        raise HTTPException(400, detail=f"not_applied:{job.status}")
 
-    pkg.outcome = outcome.value
-    pkg.outcome_at = utcnow()
-    pkg.outcome_notes = (body.notes or "").strip() or None
+    job.outcome = outcome.value
+    job.outcome_at = utcnow()
+    job.outcome_notes = (body.notes or "").strip() or None
     await db.commit()
-    return _package_dict(pkg)
+    return _row_pkg_dict(job)
 
 
 @router.get("/meta/outcomes")
@@ -1113,21 +1035,23 @@ async def outcome_stats(
     persona_id: str | None = Query(default=None), db: AsyncSession = Depends(get_db)
 ):
     """Response funnel per persona. Applying is not the outcome."""
-    where = [JobPackage.status == PackageStatus.APPLIED.value]
-    if persona_id:
-        where.append(JobPackage.persona_id == persona_id)
-
-    rows = (
-        await db.execute(
-            select(JobPackage.persona_id, JobPackage.outcome, func.count())
-            .where(*where)
-            .group_by(JobPackage.persona_id, JobPackage.outcome)
-        )
-    ).all()
-
+    pids = [persona_id] if persona_id else all_persona_ids()
     by_profile: dict[str, dict[str, int]] = {}
-    for pid, outcome, count in rows:
-        by_profile.setdefault(pid, {})[outcome or ApplicationOutcome.PENDING.value] = count
+    for pid in pids:
+        model = job_model(pid)
+        rows = (
+            await db.execute(
+                select(model.outcome, func.count())
+                .where(model.status == JobStatus.APPLIED.value)
+                .group_by(model.outcome)
+            )
+        ).all()
+        counts = {
+            (outcome or ApplicationOutcome.PENDING.value): int(count)
+            for outcome, count in rows
+        }
+        if counts:
+            by_profile[pid] = counts
 
     summary: dict[str, Any] = {}
     for pid, counts in by_profile.items():
@@ -1154,26 +1078,17 @@ async def outcome_stats(
 async def _set_job_disabled(
     db: AsyncSession, job_id: int, persona_id: str | None, disabled: bool
 ) -> dict[str, Any]:
-    job = await _get_job_with_packages(db, job_id)
+    job = await _get_job(db, job_id)
     if not job:
         raise HTTPException(404, detail="not_found")
-    pid = persona_id or get_active_persona_id()
-    row = (
-        await db.execute(
-            select(JobDisable).where(
-                JobDisable.job_id == job_id, JobDisable.persona_id == pid
-            )
-        )
-    ).scalar_one_or_none()
-    if row:
-        row.disabled = disabled
-        row.updated_at = utcnow()
-    else:
-        db.add(JobDisable(job_id=job_id, persona_id=pid, disabled=disabled))
+    # enabled is the folded tri-state: disable -> False (off by hand),
+    # enable -> True (forced on, overriding the auto company-applied rule).
+    job.enabled = not disabled
+    job.updated_at = utcnow()
     await db.commit()
-    job = await _get_job_with_packages(db, job_id)
+    pid = job.persona_id
     dis, reason = await is_disabled_for(db, job, pid)
-    return _job_dict(job or None, profile=pid, disabled=dis, disabled_reason=reason)
+    return _job_dict(job, profile=pid, disabled=dis, disabled_reason=reason)
 
 
 @router.post("/{job_id}/disable")
@@ -1198,7 +1113,7 @@ async def enable_job(
 async def block_company(job_id: int, db: AsyncSession = Depends(get_db)):
     from app.db.models import Company
 
-    job = await db.get(Job, job_id)
+    job = await _get_job(db, job_id)
     if not job:
         raise HTTPException(404, detail="not_found")
     result = await db.execute(
@@ -1215,7 +1130,7 @@ async def block_company(job_id: int, db: AsyncSession = Depends(get_db)):
 
 @router.post("/{job_id}/deep-scan")
 async def deep_scan_one(job_id: int, db: AsyncSession = Depends(get_db)):
-    job = await db.get(Job, job_id)
+    job = await _get_job(db, job_id)
     if not job:
         raise HTTPException(404, detail="not_found")
     result = await deep_scan_job(db, job, force=True)
@@ -1233,7 +1148,7 @@ async def tailor_one(
     body: TailorBody | None = None,
     db: AsyncSession = Depends(get_db),
 ):
-    job = await db.get(Job, job_id)
+    job = await _get_job(db, job_id)
     if not job:
         raise HTTPException(404, detail="not_found")
     try:
@@ -1247,7 +1162,7 @@ async def tailor_one(
 
 @router.post("/{job_id}/refresh-folder")
 async def refresh_folder(job_id: int, db: AsyncSession = Depends(get_db)):
-    job = await db.get(Job, job_id)
+    job = await _get_job(db, job_id)
     if not job:
         raise HTTPException(404, detail="not_found")
     if not job.seq_no:
@@ -1272,7 +1187,7 @@ async def refresh_folder(job_id: int, db: AsyncSession = Depends(get_db)):
 async def job_questions(job_id: int, db: AsyncSession = Depends(get_db)):
     import re
 
-    job = await db.get(Job, job_id)
+    job = await _get_job(db, job_id)
     if not job:
         raise HTTPException(404, detail="not_found")
     qs = []

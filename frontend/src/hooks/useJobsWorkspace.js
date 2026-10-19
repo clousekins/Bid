@@ -32,6 +32,8 @@ export function useJobsWorkspace() {
   const [sortDir, setSortDir] = useState("asc");
   const [checkedIds, setCheckedIds] = useState(() => new Set());
   const [personas, setPersonas] = useState([]);
+  // Which personas a fetch ingests a copy for (the viewing persona is separate).
+  const [ingestPersonaIds, setIngestPersonaIds] = useState(() => new Set());
   const selectedIdRef = useRef(null);
   const selectReqRef = useRef(0);
   const lastCheckRef = useRef(null);
@@ -113,6 +115,8 @@ export function useJobsWorkspace() {
         setPersonas(list);
         const active = d.active || list.find((p) => p.active)?.id || "phong_v_cao";
         setWorkingPersonaId(active);
+        // Seed the ingest set to the active persona; the user ticks more before a fetch.
+        setIngestPersonaIds((prev) => (prev.size ? prev : new Set([active])));
       })
       .catch((e) => logPoong("personas fail", e));
   }, []);
@@ -263,6 +267,8 @@ export function useJobsWorkspace() {
     setSortKey,
     checkedIds,
     personas,
+    ingestPersonaIds,
+    setIngestPersonaIds,
     refresh,
     selectJob,
     clearSelected,

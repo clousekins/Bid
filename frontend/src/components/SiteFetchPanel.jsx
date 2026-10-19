@@ -19,7 +19,13 @@ const FALLBACK_WINDOWS = [
   { id: "all", label: "All time", max_jobs: 100 },
 ];
 
-export default function SiteFetchPanel({ busy, onFetchSite }) {
+export default function SiteFetchPanel({
+  busy,
+  onFetchSite,
+  personas = [],
+  ingestPersonaIds,
+  setIngestPersonaIds,
+}) {
   const [sites, setSites] = useState(FALLBACK_SITES);
   const [windows, setWindows] = useState(FALLBACK_WINDOWS);
   const [notes, setNotes] = useState("");
@@ -108,6 +114,9 @@ export default function SiteFetchPanel({ busy, onFetchSite }) {
             roles,
           });
         }}
+        personas={personas}
+        ingestPersonaIds={ingestPersonaIds}
+        setIngestPersonaIds={setIngestPersonaIds}
       />
     </div>
   );

@@ -1,12 +1,14 @@
-"""Rejecting a listing by hand.
+"""Rejecting a listing by hand, and the per-person company gate.
 
 A rejected job stays on the list and stays readable. What it stops doing is
-taking part: no batch picks it up, and it no longer holds its company against
-the next job that comes from there.
+taking part: no batch picks it up, and it no longer holds its company against the
+next job that comes from there.
 
-That last part is the whole point of the status, and it is not free — an apply
-is recorded in three places, and two of them survive a change to the listing's
-own status.
+The company "already applied" gate is per person now: each persona owns its own
+jobs table, so a company closes to ingest for the persona that applied there, and
+reopens when that apply is rejected or ages past the 30-day window. Which personas
+a listing is even offered to is decided by country (Brazil → Bruno, US → the rest)
+in ``ingest_listing_for_personas``.
 """
 from __future__ import annotations
 
@@ -17,13 +19,20 @@ from sqlalchemy import select
 
 from app.config import get_settings
 from app.db import session as sess
-from app.db.enums import JobStatus, PackageStatus, can_transition
-from app.db.models import Application, BackgroundJob, Job, JobPackage, utcnow
+from app.db.enums import JobStatus, can_transition
+from app.db.job_tables import job_model
+from app.db.models import Application, BackgroundJob, utcnow
 from app.db.session import get_session_factory, init_db
-from app.services.pipeline import APPLY_GROUP, company_is_applied, process_listing
+from app.services.pipeline import (
+    company_is_applied,
+    ingest_listing_for_personas,
+    process_listing,
+)
 from app.validators.dedupe import normalize_company
 
 REJECTED = JobStatus.REJECTED.value
+PROFILE = "alex_mak"
+OTHER = "brian_gou"
 
 
 @pytest.fixture
@@ -32,9 +41,6 @@ async def factory(tmp_path, monkeypatch):
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db_file.as_posix()}")
     monkeypatch.setenv("ACCESS_TOKEN", "")
     monkeypatch.setenv("PERSONA_OUTPUT_ROOT", str(tmp_path / "applications"))
-    # The apply-crew gate (skip once the whole crew has applied at a company) is
-    # always on now, independent of ALLOW_COMPANY_MULTI_APPLY — these exercise
-    # that gate and its reopening behaviour.
     get_settings.cache_clear()
     sess._engine = None
     sess._session_factory = None
@@ -43,11 +49,17 @@ async def factory(tmp_path, monkeypatch):
 
 
 async def _add(
-    session, company: str, url: str, title: str = "Data Engineer", location: str = "Remote, US"
-) -> Job:
+    session,
+    company: str,
+    url: str,
+    title: str = "Data Engineer",
+    location: str = "Remote, US",
+    pid: str = PROFILE,
+):
     result = await process_listing(
         session,
         {"company": company, "title": title, "url": url, "location": location},
+        persona_id=pid,
         skip_content_gates=True,
     )
     await session.commit()
@@ -61,6 +73,19 @@ async def _age(session, job, days: int = 11) -> None:
     await session.commit()
 
 
+def _apply_row(session, job, persona: str) -> None:
+    """Record ``persona`` as applied at this job's company (company-level)."""
+    session.add(
+        Application(
+            persona_id=persona,
+            company=job.company,
+            normalized_company=normalize_company(job.company),
+            job_id=job.id,
+            status="applied",
+        )
+    )
+
+
 class TestReachingTheStatus:
     """Rejecting overrules the pipeline, so it is reachable from anywhere."""
 
@@ -72,13 +97,11 @@ class TestReachingTheStatus:
         assert can_transition(current, JobStatus.REJECTED)
 
     def test_including_the_ones_that_are_otherwise_terminal(self):
-        """applied, blocked and rejected_onsite accept nothing else at all."""
         for terminal in (JobStatus.APPLIED, JobStatus.BLOCKED, JobStatus.REJECTED_ONSITE):
             assert not can_transition(terminal, JobStatus.JD_READY)
             assert can_transition(terminal, JobStatus.REJECTED)
 
     def test_it_can_be_undone(self):
-        """A misplaced click should not need a database edit to fix."""
         assert can_transition(JobStatus.REJECTED, JobStatus.JD_READY)
         assert can_transition(JobStatus.REJECTED, JobStatus.NEW)
 
@@ -86,62 +109,32 @@ class TestReachingTheStatus:
         assert not can_transition(JobStatus.REJECTED, JobStatus.APPLIED)
 
 
-def _apply_whole_crew(session, job) -> None:
-    """Record every crew profile as applied at this job's company."""
-    normalized = normalize_company(job.company)
-    for persona_id in APPLY_GROUP:
-        session.add(
-            Application(
-                persona_id=persona_id,
-                company=job.company,
-                normalized_company=normalized,
-                job_id=job.id,
-                status="applied",
-            )
-        )
-
-
-class TestTheCompanyGateReopens:
-    """The three records of an apply, and a rejected listing against each."""
-
-    async def test_a_partial_crew_still_lets_a_job_through(self, factory):
-        """Once past the one-per-company window, the apply crew decides: with
-        only part of the crew applied (Alex, not Brian), the next job is let in."""
+class TestThePersonCompanyGateReopens:
+    async def test_another_persona_applied_does_not_block(self, factory):
+        """Brian applying at Acme does not close Acme for Alex — separate tables."""
         async with factory() as session:
-            first = await _add(session, "Acme", "https://example.com/a")
-            # Clear the one-per-company window so the apply-crew gate is what
-            # the second ingest actually turns on.
-            await _age(session, first)
-            # Only one crew member has applied; the other has not, so the crew
-            # is still incomplete and the company stays open to ingest.
-            session.add(
-                Application(
-                    persona_id=APPLY_GROUP[0],
-                    company=first.company,
-                    normalized_company=normalize_company(first.company),
-                    job_id=first.id,
-                    status="applied",
-                )
-            )
+            placeholder = await _add(session, "Acme", "https://example.com/seed", pid=OTHER)
+            _apply_row(session, placeholder, OTHER)
             await session.commit()
 
             result = await process_listing(
                 session,
                 {
-                    "company": "Acme LLC",
+                    "company": "Acme",
                     "title": "Staff Engineer",
                     "url": "https://example.com/b",
                     "location": "Remote, US",
                 },
+                persona_id=PROFILE,
                 skip_content_gates=True,
             )
             await session.commit()
             assert result.ok, result.reason
 
-    async def test_the_whole_crew_applied_blocks_a_second_job(self, factory):
+    async def test_the_persona_applied_blocks_a_second_job(self, factory):
         async with factory() as session:
             first = await _add(session, "Acme", "https://example.com/a")
-            _apply_whole_crew(session, first)
+            _apply_row(session, first, PROFILE)
             await session.commit()
 
             result = await process_listing(
@@ -152,6 +145,7 @@ class TestTheCompanyGateReopens:
                     "url": "https://example.com/b",
                     "location": "Remote, US",
                 },
+                persona_id=PROFILE,
                 skip_content_gates=True,
             )
             await session.commit()
@@ -160,11 +154,9 @@ class TestTheCompanyGateReopens:
     async def test_rejecting_it_lets_the_next_one_through(self, factory):
         async with factory() as session:
             first = await _add(session, "Acme", "https://example.com/a")
-            _apply_whole_crew(session, first)
+            _apply_row(session, first, PROFILE)
             await session.commit()
-
-            # Every crew apply is tied to this listing, so rejecting it writes
-            # them all off and reopens the company.
+            # The apply is tied to this listing; rejecting it writes it off.
             first.status = REJECTED
             await session.commit()
 
@@ -176,84 +168,47 @@ class TestTheCompanyGateReopens:
                     "url": "https://example.com/b",
                     "location": "Remote, US",
                 },
+                persona_id=PROFILE,
                 skip_content_gates=True,
             )
             await session.commit()
             assert result.ok, result.reason
 
-    async def test_an_application_row_tied_to_it_is_written_off_too(self, factory):
-        """The listing's status is not the only record of an apply."""
+    async def test_an_applied_row_is_written_off_too(self, factory):
+        """The row's own applied status closes the company; rejecting reopens it."""
         async with factory() as session:
             job = await _add(session, "Acme", "https://example.com/a")
             job.status = JobStatus.APPLIED.value
-            session.add(
-                Application(
-                    persona_id=job.persona_id,
-                    company=job.company,
-                    normalized_company=normalize_company(job.company),
-                    job_id=job.id,
-                    status="applied",
-                )
-            )
+            job.applied_at = utcnow()
             await session.commit()
             normalized = normalize_company("Acme")
-            assert await company_is_applied(session, job.persona_id, normalized)
+            assert await company_is_applied(session, PROFILE, normalized)
 
             job.status = REJECTED
             await session.commit()
-            assert not await company_is_applied(session, job.persona_id, normalized)
-
-    async def test_an_applied_package_is_written_off_too(self, factory):
-        async with factory() as session:
-            job = await _add(session, "Acme", "https://example.com/a")
-            session.add(
-                JobPackage(
-                    job_id=job.id,
-                    persona_id=job.persona_id,
-                    status=PackageStatus.APPLIED.value,
-                )
-            )
-            await session.commit()
-            normalized = normalize_company("Acme")
-            assert await company_is_applied(session, job.persona_id, normalized)
-
-            job.status = REJECTED
-            await session.commit()
-            assert not await company_is_applied(session, job.persona_id, normalized)
+            assert not await company_is_applied(session, PROFILE, normalized)
 
     async def test_an_application_with_no_listing_still_counts(self, factory):
-        """Rejecting a listing writes off that listing, not the company.
-
-        An Application that names no job is the only record of that apply —
-        there is nothing to reject, so it keeps the company closed.
-        """
+        """An Application that names no job is the only record of that apply."""
         async with factory() as session:
-            job = await _add(session, "Acme", "https://example.com/a")
             session.add(
                 Application(
-                    persona_id=job.persona_id,
+                    persona_id=PROFILE,
                     company="Acme",
                     normalized_company=normalize_company("Acme"),
                     job_id=None,
                     status="applied",
                 )
             )
-            job.status = REJECTED
             await session.commit()
-            assert await company_is_applied(
-                session, job.persona_id, normalize_company("Acme")
-            )
+            assert await company_is_applied(session, PROFILE, normalize_company("Acme"))
 
     async def test_an_apply_older_than_30_days_reopens_the_company(self, factory):
-        """Even the whole crew applied cannot close a company once the applies
-        are older than the 30-day window — the next job ingests."""
         async with factory() as session:
             first = await _add(session, "Acme", "https://example.com/a")
-            await _age(session, first)  # clear the one-per-company window
-            _apply_whole_crew(session, first)
+            await _age(session, first)  # clear the one-per-company window too
+            _apply_row(session, first, PROFILE)
             await session.commit()
-
-            # Age every crew apply past the 30-day window.
             old = utcnow() - timedelta(days=31)
             for app in (await session.execute(select(Application))).scalars():
                 app.created_at = old
@@ -267,26 +222,27 @@ class TestTheCompanyGateReopens:
                     "url": "https://example.com/b",
                     "location": "Remote, US",
                 },
+                persona_id=PROFILE,
                 skip_content_gates=True,
             )
             await session.commit()
             assert result.ok, result.reason
 
     async def test_another_applied_listing_still_holds_the_company(self, factory):
-        """Rejecting one job does not clear an apply recorded by another."""
+        """Rejecting one job does not clear an apply recorded by another (same persona)."""
         async with factory() as session:
             first = await _add(session, "Acme", "https://example.com/a")
             await _age(session, first)  # past the one-per-company window
             second = await _add(session, "Acme", "https://example.com/b", "Analytics Engineer")
             first.status = JobStatus.APPLIED.value
+            first.applied_at = utcnow()
             second.status = JobStatus.APPLIED.value
+            second.applied_at = utcnow()
             await session.commit()
 
             first.status = REJECTED
             await session.commit()
-            assert await company_is_applied(
-                session, first.persona_id, normalize_company("Acme")
-            )
+            assert await company_is_applied(session, PROFILE, normalize_company("Acme"))
 
 
 class TestItStaysOnTheListButOutOfTheWork:
@@ -295,26 +251,21 @@ class TestItStaysOnTheListButOutOfTheWork:
             job = await _add(session, "Acme", "https://example.com/a")
             job.status = REJECTED
             await session.commit()
-            rows = (await session.execute(select(Job))).scalars().all()
+            rows = (await session.execute(select(job_model(PROFILE)))).scalars().all()
             assert [r.status for r in rows] == [REJECTED]
 
-    async def test_it_reads_as_rejected_even_with_a_package(self, factory):
-        """A package would otherwise re-derive the listing as jd_ready."""
-        from app.api.jobs import _listing_pipeline_status
+    async def test_it_reads_as_rejected_even_with_a_resume(self, factory):
+        """A row that carries a resume still reads as rejected — no re-derivation."""
+        from app.api.jobs import _job_dict
 
         async with factory() as session:
             job = await _add(session, "Acme", "https://example.com/a")
             job.description = "A long enough description to count as a usable JD." * 3
+            job.folder_path = "/some/where"
+            job.ats_score = 88
             job.status = REJECTED
-            session.add(
-                JobPackage(
-                    job_id=job.id,
-                    persona_id=job.persona_id,
-                    status=PackageStatus.RESUME_READY.value,
-                )
-            )
             await session.commit()
-            assert _listing_pipeline_status(job) == REJECTED
+            assert _job_dict(job, profile=PROFILE)["status"] == REJECTED
 
     async def test_no_batch_picks_it_up(self, factory):
         """Deep scan and tailor select by status, and this is not one of them."""
@@ -322,6 +273,7 @@ class TestItStaysOnTheListButOutOfTheWork:
 
         async with factory() as session:
             keep = await _add(session, "Acme", "https://example.com/a")
+            await _age(session, keep)
             drop = await _add(session, "Beta", "https://example.com/b")
             drop.status = REJECTED
             await session.commit()
@@ -329,7 +281,7 @@ class TestItStaysOnTheListButOutOfTheWork:
             row = BackgroundJob(
                 kind="deep_scan",
                 status="running",
-                persona_id=keep.persona_id,
+                persona_id=PROFILE,
                 seq_from=1,
                 seq_to=10**6,
             )
@@ -344,6 +296,7 @@ class TestItStaysOnTheListButOutOfTheWork:
                     JobStatus.JD_READY.value,
                     JobStatus.SCAN_FAILED.value,
                 ],
+                persona_id=PROFILE,
             )
             assert [j.id for j in picked] == [keep.id]
 
@@ -351,21 +304,47 @@ class TestItStaysOnTheListButOutOfTheWork:
 BR = "Brazil, Remote"
 
 
-class TestBrazilListingsAreBrunos:
-    """A Brazil job is Bruno's: it closes to ingest on Bruno, not the US pair."""
+class TestCountryRoutingAndBruno:
+    """A Brazil job is Bruno's; a US job is the US personas'."""
 
-    async def test_bruno_applied_closes_a_brazil_company(self, factory):
+    async def test_a_brazil_listing_goes_only_to_bruno(self, factory):
         async with factory() as session:
-            first = await _add(session, "Acme", "https://example.com/a", location=BR)
-            session.add(
-                Application(
-                    persona_id="bruno_raphael",
-                    company="Acme",
-                    normalized_company=normalize_company("Acme"),
-                    job_id=first.id,
-                    status="applied",
-                )
+            results = await ingest_listing_for_personas(
+                session,
+                {
+                    "company": "Acme",
+                    "title": "Staff Engineer",
+                    "url": "https://example.com/br",
+                    "location": BR,
+                },
+                persona_ids=[PROFILE, "bruno_raphael"],
+                skip_content_gates=True,
             )
+            await session.commit()
+            assert set(results) == {"bruno_raphael"}
+            assert results["bruno_raphael"].ok
+
+    async def test_a_us_listing_skips_bruno(self, factory):
+        async with factory() as session:
+            results = await ingest_listing_for_personas(
+                session,
+                {
+                    "company": "Acme",
+                    "title": "Staff Engineer",
+                    "url": "https://example.com/us",
+                    "location": "Remote, US",
+                },
+                persona_ids=[PROFILE, "bruno_raphael"],
+                skip_content_gates=True,
+            )
+            await session.commit()
+            assert set(results) == {PROFILE}
+            assert results[PROFILE].ok
+
+    async def test_bruno_applied_closes_a_brazil_company_for_bruno(self, factory):
+        async with factory() as session:
+            first = await _add(session, "Acme", "https://example.com/a", location=BR, pid="bruno_raphael")
+            _apply_row(session, first, "bruno_raphael")
             await session.commit()
 
             result = await process_listing(
@@ -376,57 +355,8 @@ class TestBrazilListingsAreBrunos:
                     "url": "https://example.com/b",
                     "location": BR,
                 },
+                persona_id="bruno_raphael",
                 skip_content_gates=True,
             )
             await session.commit()
             assert result.skipped and result.reason == "company_already_applied"
-
-    async def test_the_us_pair_does_not_close_a_brazil_company(self, factory):
-        """Alex and Brian applying at a Brazil company does not shut Bruno out."""
-        async with factory() as session:
-            first = await _add(session, "Acme", "https://example.com/a", location=BR)
-            _apply_whole_crew(session, first)  # alex + brian, not Bruno
-            await session.commit()
-            await _age(session, first)  # clear the one-per-company window
-
-            result = await process_listing(
-                session,
-                {
-                    "company": "Acme",
-                    "title": "Staff Engineer",
-                    "url": "https://example.com/b",
-                    "location": BR,
-                },
-                skip_content_gates=True,
-            )
-            await session.commit()
-            assert result.ok, result.reason
-
-    async def test_bruno_does_not_close_a_us_company(self, factory):
-        """Bruno applying at a US company does not shut the US pair out."""
-        async with factory() as session:
-            first = await _add(session, "Acme", "https://example.com/a")  # US
-            session.add(
-                Application(
-                    persona_id="bruno_raphael",
-                    company="Acme",
-                    normalized_company=normalize_company("Acme"),
-                    job_id=first.id,
-                    status="applied",
-                )
-            )
-            await session.commit()
-            await _age(session, first)  # clear the one-per-company window
-
-            result = await process_listing(
-                session,
-                {
-                    "company": "Acme",
-                    "title": "Staff Engineer",
-                    "url": "https://example.com/b",
-                    "location": "Remote, US",
-                },
-                skip_content_gates=True,
-            )
-            await session.commit()
-            assert result.ok, result.reason

@@ -13,7 +13,7 @@ from sqlalchemy import select
 from app.api.jobs import _purge_jobs
 from app.config import get_settings
 from app.db import session as sess
-from app.db.models import Application, Job, JobSourceSeen, RejectedJob
+from app.db.models import Application, JobRow, JobSourceSeen, RejectedJob
 from app.db.session import get_session_factory, init_db
 from app.services.pipeline import (
     forget_job_markers,
@@ -49,7 +49,7 @@ def _listing(**over):
     return row
 
 
-async def _insert(db, **over) -> Job:
+async def _insert(db, **over) -> JobRow:
     result = await process_listing(db, _listing(**over), persona_id=None)
     await db.commit()
     assert result.job is not None, result.reason

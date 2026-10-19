@@ -59,6 +59,32 @@ def get_active_persona_id() -> str:
     return str(data.get("active_option") or "phong_v_cao")
 
 
+def all_persona_ids() -> list[str]:
+    """Every persona id in the config, enabled or not.
+
+    Each one is a candidate for its own ``jobs__{id}`` table, so table
+    pre-warming and the one-time migration iterate this, not ``list_personas``
+    (which drops the disabled ones).
+    """
+    data = _personas_index()
+    return [str(o["id"]) for o in (data.get("options") or []) if o.get("id")]
+
+
+def persona_countries(persona_id: str) -> set[str]:
+    """Which job countries this persona takes, upper-cased.
+
+    Read from an optional ``countries:`` list on the persona's option in
+    personas.yml. With none set, the default preserves today's routing: Bruno
+    takes Brazil, everyone else takes the US.
+    """
+    data = _personas_index()
+    opt = next((o for o in (data.get("options") or []) if o.get("id") == persona_id), None)
+    vals = (opt or {}).get("countries")
+    if vals:
+        return {str(c).upper() for c in vals}
+    return {"BR"} if persona_id == "bruno_raphael" else {"US"}
+
+
 def set_active_persona(persona_id: str) -> None:
     path = get_settings().config_dir / "personas.yml"
     data = _personas_index()

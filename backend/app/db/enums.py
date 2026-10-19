@@ -8,6 +8,10 @@ class JobStatus(str, Enum):
     JD_READY = "jd_ready"
     SCAN_FAILED = "scan_failed"
     RESUME_READY = "resume_ready"
+    # A tailor run failed for this person's own copy. Folded from the old
+    # per-persona PackageStatus.FAILED now that each row is one person's package;
+    # the row keeps its JD so a retry can pick it up.
+    TAILOR_FAILED = "tailor_failed"
     APPLYING = "applying"
     APPLIED = "applied"
     EXPIRED = "expired"
@@ -41,13 +45,6 @@ class ApplySessionStatus(str, Enum):
     FAILED = "failed"
     CANCELLED = "cancelled"
     NEEDS_MANUAL = "needs_manual"
-
-
-class PackageStatus(str, Enum):
-    RESUME_READY = "resume_ready"
-    APPLYING = "applying"
-    APPLIED = "applied"
-    FAILED = "failed"
 
 
 class ApplicationOutcome(str, Enum):
@@ -116,6 +113,7 @@ JOB_TRANSITIONS: dict[JobStatus, set[JobStatus]] = {
     JobStatus.JD_READY: {
         JobStatus.RESUME_READY,
         JobStatus.JD_READY,
+        JobStatus.TAILOR_FAILED,
         JobStatus.SCAN_FAILED,
         JobStatus.SKIPPED,
         JobStatus.BLOCKED,
@@ -142,6 +140,20 @@ JOB_TRANSITIONS: dict[JobStatus, set[JobStatus]] = {
         JobStatus.NEEDS_MANUAL,
         JobStatus.JD_READY,
         JobStatus.RESUME_READY,
+        JobStatus.TAILOR_FAILED,
+    },
+    # A failed tailor run holds the JD, so it can retry (jd_ready), succeed
+    # (resume_ready), or be set aside by hand — the same exits jd_ready has.
+    JobStatus.TAILOR_FAILED: {
+        JobStatus.JD_READY,
+        JobStatus.RESUME_READY,
+        JobStatus.TAILOR_FAILED,
+        JobStatus.NEW,
+        JobStatus.SCAN_FAILED,
+        JobStatus.SKIPPED,
+        JobStatus.BLOCKED,
+        JobStatus.NEEDS_MANUAL,
+        JobStatus.APPLYING,
     },
     JobStatus.APPLYING: {
         JobStatus.APPLIED,

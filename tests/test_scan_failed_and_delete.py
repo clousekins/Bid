@@ -7,10 +7,13 @@ from app.api.jobs import RangeDelete, _purge_jobs, delete_jobs_range
 from app.config import get_settings
 from app.db import session as sess
 from app.db.enums import JobStatus
-from app.db.models import Job
+from app.db.job_tables import job_model
 from app.db.session import get_session_factory, init_db
 from app.services.deep_scan import deep_scan_job
 from app.services.pipeline import process_listing
+
+# The listings below are ingested into one persona's own jobs table.
+PID = "alex_mak"
 
 
 @pytest.mark.asyncio
@@ -71,6 +74,7 @@ async def test_purge_jobs_and_delete_range(tmp_path, monkeypatch):
     await init_db()
 
     factory = get_session_factory()
+    model = job_model(PID)
     async with factory() as session:
         for i in range(1, 4):
             r = await process_listing(
@@ -81,18 +85,21 @@ async def test_purge_jobs_and_delete_range(tmp_path, monkeypatch):
                     "url": f"https://example.com/jobs/{i}",
                     "location": "Remote, US",
                 },
+                persona_id=PID,
                 skip_content_gates=True,
             )
             assert r.ok
         await session.commit()
-        rows = list((await session.execute(select(Job).order_by(Job.seq_no))).scalars().all())
+        rows = list((await session.execute(select(model).order_by(model.seq_no))).scalars().all())
         assert [j.seq_no for j in rows] == [1, 2, 3]
 
         deleted = await _purge_jobs(session, [rows[0]], remove_folders=True)
         await session.commit()
         assert len(deleted[0]) == 1
 
-        remaining = list((await session.execute(select(Job).order_by(Job.seq_no))).scalars().all())
+        remaining = list(
+            (await session.execute(select(model).order_by(model.seq_no))).scalars().all()
+        )
         assert [j.seq_no for j in remaining] == [2, 3]
 
         out = await delete_jobs_range(
@@ -100,5 +107,5 @@ async def test_purge_jobs_and_delete_range(tmp_path, monkeypatch):
             db=session,
         )
         assert out["deleted"] == 2
-        left = (await session.execute(select(Job))).scalars().all()
+        left = (await session.execute(select(model))).scalars().all()
         assert left == []

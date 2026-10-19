@@ -5,12 +5,11 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
-from app.db.enums import JobStatus, PackageStatus
-from app.db.models import Job, JobPackage
+from app.db.enums import JobStatus
+from app.db.job_tables import job_model, resolve_job
 from app.db.session import get_db
 from app.services import chatgpt_bridge
 from app.services.employer_conflicts import persona_employers
@@ -25,6 +24,28 @@ _CLOSED = (
     JobStatus.EXPIRED.value,
     JobStatus.REJECTED_ONSITE.value,
 )
+
+# A row with a JD but no resume yet. The merged status replaces the old
+# "this persona has no package" test, and the panel still expects "need_resume".
+_NEEDS_RESUME = (
+    JobStatus.NEW.value,
+    JobStatus.JD_READY.value,
+    JobStatus.SCAN_FAILED.value,
+)
+
+
+def _state(status: str) -> str:
+    """The per-job ``state`` the extension renders, from the row's merged status.
+
+    Kept in the old per-persona-package vocabulary the panel keys on: a row with
+    no resume yet is "need_resume", a failed tailor run is "failed" (so it is
+    still flagged as tried-before), and every other status passes through.
+    """
+    if status in _NEEDS_RESUME:
+        return "need_resume"
+    if status == JobStatus.TAILOR_FAILED.value:
+        return "failed"
+    return status
 
 
 @router.get("/jobs")
@@ -48,39 +69,39 @@ async def list_jobs(
     except ValueError as exc:
         raise HTTPException(400, detail=str(exc)) from exc
 
-    stmt = (
-        select(Job)
-        .options(selectinload(Job.packages))
-        .where(func.length(Job.description) >= 50, Job.status.notin_(_CLOSED))
+    model = job_model(pid)
+    stmt = select(model).where(
+        func.length(model.description) >= 50, model.status.notin_(_CLOSED)
     )
     own = persona_employers(persona)
     if own:
-        stmt = stmt.where(Job.normalized_company.notin_(own))
+        stmt = stmt.where(model.normalized_company.notin_(own))
     if show == "need":
         stmt = stmt.where(
-            ~Job.packages.any(
-                and_(
-                    JobPackage.persona_id == pid,
-                    JobPackage.status != PackageStatus.FAILED.value,
-                )
+            model.status.in_(
+                [
+                    JobStatus.NEW.value,
+                    JobStatus.JD_READY.value,
+                    JobStatus.SCAN_FAILED.value,
+                    JobStatus.TAILOR_FAILED.value,
+                ]
             )
         )
     term = q.strip()
     if term:
         like = f"%{term}%"
-        stmt = stmt.where(or_(Job.company.ilike(like), Job.title.ilike(like)))
+        stmt = stmt.where(or_(model.company.ilike(like), model.title.ilike(like)))
     total = (
         await db.execute(select(func.count()).select_from(stmt.subquery()))
     ).scalar_one()
     limit = max(1, min(limit, 200))
     offset = max(0, offset)
     # id breaks ties, so a page boundary never shows a job twice or skips one.
-    stmt = stmt.order_by(Job.seq_no.desc(), Job.id.desc()).offset(offset).limit(limit)
+    stmt = stmt.order_by(model.seq_no.desc(), model.id.desc()).offset(offset).limit(limit)
 
     rows = (await db.execute(stmt)).scalars().all()
     jobs = []
     for job in rows:
-        mine = next((p for p in job.packages if p.persona_id == pid), None)
         jobs.append(
             {
                 "id": job.id,
@@ -88,8 +109,8 @@ async def list_jobs(
                 "company": job.company,
                 "title": job.title,
                 "location": job.location,
-                "state": mine.status if mine else "need_resume",
-                "note": (mine.notes or "")[:200] if mine else "",
+                "state": _state(job.status),
+                "note": (job.notes or "")[:200],
             }
         )
     return {
@@ -125,7 +146,8 @@ def _gone(exc: chatgpt_bridge.ChatGPTBridgeError) -> HTTPException:
 @router.post("/sessions")
 async def start_session(body: StartBody, db: AsyncSession = Depends(get_db)):
     """Start one job; answers with its first prompt."""
-    job = await db.get(Job, body.job_id)
+    resolved = await resolve_job(db, body.job_id)
+    job = resolved[1] if resolved else None
     if job is None:
         raise HTTPException(404, detail="job_missing")
     if not (job.description and len(job.description) >= 50):

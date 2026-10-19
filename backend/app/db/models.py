@@ -11,7 +11,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
 def utcnow() -> datetime:
@@ -40,13 +40,46 @@ class Company(Base):
     blocked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
-    jobs: Mapped[list["Job"]] = relationship(back_populates="company_rel")
 
+class JobIndex(Base):
+    """The one global job-id allocator and id -> table router.
 
-class Job(Base):
-    __tablename__ = "jobs"
+    Each person has their own ``jobs__{persona_id}`` table (see
+    ``app/db/job_tables.py``), but ``job.id`` must stay globally unique because
+    it is used where no persona is in hand — the in-memory apply-session map, the
+    ``/api/jobs/{job_id}`` routes, ``Application.job_id``, ``EventLog.job_id`` and
+    the renumber healer. So an id is minted by inserting a row here first, then
+    the per-persona row is written with that same id as a plain (non
+    autoincrement) primary key. A lookup here answers "which table holds this id"
+    in one indexed hit.
+    """
+
+    __tablename__ = "job_index"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    persona_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    normalized_company: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class JobBase:
+    """The column set every per-persona ``jobs__{persona_id}`` table shares.
+
+    A plain mixin, not a mapped class: ``job_model(persona_id)`` builds one mapped
+    subclass per persona from it (``app/db/job_tables.py``). SQLAlchemy copies each
+    ``mapped_column`` into every subclass, and ``index=True`` names each index
+    table-qualified (``ix_jobs__alex_mak_status``), so the eleven tables never
+    collide. ``id`` is minted by :class:`JobIndex`, so autoincrement is off here.
+
+    The row is self-contained: it folds in what used to live in the per-persona
+    ``JobPackage`` (resume folder, ATS/credibility scores, applied/outcome) and
+    the per-persona ``JobDisable`` (the tri-state ``enabled``). There is one
+    ``status`` per row — the old split between a shared listing status and a
+    per-persona package status is gone.
+    """
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    # Unique *within this table* — each person's list is numbered independently.
     seq_no: Mapped[int | None] = mapped_column(Integer, unique=True, index=True, nullable=True)
     company: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     normalized_company: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
@@ -55,107 +88,52 @@ class Job(Base):
     url: Mapped[str] = mapped_column(String(2048), nullable=False)
     apply_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     location: Mapped[str | None] = mapped_column(String(512), nullable=True)
-    # ISO-ish two-letter code derived from location at ingest. Boards do not
-    # report a country, so this is inferred; a listing naming none is US, which
-    # is why the column is never null. See services/job_country.py.
+    # ISO-ish two-letter code derived from location at ingest. See job_country.py.
     country: Mapped[str] = mapped_column(String(2), default="US", nullable=False, index=True)
     source: Mapped[str] = mapped_column(String(64), default="manual", nullable=False)
     external_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    # Pay range read from the JD at ingest (services/salary_extract.py). A first
-    # guess only — editable in the detail panel, so a wrong read is one fix away.
+    # Pay range read from the JD at ingest (services/salary_extract.py).
     salary: Mapped[str | None] = mapped_column(String(128), nullable=True)
     status: Mapped[str] = mapped_column(String(64), default="new", nullable=False, index=True)
     folder_path: Mapped[str | None] = mapped_column(String(1024), nullable=True)
-    persona_id: Mapped[str] = mapped_column(String(128), default="phong_v_cao", nullable=False)
     staffing_firm: Mapped[str | None] = mapped_column(String(255), nullable=True)
     domains: Mapped[str | None] = mapped_column(String(64), nullable=True)
     jd_fetched: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    # Can the working persona credibly do this job? Scored from the JD alone,
-    # before any resume is written, so weak matches can be skipped.
+    # Can this person credibly do this job? Scored from the JD alone.
     feasibility_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow, onupdate=utcnow
-    )
 
-    company_rel: Mapped[Company | None] = relationship(back_populates="jobs")
-    packages: Mapped[list["JobPackage"]] = relationship(
-        back_populates="job", cascade="all, delete-orphan"
-    )
-
-
-class JobPackage(Base):
-    """Per-persona tailored resume package for a single job listing."""
-
-    __tablename__ = "job_packages"
-    __table_args__ = (
-        UniqueConstraint("job_id", "persona_id", name="uq_job_package_persona"),
-    )
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False, index=True)
-    persona_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
-    status: Mapped[str] = mapped_column(String(64), default="resume_ready", nullable=False, index=True)
-    folder_path: Mapped[str | None] = mapped_column(String(1024), nullable=True)
-    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow, onupdate=utcnow
-    )
-
-    # What the employer did next. updated_at cannot serve here — it moves on
-    # every write, so response latency needs its own submission timestamp.
-    applied_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    outcome: Mapped[str] = mapped_column(
-        String(32), default="pending", nullable=False, index=True
-    )
-    outcome_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    # --- folded from the old per-persona JobPackage -----------------------
+    applied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    outcome: Mapped[str] = mapped_column(String(32), default="pending", nullable=False, index=True)
+    outcome_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     outcome_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-
-    # Would this resume survive an ATS keyword filter for this posting?
     ats_score: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     ats_breakdown: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON
-
-    # Does the document hold together as a truthful resume? Judged on the
-    # resume's own text — dates against the tech it claims, not the prompt.
     credibility_score: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     credibility_findings: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON
 
-    job: Mapped[Job] = relationship(back_populates="packages")
+    # --- folded from the old per-persona JobDisable -----------------------
+    # Tri-state: None = follow the automatic company-applied rule, True = forced
+    # on (override the auto rule), False = turned off by hand.
+    enabled: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
 
-
-class JobDisable(Base):
-    """Per-(job, profile) disabled override.
-
-    A row is one profile's explicit choice about a single listing:
-    ``disabled=True`` turns the job off for that profile, ``disabled=False``
-    forces it back on (overriding the automatic company-already-applied
-    disable). No row means the job follows the automatic rule. It is orthogonal
-    to the listing's pipeline status — a jd_ready job can be disabled for Alex
-    and active for Brian at the same time.
-    """
-
-    __tablename__ = "job_disables"
-    __table_args__ = (
-        UniqueConstraint("job_id", "persona_id", name="uq_job_disable_persona"),
-    )
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    job_id: Mapped[int] = mapped_column(
-        ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    persona_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
-    disabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, onupdate=utcnow
     )
+
+    # The persona is the table, not a column. job_model stamps __persona_id__ on
+    # each subclass; this read-only property lets the many `job.persona_id` reads
+    # across the codebase keep working unchanged.
+    @property
+    def persona_id(self) -> str:
+        return type(self).__persona_id__  # type: ignore[attr-defined]
+
+
+# Type alias for annotations: a per-persona job row is some JobBase subclass.
+JobRow = JobBase
 
 
 class Application(Base):
@@ -168,7 +146,9 @@ class Application(Base):
     persona_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     company: Mapped[str] = mapped_column(String(255), nullable=False)
     normalized_company: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    job_id: Mapped[int | None] = mapped_column(ForeignKey("jobs.id"), nullable=True)
+    # Points at a row in that persona's jobs table (ids are globally unique via
+    # JobIndex). Nullable: a standalone company-applied record can outlive its job.
+    job_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     status: Mapped[str] = mapped_column(String(64), default="applied", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
