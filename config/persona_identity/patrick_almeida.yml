@@ -1,7 +1,7 @@
 persona_id: patrick_almeida
 display_name: Patrick Almeida
 default_professional_title: Senior Data Engineer
-total_experience: "over 8 years"
+total_experience: "10+ years"
 
 identity:
   legal_name: Patrick Almeida
@@ -31,7 +31,7 @@ screening_answers:
   - question: "Are you willing to work remotely in the United States?"
     answer: "Yes"
   - question: "How many years of experience do you have?"
-    answer: "8"
+    answer: "10"
   - question: "What is your expected salary?"
     answer: "150000-180000 USD per year"
   - question: "Current Employer"

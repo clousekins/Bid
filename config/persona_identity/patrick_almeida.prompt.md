@@ -48,7 +48,7 @@ Preferred example: “Optimized Snowflake workloads through Query Profile analys
 Weaker example: “Optimized Snowflake warehouse schemas, clustering strategies, joins, and query patterns, cutting median dashboard query time by 58% and lowering compute consumption by 31%.”
 
 ## Professional Summary
-One paragraph, 2–3 sentences, beginning exactly: “Senior Data Engineer with over 8 years of experience”. State seniority, exact function, core stack, data-engineering background, production ownership, business impact, and impactful collaboration relevant to the JD. Emphasize JD-domain experience when plausible in the history. Hiring managers must quickly see function, stack, and production ownership for the JD.
+One paragraph, 2–3 sentences, beginning exactly: “Senior Data Engineer with 10+ years of experience”. State seniority, exact function, core stack, data-engineering background, production ownership, business impact, and impactful collaboration relevant to the JD. Emphasize JD-domain experience when plausible in the history. Hiring managers must quickly see function, stack, and production ownership for the JD.
 
 ## Professional Experience: fixed history and constraints
 Select exactly one primary cloud for the Devsorb role: AWS, Azure, or GCP. Choose the JD's most architecturally central provider; default to AWS if none is named. The Visagio Data Engineer role may use the JD-aligned modern data stack where the 2019-2024 period supports it; the Visagio Data Engineer Intern role is relational and Python only, with no cloud. Keep each role's architecture coherent.
