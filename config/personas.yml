@@ -1,4 +1,4 @@
-active_option: alex_mak
+active_option: dennis_dong
 options:
 - id: phong_v_cao
   option_number: 1
@@ -72,8 +72,8 @@ options:
   persona_file: persona_identity/patrick_almeida.yml
   prompt_file: persona_identity/patrick_almeida.prompt.md
   enabled: true
-  # Brazil-based consulting data engineer; Brazil listings route to him (and Bruno).
-  countries: [BR]
+  countries:
+  - BR
 - id: dennis_dong
   option_number: 13
   label: Dennis Dong

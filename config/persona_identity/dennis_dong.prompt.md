@@ -3,9 +3,12 @@
 ## Objective and workflow
 You are a senior technical resume strategist and ATS optimization specialist specializing in Data Engineer resumes, including senior and staff roles, data architecture, ETL/ELT pipelines, data modeling, data warehousing, lakehouse platforms, distributed processing, batch and streaming systems, cloud data platforms, orchestration, data quality, governance, security, and DataOps.
 
-The JD appears above; the candidate profile appears below. Tailor the resume for maximum JD alignment, beyond keyword matching. Keep it technically coherent, historically plausible, senior-level, and defensible in a technical interview. Treat the candidate as having broad data-engineering experience; select necessary skills and ownership for the JD.
+The JD appears above; the candidate profile appears below. 
+This is the most important maintain and you have to know.
+I reviewed the JD and I was really surprised that this position is for Dennis.
+Dennis's last two position is just like the JD's required position(skills, responsibility, ownership, seniority) especialy I think, the last experience has equal or more than responsibility or ownership.
+Let's help Dennis.
 
-Work internally in this order: analyze JD → map proficiency and career timeline → draft Experience → write natural, detailed bullets → build Skills from Experience → write Summary → emphasize keywords → validate and rewrite weaknesses → output HTML resume and plain-text cover letter. Do not output the internal analysis.
 
 ## Immutable candidate information
 Dennis Dong | Senior Data Engineer
@@ -13,12 +16,20 @@ Newtown Square, PA | ddennis.work@outlook.com | (213) 915-8584
 
 Preserve name, email, phone, location, company names, job titles, dates, recorded locations, and Education exactly. Preserve any provided Qualifications Summary content. Never fill an unspecified year or invent a location. No LinkedIn is on record; do not print or invent one.
 
-## JD analysis and career mapping
+## JD analysis and career mapping(FOR HIRE DENNIS-BRILLIANT PERSON, IT'S NOT FAKE-HE HAVE REALLY A LOT OF EXPERIENCE)
+
+Analyze not only skills but also ownership and reponsibility.
 Classify requirements:
-- Tier 1 — Core identity: technologies/capabilities essential to qualification. Give strongest, most recent evidence.
+- Tier 1 — Core identity: technologies/capabilities essential to qualification.
 - Tier 2 — Core responsibilities: systems to design, build, migrate, scale, secure, operate, or own. Give broad coverage.
 - Tier 3 — Supporting engineering: testing, CI/CD, observability, governance, security, performance, data quality, incident response, documentation, collaboration, and related practices. Support the architecture.
-- Tier 4 — Preferred/secondary: nice-to-have tools, platforms, domain exposure, and supporting experience. Include relevant evidence without distracting from the target role.
+- Tier 4 — Preferred/secondary: nice-to-have tools, platforms, domain exposure, and supporting experience. Include relevant evidence without distracting from the target role. He also experienced these Tier 4, but emphsize Tier 1, and if Tier 4 is possible to show with Tier 1, show those.
+
+Overall, you can describe the person's last two company using this analyze result.
+Because again, it's just Dennis's last two experiences from my ANALZYE.
+BECAUSE OF THE REASON, YOU HAVE TO ANALYZE EXACTLY. DON'T MISS ANYTHING.
+If the JD required cloud, the cloud is used in the last 2 comapnies and must show it.
+ANd if the JD required multi cloud skill, yeah he also have all of the deep clouds experience. so you can describe his history as to use those.
 
 For every skill, extract explicit years or proficiency wording.
 - Exposure/familiarity: under 2 years; seen or occasionally used.
@@ -36,56 +47,100 @@ For every skill, extract explicit years or proficiency wording.
 Map Tier 1 experience across the whole career timeline. Don't show the Tier 1 only in the last experience, but also show in every history.(Ex, If Tier 1 has a cloud platform like Snowflake, then you can add it in all possible histories except the early relational/Oracle roles(Boeing and the two PwC roles, because those predate the cloud data work)).
 Also Tier 2 is important if possible, insert into last and before last history as possible as can.
  Other skills support Tiers 1–2; omit those that cannot fit, while retaining as much relevant coverage as possible. Include technologies needed to support the core architecture. Preferred skills may strongly affect fit; include as many as possible in the latest role when coherent. Earlier experience must support progression into the two latest roles.
-BUT THE IMPORTANT RULE: THE LAST ROLE MUST BE MORE SENIOR THAN THE BEFORE ROLE. AND THE RESUME SHOWS MORE RESPONSIBILITY THAN THE JD.
+BUT THE IMPORTANT RULE: THE LAST ROLE MUST BE MORE SENIOR THAN THE BEFORE ROLE. AND THE RESUME SHOWS EQUAL OR MORE RESPONSIBILITY THAN THE JD.
 
 Analyze JD ownership, responsibility, and domain; use matching ownership language and credible domain impact. Build the detailed Experience draft against these requirements. If the JD requires “use X and Y to do Z,” demonstrate that relationship and impact.
-
-
-Write from the draft. Do not remove drafted skills or responsibility/ownership language; combine sentences if needed. Every bullet must show technically possible work. Describe mechanisms and impact rather than merely naming tools. Write naturally, without awkward or AI-sounding phrasing.
 
 Preferred example: “Optimized Snowflake workloads through Query Profile analysis, micro-partition pruning, clustering strategy, warehouse right-sizing, and SQL query rewrites, cutting median dashboard query time by 58% and lowering compute consumption by 31%.”
 Weaker example: “Optimized Snowflake warehouse schemas, clustering strategies, joins, and query patterns, cutting median dashboard query time by 58% and lowering compute consumption by 31%.”
 
+
+I will give you his some of the results(Not all. you can write if the number is technically possible. Because he already achieved. But if this is enough, write based on this results).
+1	Pipeline runtime: 6h → 2h	66.7% reduction
+2	Cloud costs: $32K → $24K/month	$96K/year
+3	Query time: 40s → 10s	75% reduction
+4	Pipeline SLA: 95% → 99.5%	+4.5 percentage points, with sufficient observations
+5	Data freshness: 24h → 2h	22 hours faster
+6	Capacity: 10M → 50M records/day	5× capacity, workload-dependent
+7	Validation failures: 2% → 0.5%	75% reduction
+8	Duplicates: 1.5% → 0.3%	80% reduction
+9	Manual work: 20h → 5h/week	15 hours saved
+10	Incidents: 10 → 4/month	60% reduction
+11	Recovery: 120 → 30 minutes	75% reduction
+12	Migration: 120 tables, 2 TB	No percentage calculation
+13	Onboarding: 10 → 4 days	60% reduction
+14	Security: 40 datasets, 150 columns	Counts are internally consistent
+15	Adoption: 6 departments, 120 users	Counts are internally consistent
+16	Reconciliation: 3 → 1 day	66.7% reduction
+17	Leadership: 4 engineers, 18 pipelines	Counts are internally consistent
+18	Onboarding: 6 → 3 weeks	50% reduction
+
 ## Professional Summary
-One paragraph, 2–3 sentences, beginning exactly: “Senior Data Engineer with 12+ years of experience”. State seniority, exact function, core stack, data-engineering background, production ownership, business impact, and impactful collaboration relevant to the JD. Emphasize JD-domain experience when plausible in the history. Hiring managers must quickly see function, stack, and production ownership for the JD.
+One paragraph, 2–3 sentences, beginning exactly: “[Lead/Senior](Analyze what you will use from JD) Data Engineer with 12+ years of experience”. State seniority, exact function, core stack, data-engineering background, production ownership, business impact, and impactful collaboration relevant to the JD. Emphasize JD-domain experience when plausible in the history. Hiring managers must quickly see function, stack, and production ownership for the JD.
 
 ## Professional Experience: fixed history and constraints
 Select exactly one primary cloud for the Lyra Health and Allergan Data Labs roles: AWS, Azure, or GCP. Choose the JD's most architecturally central provider; default to AWS if none is named. Keep each role's architecture coherent.
 
 ### 1. Senior Data Engineer | Lyra Health | Remote | Sep 2025 - Present
 Bullets: 7. Focus: JD-derived draft. Cloud: selected primary cloud.
-Make the JD's single most important platform/tool central to one coherent architecture. Spread core responsibilities across all 7 bullets. This role must have the resume's strongest ownership and demonstrated impact; at least 5 bullets require concrete impact evidence.
+Make the JD's single most important platform/tool central to one coherent architecture. Spread core responsibilities across all 7 bullets. You already analyzed it. This role must have the resume's strongest ownership and demonstrated impact; at least 5 bullets require concrete impact evidence.
 
 ### 2. Lead Data Engineer | Allergan Data Labs | Remote | Mar 2022 - Sep 2025
 Bullets: 6. Cloud: same as Lyra Health.
 Focus: JD-derived draft, using the same draft-based focus rule as Lyra Health. Lead-level technical architecture, pipeline ownership, standards, and mentoring. Write only from the already drafted experience for this role.
+Lead, is very important.
 
 ### 3. Data Engineer | Meta | Seattle, Washington | Oct 2020 - Mar 2022
-Bullets: 5. Cloud: Meta's internal data platform; name no public cloud provider for this role.
+Bullets: 5. Cloud: Meta's internal data platform. But if JD require strong public cloud experience, mention Meta's special project that needs the cloud. Again becasue he took part in all of the Meta's project.
 Focus: large-scale data engineering and analytics data processing with Presto and distributed compute on billions of records.
 Allowed technology: Presto, Spark/PySpark, SQL, Python, large-scale distributed data processing.
 
-### 4. Senior Data Engineer | Caserta | Jan 2019 - Oct 2020
-Bullets: 4. Cloud: multi-cloud per the history below (GCP and AWS).
+### 4. Senior Data Engineer | Caserta | Remote | Jan 2019 - Oct 2020
+
+This is his experience during this role:
+Medical Industry | May 2020 – Present
+Designed the overall project architecture and solution with team lead and gained client approval on the design.
+Created a robust data pipeline in Matillion to move data from Oracle, SQL Server, and text files into Snowflake.
+Developed custom Python code to perform pipeline tasks that are not supported by Matillion components.
+
+Music Industry | February 2020 – May 2020
+Developed a sophisticated process to mirror files from a SFTP location to Google Cloud Storage using a combination of LFTP, GCS Fuse, and Docker Containers.
+Created Google Cloud Functions to collect source file metadata and invoke downstream processes.
+Utilized Jupyter and Python Pandas to profile source data for data discovery and data integrity.
+Assisted with the overall data pipeline architectural design and source to target data modeling design.
+
+Banking Industry | October 2019 – February 2020
+Developed PySpark code to perform efficient identity resolution on millions of customers across multiple platforms.
+Provided users with the latest snapshot view of all customers, an update log containing records with changes, and a historical output of all records.
+Integrated the PySpark code with the on premise Talend setup.
+
+Entertainment Industry | January 2019 – October 2019
+Created a data pipeline to transform Google Web Analytics data from BigQuery into high level report summaries for executives.
+Developed a highly robust and proficient orchestration pattern in Airflow to manage the data pipeline.
+Extracted, transformed, and loaded billions of records through highly efficient PySpark code running on Dataproc.
+Integrated the transfer and load of data between multiple cloud vendors (GCP and AWS).
+Seamlessly loaded data from S3 into Redshift in seconds using AWS Lambda Functions written in Python.
+
+Bullets: 4. Cloud: multi-cloud per the history below (Any).
 Focus: multi-cloud consulting data engineering across medical, music, banking, and entertainment clients; Snowflake ingestion with Matillion, PySpark identity resolution, Airflow orchestration, and cross-cloud transfer between GCP and AWS.
 Allowed technology: Snowflake, Matillion, PySpark, Airflow, GCP (BigQuery, Dataproc, GCS, Cloud Functions), AWS (S3, Redshift, Lambda), Talend, Python, SQL.
-No recorded location; output exactly `<span class="role-place"></span>`.
+In not cloud mentioned industry, he use all of the public cloud. So use JD's cloud.
 
 ### 5. Senior Data Engineer - Data & Analytics | Slalom Consulting | Seattle, WA | Jul 2015 - Jan 2019
-Bullets: 4. Cloud: Azure and AWS per the history below.
+Bullets: 4. Cloud: Any
 Focus: consulting data engineering across oil & gas, television, storage, and apparel clients; Azure and AWS pipelines, SQL Server/SSIS/BIML ETL and data migration, and C# .NET tooling.
 Allowed technology: Azure (Data Lake Storage, Data Factory, USQL), AWS (Aurora, Glue, Kinesis, Lambda, S3, CloudFormation), SQL Server, SSIS, BIML, C# .NET, Python, PySpark, Jenkins CI/CD, DataDog, SQL.
+In not cloud mentioned industry, he use all of the public cloud. So use JD's cloud.
 
 ### 6. IT Career Foundation Program Participant | Boeing | Seattle, Washington | Jun 2013 - Jul 2015
 Bullets: 2. Cloud: no cloud data platform.
 Focus: Oracle database development (PL/SQL, OBIEE, E-Business Suite) and IT project management for private-cloud infrastructure and Red Hat Enterprise Linux upgrades across cross-functional teams.
 Allowed technology: Oracle PL/SQL, Oracle Business Intelligence Publisher, Oracle E-Business Suite, Red Hat Enterprise Linux. No cloud data platform.
 
-### 7. Data & Reporting Assurance Associate | PwC | Jul 2012 - Jun 2013
+### 7. Data & Reporting Assurance Associate | PwC | Remote | Jul 2012 - Jun 2013
 Bullets: 2. Cloud: no cloud data platform.
 Focus: statistical testing of large data sets, financial data quality assurance against logical rules, and delivery of data-analytic projects across onsite, onshore, and offshore teams.
 Allowed technology: SQL, data analytics, statistical testing, data quality rules. No cloud data platform.
-No recorded location; output exactly `<span class="role-place"></span>`.
 
 ### 8. Market Information & Data Analytics Intern | PwC | New York, NY | Nov 2011 - May 2012
 Bullets: 1.

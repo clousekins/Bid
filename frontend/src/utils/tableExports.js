@@ -34,6 +34,9 @@ export const JOB_EXPORT_COLUMNS = [
   },
   { header: "Created", key: "created_at" },
   { header: "Updated", key: "updated_at" },
+  // The full job description. Kept last because it is by far the widest field;
+  // the header is "description" so the file can be handed back to the importer.
+  { header: "description", key: "description" },
 ];
 
 export const CATALOG_EXPORT_COLUMNS = [
