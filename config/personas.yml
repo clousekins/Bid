@@ -74,3 +74,9 @@ options:
   enabled: true
   # Brazil-based consulting data engineer; Brazil listings route to him (and Bruno).
   countries: [BR]
+- id: dennis_dong
+  option_number: 13
+  label: Dennis Dong
+  persona_file: persona_identity/dennis_dong.yml
+  prompt_file: persona_identity/dennis_dong.prompt.md
+  enabled: true

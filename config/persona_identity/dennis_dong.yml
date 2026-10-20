@@ -1,0 +1,121 @@
+persona_id: dennis_dong
+display_name: Dennis Dong
+default_professional_title: Senior Data Engineer
+total_experience: "12+ years"
+
+identity:
+  legal_name: Dennis Dong
+  preferred_name: Dennis Dong
+  # NO EMAIL WAS SUPPLIED. It is left empty on purpose and is NOT printed on the
+  # resume until provided. Applications need one — fill it here and in
+  # dennis_dong.prompt.md as soon as it is known. Do not invent an address.
+  email: ""
+  phone: "(213) 915-8584"
+  location_city: Newtown Square
+  location_state: PA
+  location_country: US
+  # No LinkedIn was supplied; it is not printed and must not be invented.
+  linkedin_url: ""
+  work_authorization: "Authorized to work in the US"
+  salary_expectation: "150000-180000 USD per year"
+
+screening_answers:
+  - question: "Your resume's ATS score for this job description(only score, ex: 40%)?"
+    answer: ""
+  - question: "Are you authorized to work in the United States?"
+    answer: "Yes"
+  - question: "Do you now or will you in the future require sponsorship?"
+    answer: "No"
+  - question: "Are you willing to work remotely in the United States?"
+    answer: "Yes"
+  - question: "How many years of experience do you have?"
+    answer: "12"
+  - question: "What is your expected salary?"
+    answer: "150000-180000 USD per year"
+  - question: "Current Employer"
+    answer: "Lyra Health"
+  - question: "Current Job Title"
+    answer: "Senior Data Engineer"
+  - question: "Were you referred for this position?"
+    answer: "No"
+
+tailor:
+  mode: html_resume_bundle
+  prompt_file: dennis_dong.prompt.md
+  css_file: dennis_dong.css
+  # The accent dennis_dong.css is written in, so the colour picker can repaint it.
+  accent_color: "#1D6E93"
+  # Fill in <strong> on any bullet the model left without emphasis.
+  enforce_bullet_emphasis: true
+  experience_ground_truth:
+    - company: Lyra Health
+      title: Senior Data Engineer
+      location: Remote
+      start: "Sep 2025"
+      end: Present
+      bullets: 7
+      focus: The strongest evidence for the target JD. Mental-health data engineering built out across ingestion, transformation, modelling, quality, governance and delivery, carrying the most impact on the resume
+      allowed_tech: Modern data stack aligned to the JD
+    - company: Allergan Data Labs
+      title: Lead Data Engineer
+      location: Remote
+      start: "Mar 2022"
+      end: "Sep 2025"
+      bullets: 6
+      focus: Technical architecture and lead data engineering at scale, pipeline ownership, standards and mentoring; the run-up to the Lyra role and the second strongest source of impact
+      allowed_tech: Modern data stack aligned to the JD
+    - company: Meta
+      title: Data Engineer
+      location: "Seattle, Washington"
+      start: "Oct 2020"
+      end: "Mar 2022"
+      bullets: 5
+      focus: Large-scale data engineering and analytics data processing with Presto and distributed compute on billions of records
+      allowed_tech: Presto, Spark/PySpark, SQL, Python, large-scale distributed data processing aligned to the JD
+    - company: Caserta
+      title: Senior Data Engineer
+      location: ""
+      start: "Jan 2019"
+      end: "Oct 2020"
+      bullets: 4
+      focus: Multi-cloud consulting data engineering across medical, music, banking and entertainment clients; Snowflake ingestion with Matillion, PySpark identity resolution, Airflow orchestration, and cross-cloud transfer between GCP and AWS
+      allowed_tech: Snowflake, Matillion, PySpark, Airflow, GCP (BigQuery, Dataproc, GCS, Cloud Functions), AWS (S3, Redshift, Lambda), Talend, Python, SQL
+    - company: Slalom Consulting
+      title: Senior Data Engineer - Data & Analytics
+      location: "Seattle, WA"
+      start: "Jul 2015"
+      end: "Jan 2019"
+      bullets: 4
+      focus: Consulting data engineering across oil & gas, television, storage and apparel clients; Azure and AWS pipelines, SQL Server/SSIS/BIML ETL and data migration, and C# .NET tooling
+      allowed_tech: Azure (Data Lake Storage, Data Factory, USQL), AWS (Aurora, Glue, Kinesis, Lambda, S3, CloudFormation), SQL Server, SSIS, BIML, C# .NET, Python, PySpark, Jenkins CI/CD, DataDog, SQL
+    - company: Boeing
+      title: IT Career Foundation Program Participant
+      location: "Seattle, Washington"
+      start: "Jun 2013"
+      end: "Jul 2015"
+      bullets: 2
+      focus: Oracle database development (PL/SQL, OBIEE, E-Business Suite) and IT project management for private-cloud infrastructure and Red Hat Enterprise Linux upgrades across cross-functional teams
+      allowed_tech: Oracle PL/SQL, Oracle Business Intelligence Publisher, Oracle E-Business Suite, Red Hat Enterprise Linux. No cloud data platform
+    - company: PwC
+      title: Data & Reporting Assurance Associate
+      location: ""
+      start: "Jul 2012"
+      end: "Jun 2013"
+      bullets: 2
+      focus: Statistical testing of large data sets, financial data quality assurance against logical rules, and delivery of data-analytic projects across onsite, onshore and offshore teams
+      allowed_tech: SQL, data analytics, statistical testing, data quality rules. No cloud data platform
+    - company: PwC
+      title: Market Information & Data Analytics Intern
+      location: "New York, NY"
+      start: "Nov 2011"
+      end: "May 2012"
+      bullets: 1
+      focus: Testing of a proprietary pricing system and automation of statistical computations and status reporting with Excel and VBA
+      allowed_tech: Excel, VBA, SQL, data analysis. No cloud data platform
+  education_ground_truth:
+    - degree: Master of Science (Computer Information Systems)
+      school: Baruch College
+      location: "New York, NY"
+      year: "2012"
+  # None recorded. The resume omits the Certification section entirely.
+  certifications_ground_truth: []
