@@ -14,6 +14,7 @@ from app.db.enums import JobStatus
 from app.db.job_tables import resolve_job
 from app.db.models import JobRow
 from app.db.session import get_db
+from app.services import runtime_settings
 from app.services.apply_answers import generate_field_answers
 from app.services.folder_writer import ensure_job_folder
 from app.services.jd_extract import extract_job_fields_from_jd
@@ -339,7 +340,7 @@ async def manual_prompt(body: ManualPromptBody, db: AsyncSession = Depends(get_d
         "persona_id": persona.persona_id,
         "job_id": job.id,
         "mode": prompt["mode"],
-        "model": get_settings().openai_model,
+        "model": runtime_settings.tailor_model(),
         "system": prompt["system"],
         "user": prompt["user"],
         "combined": combined,
