@@ -1,0 +1,230 @@
+/* Bruno Raphael — the same sheet Brian Gou and Alex Mak use, kept in step.
+ *
+ * Four things define the look:
+ *   - the subtitle reads as a sentence, not a shout (no uppercasing)
+ *   - dates and locations are grey, so the blue belongs to headings and roles
+ *   - the role line splits: title left, location right, the way the company
+ *     line above it already splits company from dates
+ *   - more air between bullets, since the page carries ten roles
+ *
+ * One accent throughout: #1D6E93, a teal-leaning blue. The name, section rules,
+ * role titles, school lines and bullet markers all carry it. Dates and
+ * locations stay grey (#5A6672) so the accent reads as structure rather than
+ * decoration. It clears 5.6:1 against white, so it stays legible at 12px and
+ * in print. */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: Arial, Calibri, sans-serif;
+  font-size: 12.4px;
+  line-height: 1.5;
+  color: #1A1A1A;
+  background: #FFFFFF;
+}
+
+.name {
+  font-family: Arial, Calibri, sans-serif;
+  font-size: 34px;
+  line-height: 1.08;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  color: #1D6E93;
+  margin: 0 0 2px 0;
+}
+
+.title {
+  font-family: Arial, Calibri, sans-serif;
+  font-size: 16px;
+  line-height: 1.25;
+  font-weight: 700;
+  color: #1D6E93;
+  letter-spacing: 0;
+  margin: 0 0 7px 0;
+  padding: 0;
+  border: 0;
+}
+
+.contact {
+  font-size: 11.6px;
+  line-height: 1.45;
+  color: #5A6672;
+  margin: 0 0 4px 0;
+}
+
+a {
+  color: #5A6672;
+  text-decoration: none;
+}
+
+/* The header rule the skeleton emits. Left as a spacer: the section rule under
+ * PROFESSIONAL SUMMARY already separates the header from the body, and a second
+ * line that close above it only crowds the top of the page. */
+.header-dotted {
+  border: 0;
+  margin: 0 0 2px 0;
+}
+
+.section-title {
+  font-family: Arial, Calibri, sans-serif;
+  font-size: 13.5px;
+  line-height: 1.2;
+  font-weight: 700;
+  color: #1D6E93;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  border-bottom: 1.5px solid #1D6E93;
+  padding: 0 0 4px 0;
+  margin: 15px 0 8px 0;
+}
+
+hr {
+  display: none;
+}
+
+.summary {
+  font-size: 12.4px;
+  line-height: 1.55;
+  color: #1A1A1A;
+  margin: 0 0 5px 0;
+}
+
+.job {
+  margin: 0 0 12px 0;
+}
+
+.job-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin: 0 0 1px 0;
+}
+
+.job-company {
+  font-size: 13px;
+  line-height: 1.3;
+  font-weight: 700;
+  color: #111111;
+}
+
+.job-date {
+  font-size: 11.8px;
+  line-height: 1.3;
+  font-weight: 400;
+  color: #5A6672;
+  white-space: nowrap;
+}
+
+/* Title left, location right — mirrors .job-header directly above it. */
+.job-role {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin: 0 0 3px 0;
+}
+
+.role-title {
+  font-size: 12.4px;
+  line-height: 1.3;
+  font-weight: 700;
+  color: #1D6E93;
+}
+
+.role-place {
+  font-size: 11.8px;
+  line-height: 1.3;
+  font-style: italic;
+  color: #5A6672;
+  white-space: nowrap;
+}
+
+ul {
+  margin: 3px 0 0 16px;
+  padding: 0;
+}
+
+li {
+  font-size: 12.2px;
+  line-height: 1.5;
+  color: #1A1A1A;
+  margin: 0 0 4px 0;
+  padding-left: 4px;
+}
+
+li::marker {
+  color: #1D6E93;
+}
+
+strong {
+  font-weight: 700;
+  color: #111111;
+}
+
+b {
+  font-weight: 700;
+  color: #111111;
+}
+
+.skills {
+  margin: 0 0 4px 0;
+}
+
+.skills p {
+  font-size: 12.2px;
+  line-height: 1.5;
+  margin: 0 0 3px 0;
+}
+
+.edu {
+  margin: 0 0 6px 0;
+}
+
+.edu-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.edu-degree {
+  font-size: 12.4px;
+  line-height: 1.3;
+  font-weight: 700;
+  color: #111111;
+}
+
+.edu-date {
+  font-size: 11.8px;
+  line-height: 1.3;
+  font-weight: 400;
+  color: #5A6672;
+  white-space: nowrap;
+}
+
+.edu-school {
+  font-size: 11.9px;
+  line-height: 1.35;
+  color: #1D6E93;
+  font-style: italic;
+}
+
+/* Plain containers the skeleton wraps the document in. The spacing comes from
+ * .section-title's own margins, so giving these boxes their own would move
+ * everything. */
+.resume {
+  display: block;
+}
+
+.header {
+  display: block;
+}
+
+.section {
+  display: block;
+}

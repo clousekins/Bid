@@ -1,0 +1,83 @@
+persona_id: patrick_almeida
+display_name: Patrick Almeida
+default_professional_title: Senior Data Engineer
+total_experience: "over 8 years"
+
+identity:
+  legal_name: Patrick Almeida
+  preferred_name: Patrick Almeida
+  email: patrick.a.ework@gmail.com
+  # No phone or LinkedIn was supplied. They are left empty on purpose and are
+  # not printed on the resume; do not invent either. Fill them here and in
+  # patrick_almeida.prompt.md if they become available.
+  phone: ""
+  location_city: Santo Agostinho
+  location_state: Pernambuco
+  location_country: BR
+  linkedin_url: ""
+  # CONFIRM THIS. He is based in Brazil and his experience is Brazilian. The
+  # answer decides how every screening form is filled in; mirrored from the
+  # other Brazil-based persona until confirmed.
+  work_authorization: "Authorized to work in the US"
+  salary_expectation: "150000-180000 USD per year"
+
+screening_answers:
+  - question: "Your resume's ATS score for this job description(only score, ex: 40%)?"
+    answer: ""
+  - question: "Are you authorized to work in the United States?"
+    answer: "Yes"
+  - question: "Do you now or will you in the future require sponsorship?"
+    answer: "No"
+  - question: "Are you willing to work remotely in the United States?"
+    answer: "Yes"
+  - question: "How many years of experience do you have?"
+    answer: "8"
+  - question: "What is your expected salary?"
+    answer: "150000-180000 USD per year"
+  - question: "Current Employer"
+    answer: "Devsorb"
+  - question: "Current Job Title"
+    answer: "Senior Data Engineer"
+  - question: "Were you referred for this position?"
+    answer: "No"
+
+tailor:
+  mode: html_resume_bundle
+  prompt_file: patrick_almeida.prompt.md
+  css_file: patrick_almeida.css
+  # The accent patrick_almeida.css is written in, so the colour picker can repaint it.
+  accent_color: "#1D6E93"
+  # Fill in <strong> on any bullet the model left without emphasis.
+  enforce_bullet_emphasis: true
+  experience_ground_truth:
+    - company: Devsorb
+      title: Senior Data Engineer
+      location: Remote
+      start: "Dec 2024"
+      end: Present
+      bullets: 8
+      focus: The strongest evidence for the target JD. Consulting data engineering built out across ingestion, transformation, modelling, quality, governance and delivery, carrying the most impact on the resume
+      allowed_tech: Modern data stack aligned to the JD, within what the consulting data work credibly needs
+    - company: Visagio Brasil
+      title: Data Engineer
+      location: "São Paulo, SP, Brazil"
+      start: "Dec 2019"
+      end: "Dec 2024"
+      bullets: 6
+      focus: Cloud and modern data engineering and ETL for consulting clients, the technical run-up to the senior role and the second strongest source of impact
+      allowed_tech: Modern data stack aligned to the JD where the 2019-2024 period supports it, SQL, Python, ETL tooling
+    - company: Visagio Brasil
+      title: Data Engineer Intern
+      location: "São Paulo, SP, Brazil"
+      start: "Oct 2017"
+      end: "Oct 2019"
+      bullets: 3
+      focus: Foundational data engineering, Python, SQL, ETL and dashboards on relational databases; the earliest role and the origin of the engineering habits the later roles extend
+      allowed_tech: Python, SQL, ETL, dashboards, relational databases. No cloud platform
+  education_ground_truth:
+    - degree: Bachelor of Science (Data Science)
+      school: Universidade de São Paulo (USP)
+      location: "São Paulo, Brazil"
+      year: "2019"
+  # None recorded. The resume omits the Certification section entirely.
+  certifications_ground_truth: []

@@ -1,4 +1,4 @@
-active_option: bruno_raphael
+active_option: alex_mak
 options:
 - id: phong_v_cao
   option_number: 1
@@ -66,3 +66,11 @@ options:
   persona_file: persona_identity/sumanth_gottipati.yml
   prompt_file: persona_identity/sumanth_gottipati.prompt.md
   enabled: false
+- id: patrick_almeida
+  option_number: 12
+  label: Patrick Almeida
+  persona_file: persona_identity/patrick_almeida.yml
+  prompt_file: persona_identity/patrick_almeida.prompt.md
+  enabled: true
+  # Brazil-based consulting data engineer; Brazil listings route to him (and Bruno).
+  countries: [BR]
