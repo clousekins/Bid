@@ -8,7 +8,7 @@
 // So the panel asks, and this answers: every backend call and every file
 // written goes through here.
 
-import { createJob, findByUrl, gpt, ping } from "./lib/api.js";
+import { createJob, findByUrl, gpt, personas, ping } from "./lib/api.js";
 import { PAGE as GPT_PAGE, SEL as GPT_SEL } from "./lib/gpt-page.js";
 import { PAGE as CLAUDE_PAGE, SEL as CLAUDE_SEL } from "./lib/claude-page.js";
 import { BOARD_API } from "./lib/greenhouse.js";
@@ -41,6 +41,7 @@ const HANDLERS = {
   "api:ping": () => ping(),
   "api:findByUrl": (payload) => findByUrl(payload),
   "api:createJob": (payload) => createJob(payload),
+  "api:personas": () => personas(),
   "csv:download": (payload) => downloadCsv(payload),
   "csv:reveal": ({ id }) => chrome.downloads.show(id),
   "options:open": () => chrome.runtime.openOptionsPage(),

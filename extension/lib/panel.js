@@ -20,6 +20,15 @@ const TEMPLATE = `
       <button type="button" id="btnClose" class="icon" title="Close (Esc)">✕</button>
     </header>
 
+    <section class="card" id="personaCard">
+      <div class="card-head">
+        <h2>Ingest for</h2>
+        <span class="muted" id="personaCount">loading…</span>
+      </div>
+      <div class="persona-chips" id="personaChips"></div>
+      <p class="hint">Each selected person gets their own copy. Applies to Add and Push.</p>
+    </section>
+
     <section class="card">
       <div class="card-head">
         <h2>This page</h2>
@@ -94,12 +103,65 @@ const TEMPLATE = `
 
 export async function mountPanel(hostId) {
   const { root, $, host } = await mountShell(hostId, TEMPLATE);
-  wireClip(root, $, host);
-  wireJson(root, $);
+  const getPersonas = await wirePersonas($);
+  wireClip(root, $, host, getPersonas);
+  wireJson(root, $, getPersonas);
   wireGreenhouse(root, $);
 
   refreshStatus($);
   refreshBasket($);
+}
+
+// --- Who to ingest for ------------------------------------------------------
+//
+// The jobs table is per persona now, so a clip or a push ingests a copy for each
+// selected person. The choice is persisted, and both Add and Push read it.
+async function wirePersonas($) {
+  const KEY = "clipPersonaIds";
+  const chips = $("personaChips");
+  let people = [];
+  let selected = new Set();
+
+  const persist = () => chrome.storage.local.set({ [KEY]: [...selected] });
+  const render = () => {
+    chips.replaceChildren(
+      ...people.map((p) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = selected.has(p.id) ? "persona-chip active" : "persona-chip";
+        b.textContent = p.label || p.id;
+        b.addEventListener("click", () => {
+          selected.has(p.id) ? selected.delete(p.id) : selected.add(p.id);
+          persist();
+          render();
+        });
+        return b;
+      })
+    );
+    $("personaCount").textContent = selected.size
+      ? `${selected.size} selected`
+      : "pick at least one";
+  };
+
+  try {
+    const res = await ask("api:personas"); // { personas: [{id,label,active,enabled}], active }
+    people = (res.personas || []).filter((p) => p.enabled !== false);
+    const valid = new Set(people.map((p) => p.id));
+    const stored = (await chrome.storage.local.get({ [KEY]: null }))[KEY];
+    if (Array.isArray(stored) && stored.length) {
+      selected = new Set(stored.filter((id) => valid.has(id)));
+    }
+    if (!selected.size) {
+      const def = res.active || people.find((p) => p.active)?.id || people[0]?.id;
+      if (def) selected.add(def);
+    }
+    render();
+  } catch (err) {
+    $("personaCount").textContent = err.message;
+  }
+
+  const shortLabel = (id) => (people.find((p) => p.id === id)?.label || id);
+  return { ids: () => [...selected], label: shortLabel };
 }
 
 async function refreshStatus($) {
@@ -113,7 +175,24 @@ async function refreshStatus($) {
 
 // --- The page in front of you -----------------------------------------------
 
-function wireClip(root, $, host) {
+// One clip/push can land in several persona tables. Turn the backend's
+// per-persona summary into one readable line.
+function summarizeIngest(res, label) {
+  const ps = res.personas || [];
+  const ok = ps.filter((p) => p.ok);
+  const bad = ps.filter((p) => !p.ok);
+  const reason = (p) => (p.reason || "skipped").replace(/_/g, " ");
+  if (ok.length) {
+    const okTxt = ok.map((p) => `${label(p.persona_id)} #${p.seq_no}`).join(", ");
+    const badTxt = bad.length
+      ? ` · ${bad.map((p) => `${label(p.persona_id)}: ${reason(p)}`).join("; ")}`
+      : "";
+    return `Added for ${okTxt}${badTxt}.`;
+  }
+  return `Not added — ${ps.map((p) => `${label(p.persona_id)}: ${reason(p)}`).join("; ")}.`;
+}
+
+function wireClip(root, $, host, getPersonas) {
   const FIELDS = {
     company: $("fCompany"),
     title: $("fTitle"),
@@ -162,28 +241,19 @@ function wireClip(root, $, host) {
       say($("clipMsg"), "Company, title and URL are all required.", "warn");
       return;
     }
+    const persona_ids = getPersonas.ids();
+    if (!persona_ids.length) {
+      say($("clipMsg"), "Pick at least one person to ingest for (top of the panel).", "warn");
+      return;
+    }
     await whileBusy($("btnSave"), "Saving…", async () => {
       try {
-        // Asked before posting: the backend deduplicates by URL itself, but
-        // answers a duplicate with the same 200 and job body as a new insert,
-        // so posting blind could never report which of the two happened.
-        const existing = await ask("api:findByUrl", { company: job.company, url: job.url });
-        if (existing) {
-          say(
-            $("clipMsg"),
-            `Already on file as #${existing.seq_no ?? existing.id} (${existing.status || "saved"}).`,
-            "warn"
-          );
-          return;
-        }
-        const saved = await ask("api:createJob", job);
-        say($("clipMsg"), `Added as #${saved.seq_no ?? saved.id}.`, "ok");
+        // The backend ingests a copy per selected, country-eligible persona and
+        // reports what happened to each (added / duplicate / already applied).
+        const res = await ask("api:createJob", { ...job, persona_ids });
+        say($("clipMsg"), summarizeIngest(res, getPersonas.label), res.ingested ? "ok" : "warn");
         await refreshStatus($);
       } catch (err) {
-        if (err.status === 409) {
-          say($("clipMsg"), `Rejected: ${err.message.replace(/_/g, " ")}.`, "warn");
-          return;
-        }
         say($("clipMsg"), err.message, "bad");
       }
     });
@@ -213,7 +283,7 @@ async function refreshBasket($) {
   return rows;
 }
 
-function wireJson(root, $) {
+function wireJson(root, $, getPersonas) {
   // The slider, and its remembered position.
   const out = $("minScoreOut");
   const slider = $("minScore");
@@ -296,14 +366,9 @@ function wireJson(root, $) {
         return;
       }
 
-      // Read the high-water mark first. A job the backend already had comes
-      // back with its original, lower sequence number, which is how "added"
-      // and "already on file" are told apart without a second request each.
-      let baseline = 0;
-      try {
-        baseline = (await ask("api:ping")).maxSeq;
-      } catch (err) {
-        say($("jsonMsg"), err.message, "bad");
+      const persona_ids = getPersonas.ids();
+      if (!persona_ids.length) {
+        say($("jsonMsg"), "Pick at least one person to ingest for (top of the panel).", "warn");
         return;
       }
 
@@ -313,8 +378,10 @@ function wireJson(root, $) {
       const refused = [];
 
       for (const [index, row] of waiting.entries()) {
+        const key = row.external_id || row.url;
         try {
-          const saved = await ask("api:createJob", {
+          // A copy per selected persona; the summary says what happened to each.
+          const res = await ask("api:createJob", {
             company: row.company,
             title: row.title,
             url: row.url,
@@ -325,16 +392,22 @@ function wireJson(root, $) {
             source: row.source || "Jobright",
             description: row.description,
             external_id: row.external_id,
+            persona_ids,
           });
-          const seq = Number(saved.seq_no ?? saved.id ?? 0);
-          outcomes[row.external_id || row.url] = seq || -1;
-          if (seq > baseline) added += 1;
-          else already += 1;
+          outcomes[key] = res.id || res.seq_no || (res.ingested ? 1 : -1);
+          if (res.ingested > 0) {
+            added += 1;
+          } else {
+            const reasons = (res.personas || []).map((p) => p.reason || "");
+            if (reasons.length && reasons.every((r) => /duplicate/.test(r))) {
+              already += 1;
+            } else {
+              const why = reasons.find((r) => r && !/duplicate/.test(r)) || "skipped";
+              refused.push(`${row.company}: ${why.replace(/_/g, " ")}`);
+            }
+          }
         } catch (err) {
-          // A gate turned it away — an employer already applied to, a blocked
-          // company. Recorded so it is not offered again, and named so the
-          // count is not a silent loss.
-          outcomes[row.external_id || row.url] = -1;
+          outcomes[key] = -1;
           refused.push(`${row.company}: ${String(err.message).replace(/_/g, " ")}`);
         }
         if (index % 5 === 0 || index === waiting.length - 1) {

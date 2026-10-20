@@ -42,6 +42,7 @@ from app.services.pipeline import (
     applied_scope,
     effective_disabled,
     forget_job_markers,
+    ingest_listing_for_personas,
     is_disabled_for,
     process_listing,
 )
@@ -109,6 +110,9 @@ class JobCreate(BaseModel):
     salary: str | None = None
     staffing_firm: str | None = None
     persona_id: str | None = None
+    # When set, a copy is ingested for each selected, country-eligible persona
+    # (the extension clipper's "Ingest for" picker). Falls back to persona_id.
+    persona_ids: list[str] | None = None
 
 
 class StatusPatch(BaseModel):
@@ -602,22 +606,61 @@ async def job_stats(db: AsyncSession = Depends(get_db)):
 
 @router.post("")
 async def create_job(body: JobCreate, db: AsyncSession = Depends(get_db)):
-    result = await process_listing(
-        db,
-        body.model_dump(exclude_none=True),
-        persona_id=body.persona_id or get_active_persona_id(),
-        skip_content_gates=True,
+    listing = body.model_dump(exclude_none=True)
+    listing.pop("persona_id", None)
+    listing.pop("persona_ids", None)
+    sel = [p for p in (body.persona_ids or []) if p]
+
+    if not sel:
+        # Single-persona path (unchanged): returns the job dict, raises on a
+        # business skip the way the clipper's old flow expected.
+        result = await process_listing(
+            db,
+            listing,
+            persona_id=body.persona_id or get_active_persona_id(),
+            skip_content_gates=True,
+        )
+        await db.commit()
+        if result.reason in {"company_already_applied", "company_blocked"}:
+            raise HTTPException(409, detail=result.reason)
+        if result.reason in {"duplicate_url", "duplicate_company"} and result.job:
+            return _job_dict(result.job)
+        if not result.ok:
+            raise HTTPException(400, detail=result.reason or "insert_failed")
+        return _job_dict(result.job)
+
+    # Multi-persona: a copy per selected, country-eligible persona. Never raises
+    # on a per-persona skip — the summary says what happened to each.
+    results = await ingest_listing_for_personas(
+        db, listing, persona_ids=sel, skip_content_gates=True
     )
     await db.commit()
-    if result.reason in {"company_already_applied", "company_blocked"}:
-        raise HTTPException(409, detail=result.reason)
-    # A URL repeat or another recent listing from the same company: hand back
-    # the row already on file instead of a raw error.
-    if result.reason in {"duplicate_url", "duplicate_company"} and result.job:
-        return _job_dict(result.job)
-    if not result.ok:
-        raise HTTPException(400, detail=result.reason or "insert_failed")
-    return _job_dict(result.job)
+    personas_out: list[dict[str, Any]] = []
+    first = None
+    for pid in sel:
+        r = results.get(pid)
+        if r is None:
+            personas_out.append({"persona_id": pid, "ok": False, "reason": "not_eligible_country"})
+            continue
+        personas_out.append(
+            {
+                "persona_id": pid,
+                "ok": bool(r.ok),
+                "reason": r.reason or None,
+                "status": r.status,
+                "id": r.job.id if r.job else None,
+                "seq_no": r.job.seq_no if r.job else None,
+            }
+        )
+        if r.ok and first is None:
+            first = r.job
+    return {
+        "ok": any(p["ok"] for p in personas_out),
+        "id": first.id if first else None,
+        "seq_no": first.seq_no if first else None,
+        "ingested": sum(1 for p in personas_out if p["ok"]),
+        "personas": personas_out,
+    }
 
 
 @router.post("/import")

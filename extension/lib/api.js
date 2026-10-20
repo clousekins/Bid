@@ -99,8 +99,17 @@ export async function findByUrl({ company, url }) {
 export async function createJob(job) {
   const { personaId } = await loadSettings();
   const body = { ...job };
-  if (personaId) body.persona_id = personaId;
+  // A multi-persona clip carries its own persona_ids; otherwise fall back to the
+  // single configured persona (or the backend's active one).
+  if (!(Array.isArray(body.persona_ids) && body.persona_ids.length) && personaId) {
+    body.persona_id = personaId;
+  }
   return request("/api/jobs", { method: "POST", body: JSON.stringify(body) });
+}
+
+/** The personas the backend knows about, for the clipper's "Ingest for" picker. */
+export async function personas() {
+  return request("/api/settings/personas");
 }
 
 /**
