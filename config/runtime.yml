@@ -2,4 +2,5 @@ applied_counter_since: '2026-10-16T12:29:30.416056-07:00'
 ats_max_attempts: 1
 chatgpt_timeout_seconds: 360
 min_ats_score: 89
-resume_accent: '#4A5459'
+resume_accent: '#2C3181'
+tailor_model: gpt-5.6-luna

@@ -167,6 +167,9 @@ export const client = {
   manualPrompt: (body) => api("/api/manual-apply/prompt", { method: "POST", json: body }),
   manualBuild: (body) => api("/api/manual-apply/build", { method: "POST", json: body }),
   settings: () => api("/api/settings"),
+  tailorModel: () => api("/api/settings/tailor-model"),
+  setTailorModel: (model) =>
+    api("/api/settings/tailor-model", { method: "POST", json: { model } }),
   browserDiag: () => api("/api/settings/browser-diag"),
   personas: () => api("/api/settings/personas"),
   setAtsFloor: (body) =>

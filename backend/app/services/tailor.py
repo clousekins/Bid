@@ -52,6 +52,35 @@ def _client() -> AsyncOpenAI:
     return AsyncOpenAI(api_key=settings.openai_api_key, timeout=180.0, max_retries=0)
 
 
+# Chat-capable ids start with gpt/o<n>/chatgpt; the substrings below are the
+# non-chat families (audio, images, embeddings, …) to drop from the picker.
+_CHAT_MODEL_RE = re.compile(r"^(gpt|o\d|chatgpt)", re.I)
+_NON_CHAT = (
+    "embedding", "whisper", "tts", "audio", "realtime", "image", "dall-e",
+    "moderation", "transcribe", "search", "codex", "computer-use",
+)
+
+
+async def list_models() -> list[str]:
+    """Chat-capable model ids from the OpenAI account, newest first. Best-effort:
+    returns [] when there is no key or the call fails, so the picker can fall
+    back to the configured model."""
+    try:
+        client = _client()
+    except RuntimeError:
+        return []
+    try:
+        resp = await client.models.list()
+    except Exception:  # noqa: BLE001
+        return []
+    ids = [
+        m.id
+        for m in getattr(resp, "data", [])
+        if _CHAT_MODEL_RE.match(m.id) and not any(x in m.id for x in _NON_CHAT)
+    ]
+    return sorted(set(ids), reverse=True)
+
+
 _RETRY_IN_RE = re.compile(r"try again in ([\d.]+)\s*s", re.I)
 
 
@@ -81,7 +110,7 @@ async def _chat(system: str, user: str, *, attempts: int = 6) -> str:
         try:
             resp = await chat_completion(
                 client,
-                model=settings.openai_model,
+                model=runtime_settings.tailor_model(),
                 messages=[
                     {"role": "system", "content": system},
                     {"role": "user", "content": user},

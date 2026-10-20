@@ -4,6 +4,7 @@ import DomainFetchModal from "./DomainFetchModal.jsx";
 import SiteFetchPanel from "./SiteFetchPanel.jsx";
 import AtsFloorControl from "./AtsFloorControl.jsx";
 import AccentControl from "./AccentControl.jsx";
+import ModelSelect from "./ModelSelect.jsx";
 import SectorSearchPanel from "./SectorSearchPanel.jsx";
 
 const STAGES = [
@@ -302,6 +303,7 @@ export default function WorkflowBar({
             <p className="stage-hint muted">
               Tailors HTML resume bundles for <strong>{workingLabel}</strong>. Watch the bottom activity panel while it runs.
             </p>
+            <ModelSelect />
             <AtsFloorControl />
             <AccentControl />
           </div>

@@ -728,6 +728,25 @@ body {
   background: var(--surface-2);
 }
 
+.model-select {
+  flex: 1 0 100%;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.6rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.model-select-title { font-weight: 600; font-size: 0.86rem; }
+.model-select select { min-width: 0; max-width: 100%; }
+.model-select-hint { flex-basis: 100%; font-size: 0.78rem; }
+
 .ats-floor-head {
   display: flex;
   align-items: baseline;

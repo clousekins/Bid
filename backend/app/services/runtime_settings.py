@@ -34,6 +34,9 @@ DEFAULTS: dict[str, Any] = {
     # The most one ChatGPT reply may take. A ceiling, not a delay: the job
     # moves on the moment the reply finishes.
     "chatgpt_timeout_seconds": 360,
+    # The OpenAI model the API tailor path uses. None falls back to .env's
+    # openai_model; the operator can switch it from the Generate stage.
+    "tailor_model": None,
 }
 
 
@@ -81,6 +84,14 @@ def resume_accent() -> str | None:
     return str(stored) if is_valid(stored) else None
 
 
+def tailor_model() -> str:
+    """The OpenAI model the API tailor path uses, falling back to .env."""
+    stored = load().get("tailor_model")
+    if stored in (None, ""):
+        return get_settings().openai_model
+    return str(stored)
+
+
 def chatgpt_timeout_seconds() -> int:
     try:
         stored = int(load().get("chatgpt_timeout_seconds") or 0)
@@ -109,6 +120,10 @@ def update(**changes: Any) -> dict[str, Any]:
             value = normalise(value)
         elif key == "chatgpt_timeout_seconds":
             value = max(60, min(1800, int(value)))
+        elif key == "tailor_model":
+            value = str(value).strip()
+            if not value:
+                continue
         values[key] = value
     _path().write_text(yaml.safe_dump(values, sort_keys=True), encoding="utf-8")
     return values

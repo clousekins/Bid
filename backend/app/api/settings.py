@@ -25,6 +25,10 @@ class AccentPatch(BaseModel):
     accent: str = ""
 
 
+class ModelPatch(BaseModel):
+    model: str
+
+
 @router.get("")
 async def get_settings_api():
     from app.services.company_discovery import search_provider_status
@@ -87,6 +91,28 @@ async def set_resume_accent(body: AccentPatch):
     except ValueError as exc:
         raise HTTPException(400, detail=str(exc)) from exc
     return _accent_payload()
+
+
+@router.get("/tailor-model")
+async def get_tailor_model():
+    """The model the API tailor path uses, and the ones on offer from the account."""
+    from app.services.tailor import list_models
+
+    current = runtime_settings.tailor_model()
+    models = await list_models()
+    # Always include the current model, even if the account list could not load.
+    if current and current not in models:
+        models = [current, *models]
+    return {"model": current, "models": models}
+
+
+@router.post("/tailor-model")
+async def set_tailor_model(body: ModelPatch):
+    model = (body.model or "").strip()
+    if not model:
+        raise HTTPException(400, detail="model required")
+    runtime_settings.update(tailor_model=model)
+    return {"model": runtime_settings.tailor_model()}
 
 
 @router.post("/ats-floor")
