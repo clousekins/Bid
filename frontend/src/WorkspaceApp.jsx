@@ -649,6 +649,15 @@ export default function WorkspaceApp({ onGoHome, theme, onToggleTheme }) {
               ws.selected && apply.startAssistedOne(ws.selected, ws.workingPersonaId)
             }
             onOpenJd={() => ws.selected && window.open(ws.selected.url, "_blank")}
+            onOpenFolder={async () => {
+              if (!ws.selected) return;
+              try {
+                const res = await client.openJobFolder(ws.selected.id);
+                batch.setBatchProgress(`Opened folder: ${res.folder}`);
+              } catch (e) {
+                batch.setBatchProgress(`Could not open folder: ${String(e.message || e)}`);
+              }
+            }}
             onDeepScan={() => fetchListedJd(ws.selected)}
             onSkip={async () => {
               if (!ws.selected) return;

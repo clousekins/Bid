@@ -111,6 +111,7 @@ export const client = {
   enableJob: (id, persona_id) =>
     api(`/api/jobs/${id}/enable`, { method: "POST", json: { persona_id } }),
   blockCompany: (id) => api(`/api/jobs/${id}/block-company`, { method: "POST" }),
+  openJobFolder: (id) => api(`/api/jobs/${id}/open-folder`, { method: "POST" }),
   deepScanOne: (id) => api(`/api/jobs/${id}/deep-scan`, { method: "POST" }),
   manualFetch: (body) => api("/api/manual-apply/fetch", { method: "POST", json: body }),
   tailorOne: (id, body = {}) =>

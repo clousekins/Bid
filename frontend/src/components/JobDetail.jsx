@@ -197,6 +197,7 @@ export default function JobDetail({
   onGenerate,
   onAssistedApply,
   onOpenJd,
+  onOpenFolder,
   onDeepScan,
   onSkip,
   onReject,
@@ -471,6 +472,20 @@ export default function JobDetail({
           <button type="button" onClick={onOpenJd}>
             Open JD
           </button>
+          {onOpenFolder ? (
+            <button
+              type="button"
+              onClick={onOpenFolder}
+              disabled={!job.folder_path}
+              title={
+                job.folder_path
+                  ? "Open this job's folder (resume, cover letter, answers) in the file explorer"
+                  : "No folder yet"
+              }
+            >
+              Open folder
+            </button>
+          ) : null}
           <button type="button" onClick={onMarkApplied}>
             Mark applied
           </button>

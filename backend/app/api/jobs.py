@@ -1270,6 +1270,42 @@ async def refresh_folder(job_id: int, db: AsyncSession = Depends(get_db)):
     return {"folder": str(folder)}
 
 
+def _open_in_explorer(path: Path) -> None:
+    """Open a directory in the OS file manager. Local-only, on the user's box."""
+    import os
+    import subprocess
+    import sys
+
+    if sys.platform.startswith("win"):
+        os.startfile(str(path))  # type: ignore[attr-defined]  # noqa: S606
+    elif sys.platform == "darwin":
+        subprocess.Popen(["open", str(path)])  # noqa: S603, S607
+    else:
+        subprocess.Popen(["xdg-open", str(path)])  # noqa: S603, S607
+
+
+@router.post("/{job_id}/open-folder")
+async def open_job_folder(job_id: int, db: AsyncSession = Depends(get_db)):
+    """Open this job's output folder (resume, cover letter, answers) in the OS
+    file explorer. The backend runs on the user's own machine, and the folder is
+    restricted to the configured output root."""
+    job = await _get_job(db, job_id)
+    if not job:
+        raise HTTPException(404, detail="not_found")
+    if not job.folder_path:
+        raise HTTPException(400, detail="no_folder")
+    folder = Path(job.folder_path)
+    if not folder_is_allowed(folder):
+        raise HTTPException(400, detail="folder_not_allowed")
+    if not folder.exists():
+        raise HTTPException(404, detail="folder_missing")
+    try:
+        _open_in_explorer(folder)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, detail=f"open_failed: {exc}") from exc
+    return {"ok": True, "folder": str(folder)}
+
+
 @router.get("/{job_id}/questions")
 async def job_questions(job_id: int, db: AsyncSession = Depends(get_db)):
     import re
