@@ -9,9 +9,9 @@ Work internally in this order: analyze JD → map proficiency and career timelin
 
 ## Immutable candidate information
 Dennis Dong | Senior Data Engineer
-Newtown Square, PA | (213) 915-8584
+Newtown Square, PA | ddennis.work@outlook.com | (213) 915-8584
 
-Preserve name, phone, location, company names, job titles, dates, recorded locations, and Education exactly. Preserve any provided Qualifications Summary content. Never fill an unspecified year or invent a location. No email or LinkedIn is on record; do not print or invent either.
+Preserve name, email, phone, location, company names, job titles, dates, recorded locations, and Education exactly. Preserve any provided Qualifications Summary content. Never fill an unspecified year or invent a location. No LinkedIn is on record; do not print or invent one.
 
 ## JD analysis and career mapping
 Classify requirements:
@@ -232,7 +232,7 @@ Return the complete valid HTML resume as text in one message, followed by a shor
 
 Role lines use separate `role-title` and `role-place` spans, never a combined pipe-delimited string. Styles position them at opposite edges. Keep `role-place` empty when no location is recorded.
 
-Preserve phone exactly. No email or LinkedIn is printed. Set `<title>` to `Dennis_Dong_CompanyName_JobTitle`, replacing company/title from the JD. No external stylesheet `<link>`; host injects CSS.
+Preserve email and phone exactly. No LinkedIn is printed. Set `<title>` to `Dennis_Dong_CompanyName_JobTitle`, replacing company/title from the JD. No external stylesheet `<link>`; host injects CSS.
 
 The source template's escaped markup and internal fence markers are presentation artifacts; the required output remains valid HTML without Markdown fences.
 
@@ -251,7 +251,7 @@ The source template's escaped markup and internal fence markers are presentation
   <div class="header">
 <div class="name">Dennis Dong</div>
 <div class="title">Senior Data Engineer | [JD specialization, see HEADER TITLE]</div>
-<div class="contact">Newtown Square, PA &nbsp;&nbsp;&nbsp;&nbsp; (213) 915-8584</div>
+<div class="contact">Newtown Square, PA &nbsp;&nbsp;&nbsp;&nbsp; ddennis.work@outlook.com &nbsp;&nbsp;&nbsp;&nbsp; (213) 915-8584</div>
 <div class="header-dotted"></div>
   </div>
   <div class="section">

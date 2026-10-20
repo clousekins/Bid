@@ -6,10 +6,7 @@ total_experience: "12+ years"
 identity:
   legal_name: Dennis Dong
   preferred_name: Dennis Dong
-  # NO EMAIL WAS SUPPLIED. It is left empty on purpose and is NOT printed on the
-  # resume until provided. Applications need one — fill it here and in
-  # dennis_dong.prompt.md as soon as it is known. Do not invent an address.
-  email: ""
+  email: ddennis.work@outlook.com
   phone: "(213) 915-8584"
   location_city: Newtown Square
   location_state: PA
