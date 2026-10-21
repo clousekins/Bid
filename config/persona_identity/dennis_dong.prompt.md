@@ -80,7 +80,8 @@ Architecture ownership, Technical roadmap, Engineering leadership, Cross-team in
 So write to shows this ability well for the JD.
 
 ## Professional Summary
-One paragraph, 2–3 sentences, beginning exactly: “[Lead/Senior](Analyze what you will use from JD) Data Engineer with 12+ years of experience”. State seniority, exact function, core stack, data-engineering background, production ownership, business impact, and impactful collaboration relevant to the JD. Emphasize JD-domain experience when plausible in the history. Hiring managers must quickly see function, stack, and production ownership for the JD.
+One paragraph, 2–3 sentences, beginning exactly: “[Lead/Senior](Analyze what you will use from JD) Data Engineer with 11+ years of experience”. State seniority, exact function, core stack, data-engineering background, production ownership, business impact, and impactful collaboration relevant to the JD. Emphasize JD-domain experience when plausible in the history. Hiring managers must quickly see function, stack, and production ownership for the JD.
+In this, the most important thing is to show this : 11+ years is "HANDS-ON" data engineering experience.
 
 ## Professional Experience: fixed history and constraints
 Select exactly one primary cloud for the Lyra Health and Allergan Data Labs roles: AWS, Azure, or GCP. Choose the JD's most architecturally central provider; default to AWS if none is named. Keep each role's architecture coherent.

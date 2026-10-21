@@ -23,9 +23,10 @@ from app.db.models import (
     as_utc,
     utcnow,
 )
+from app.services.employer_conflicts import persona_employers
 from app.services.folder_writer import sync_job_folder
 from app.services.job_country import country_code
-from app.services.persona import all_persona_ids, get_active_persona_id
+from app.services.persona import all_persona_ids, get_active_persona_id, load_persona
 from app.validators.dedupe import canonicalize_url, normalize_company, normalize_title
 from app.validators.it_domain import check_it_domain
 from app.validators.remote_us import check_remote_us
@@ -346,6 +347,20 @@ async def find_recent_job_by_company(
     return None
 
 
+def _is_own_employer(persona_id: str, normalized: str) -> bool:
+    """Is this company one the persona's own resume claims as an employer?
+
+    load_persona is mtime-cached, so this is a cheap lookup inside the ingest
+    loop. A persona that fails to load simply blocks nothing.
+    """
+    if not normalized:
+        return False
+    try:
+        return normalized in persona_employers(load_persona(persona_id))
+    except Exception:  # noqa: BLE001
+        return False
+
+
 async def company_is_blocked(session: AsyncSession, normalized: str) -> bool:
     result = await session.execute(
         select(Company).where(Company.normalized_name == normalized, Company.blocked.is_(True))
@@ -416,6 +431,17 @@ async def process_listing(
             )
         )
         return ProcessResult(ok=False, skipped=True, reason="company_blocked")
+
+    # A persona cannot apply to a company it already works for (or a sister brand
+    # of it) — the resume claims that employer. Skip those at ingest so they never
+    # enter this persona's own table.
+    if not bypass_gates and _is_own_employer(pid, normalized):
+        session.add(
+            RejectedJob(
+                company=company, title=title, url=url, reason="own_employer", stage="stage1"
+            )
+        )
+        return ProcessResult(ok=False, skipped=True, reason="own_employer")
 
     # Per-person gate: skip only if *this* persona has already applied at the
     # company within the window. Another persona's apply does not close it here —

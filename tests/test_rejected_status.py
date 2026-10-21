@@ -360,3 +360,40 @@ class TestCountryRoutingAndBruno:
             )
             await session.commit()
             assert result.skipped and result.reason == "company_already_applied"
+
+
+class TestOwnEmployerSkippedAtIngest:
+    """A persona cannot apply to a company it already works for, so ingest skips it."""
+
+    async def test_an_own_employer_company_is_not_ingested(self, factory):
+        async with factory() as session:
+            # American Express is in alex_mak's own experience_ground_truth.
+            result = await process_listing(
+                session,
+                {
+                    "company": "American Express",
+                    "title": "Senior Data Engineer",
+                    "url": "https://example.com/amex",
+                    "location": "Remote, US",
+                },
+                persona_id=PROFILE,
+                skip_content_gates=True,
+            )
+            await session.commit()
+            assert result.skipped and result.reason == "own_employer"
+
+    async def test_a_non_employer_company_still_ingests(self, factory):
+        async with factory() as session:
+            result = await process_listing(
+                session,
+                {
+                    "company": "Some Unrelated Company LLC",
+                    "title": "Senior Data Engineer",
+                    "url": "https://example.com/unrelated",
+                    "location": "Remote, US",
+                },
+                persona_id=PROFILE,
+                skip_content_gates=True,
+            )
+            await session.commit()
+            assert result.ok, result.reason
