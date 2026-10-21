@@ -397,3 +397,45 @@ class TestOwnEmployerSkippedAtIngest:
             )
             await session.commit()
             assert result.ok, result.reason
+
+
+class TestFederalCompany:
+    """Make federal takes the job out of the pipeline and stops the company ingesting."""
+
+    @staticmethod
+    async def _ingest(session, url: str, pid: str):
+        result = await process_listing(
+            session,
+            {"company": "Federal Agency Co", "title": "Data Engineer", "url": url,
+             "location": "Remote, US"},
+            persona_id=pid,
+            skip_content_gates=True,
+        )
+        await session.commit()
+        return result
+
+    async def test_make_federal_blocks_ingest_for_every_persona_and_undoes(self, factory):
+        from app.api.jobs import mark_federal, unmark_federal
+
+        async with factory() as session:
+            job = await _add(session, "Federal Agency Co", "https://example.com/fed-1")
+            job_id = job.id
+
+        async with factory() as session:
+            out = await mark_federal(job_id, session)
+            assert out["federal"] is True
+            assert out["status"] == REJECTED
+
+        for pid in (PROFILE, OTHER):
+            async with factory() as session:
+                result = await self._ingest(session, f"https://example.com/fed-{pid}", pid)
+                assert result.skipped and result.reason == "federal_company"
+
+        async with factory() as session:
+            out = await unmark_federal(job_id, session)
+            assert out["federal"] is False
+            assert out["status"] != REJECTED
+
+        async with factory() as session:
+            result = await self._ingest(session, "https://example.com/fed-again", OTHER)
+            assert result.ok, result.reason

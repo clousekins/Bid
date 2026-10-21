@@ -206,6 +206,8 @@ export default function JobDetail({
   onUnmakeInterview,
   onMarkApplied,
   onBlock,
+  onMakeFederal,
+  onUnmakeFederal,
   onDelete,
   onDisable,
   onEnable,
@@ -271,6 +273,14 @@ export default function JobDetail({
             }
           >
             Disabled
+          </span>
+        ) : null}
+        {job.federal ? (
+          <span
+            className="pill rejected"
+            title="Federal company: its jobs are no longer ingested. Un-federal to undo."
+          >
+            Federal
           </span>
         ) : null}
       </div>
@@ -520,6 +530,23 @@ export default function JobDetail({
               title="Keep the job on the list but out of the pipeline, and free its company for other jobs"
             >
               Make rejected
+            </button>
+          )}
+          {job.federal ? (
+            <button
+              type="button"
+              onClick={onUnmakeFederal}
+              title="Not a federal company: ingest its jobs again and put this job back in the pipeline"
+            >
+              Un-federal
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onMakeFederal}
+              title="Federal company: take this job out of the pipeline and stop ingesting the company's jobs"
+            >
+              Make federal
             </button>
           )}
           {job.disabled ? (

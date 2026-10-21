@@ -257,7 +257,7 @@ async def manual_prepare(body: ManualPrepareBody, db: AsyncSession = Depends(get
                 f"data/applications/{body.persona_id}/{{seq}}-{company.replace(' ', '-')}/"
             ),
         }
-    if result.reason in {"company_already_applied", "company_blocked"}:
+    if result.reason in {"company_already_applied", "company_blocked", "federal_company"}:
         raise HTTPException(409, detail=result.reason)
     if not result.job:
         raise HTTPException(400, detail=result.reason or "insert_failed")

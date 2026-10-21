@@ -40,7 +40,9 @@ from app.services.persona import all_persona_ids, get_active_persona_id, load_pe
 from app.services.pipeline import (
     _get_or_create_company,
     applied_scope,
+    company_is_federal,
     effective_disabled,
+    federal_companies,
     forget_job_markers,
     ingest_listing_for_personas,
     is_disabled_for,
@@ -296,6 +298,7 @@ def _job_dict(
     persona: Any = _UNSET,
     disabled: bool = False,
     disabled_reason: str | None = None,
+    federal: bool = False,
 ) -> dict[str, Any]:
     if persona is _UNSET:
         persona = _load_profile(profile or job.persona_id)
@@ -332,6 +335,8 @@ def _job_dict(
         # greys it and keeps ingestion / resume build off it.
         "disabled": disabled,
         "disabled_reason": disabled_reason,
+        # The company is marked federal: its jobs are no longer ingested.
+        "federal": federal,
         "feasibility": _feasibility_for(job, persona),
         "ats_score": job.ats_score,
         "credibility_score": job.credibility_score,
@@ -505,6 +510,9 @@ async def list_jobs(
     # Mark each row disabled — applied-company siblings and hand-disabled rows
     # alike — from a couple of indexed passes rather than a subquery per row.
     applied_company_set, applied_job_ids = await applied_scope(db, pid)
+    federal_set = await federal_companies(
+        db, {j.normalized_company for j in rows if j.normalized_company}
+    )
     job_dicts: list[dict[str, Any]] = []
     disabled_count = 0
     for j in rows:
@@ -518,6 +526,7 @@ async def list_jobs(
                 persona=page_persona,
                 disabled=dis,
                 disabled_reason=reason,
+                federal=j.normalized_company in federal_set,
             )
         )
     return {
@@ -621,7 +630,7 @@ async def create_job(body: JobCreate, db: AsyncSession = Depends(get_db)):
             skip_content_gates=True,
         )
         await db.commit()
-        if result.reason in {"company_already_applied", "company_blocked"}:
+        if result.reason in {"company_already_applied", "company_blocked", "federal_company"}:
             raise HTTPException(409, detail=result.reason)
         if result.reason in {"duplicate_url", "duplicate_company"} and result.job:
             return _job_dict(result.job)
@@ -828,7 +837,10 @@ async def get_job(
     # The row belongs to one persona's table — answer for that persona.
     prof = job.persona_id
     dis, reason = await is_disabled_for(db, job, prof)
-    return _job_dict(job, profile=prof, disabled=dis, disabled_reason=reason)
+    federal = await company_is_federal(db, job.normalized_company or "")
+    return _job_dict(
+        job, profile=prof, disabled=dis, disabled_reason=reason, federal=federal
+    )
 
 
 @router.get("/{job_id}/qa")
@@ -1213,6 +1225,56 @@ async def block_company(job_id: int, db: AsyncSession = Depends(get_db)):
     await db.commit()
     await apply_sessions.end_session(job.id)
     return _job_dict(job)
+
+
+async def _set_company_federal(db: AsyncSession, job_id: int, federal: bool) -> dict[str, Any]:
+    job = await _get_job(db, job_id)
+    if not job:
+        raise HTTPException(404, detail="not_found")
+    normalized = job.normalized_company or normalize_company(job.company)
+    company = await _get_or_create_company(db, job.company, normalized)
+    company.federal = federal
+    if federal:
+        # Out of the pipeline like Make rejected, and an apply under way stops.
+        job.status = JobStatus.REJECTED.value
+        await stop_apply_for_job(db, job, revert_packages=True)
+    elif job.status == JobStatus.REJECTED.value:
+        # Back to where the pipeline can pick it up, as Un-reject does.
+        has_jd = len((job.description or "").strip()) >= 50
+        job.status = JobStatus.JD_READY.value if has_jd else JobStatus.NEW.value
+    job.updated_at = utcnow()
+    if job.seq_no:
+        sync_job_folder(
+            persona_id=job.persona_id,
+            seq_no=job.seq_no,
+            company=job.company,
+            title=job.title,
+            url=job.url,
+            location=job.location,
+            status=job.status,
+            description=job.description,
+            job_id=job.id,
+        )
+    await db.commit()
+    pid = job.persona_id
+    dis, reason = await is_disabled_for(db, job, pid)
+    return _job_dict(
+        job, profile=pid, disabled=dis, disabled_reason=reason, federal=federal
+    )
+
+
+@router.post("/{job_id}/federal")
+async def mark_federal(job_id: int, db: AsyncSession = Depends(get_db)):
+    """Mark this job's company federal: the job leaves the pipeline, and the
+    company's jobs are no longer ingested for any persona."""
+    return await _set_company_federal(db, job_id, True)
+
+
+@router.post("/{job_id}/unfederal")
+async def unmark_federal(job_id: int, db: AsyncSession = Depends(get_db)):
+    """Undo Make federal: the company ingests again and the job returns to the
+    pipeline."""
+    return await _set_company_federal(db, job_id, False)
 
 
 @router.post("/{job_id}/deep-scan")

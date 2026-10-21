@@ -95,6 +95,22 @@ def _backfill_salary(conn) -> None:
         )
 
 
+def _ensure_company_columns(conn) -> None:
+    """Add columns the `companies` table may be missing (create_all never alters)."""
+    from sqlalchemy import text
+
+    exists = conn.execute(
+        text("SELECT name FROM sqlite_master WHERE type='table' AND name='companies'")
+    ).fetchone()
+    if not exists:
+        return
+    cols = {str(r[1]) for r in conn.execute(text("PRAGMA table_info(companies)")).fetchall()}
+    if "federal" not in cols:
+        conn.execute(
+            text("ALTER TABLE companies ADD COLUMN federal BOOLEAN NOT NULL DEFAULT 0")
+        )
+
+
 def _ensure_sqlite_columns(conn) -> None:
     """Add columns the legacy `jobs`/`job_packages` tables may be missing.
 
@@ -342,6 +358,7 @@ async def init_db() -> None:
     async with engine.begin() as conn:
         if "sqlite" in str(engine.url):
             await conn.run_sync(_ensure_sqlite_columns)
+            await conn.run_sync(_ensure_company_columns)
             await conn.run_sync(_migrate_to_per_persona)
         await conn.run_sync(Base.metadata.create_all)
 

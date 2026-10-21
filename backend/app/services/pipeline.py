@@ -361,6 +361,25 @@ def _is_own_employer(persona_id: str, normalized: str) -> bool:
         return False
 
 
+async def company_is_federal(session: AsyncSession, normalized: str) -> bool:
+    result = await session.execute(
+        select(Company.id).where(Company.normalized_name == normalized, Company.federal.is_(True))
+    )
+    return result.first() is not None
+
+
+async def federal_companies(session: AsyncSession, normalized: set[str]) -> set[str]:
+    """Which of these normalized company names are marked federal."""
+    if not normalized:
+        return set()
+    result = await session.execute(
+        select(Company.normalized_name).where(
+            Company.normalized_name.in_(normalized), Company.federal.is_(True)
+        )
+    )
+    return {str(r[0]) for r in result.all()}
+
+
 async def company_is_blocked(session: AsyncSession, normalized: str) -> bool:
     result = await session.execute(
         select(Company).where(Company.normalized_name == normalized, Company.blocked.is_(True))
@@ -431,6 +450,16 @@ async def process_listing(
             )
         )
         return ProcessResult(ok=False, skipped=True, reason="company_blocked")
+
+    # A company marked federal from a job's detail is not ingested again, for
+    # any persona.
+    if await company_is_federal(session, normalized):
+        session.add(
+            RejectedJob(
+                company=company, title=title, url=url, reason="federal_company", stage="stage1"
+            )
+        )
+        return ProcessResult(ok=False, skipped=True, reason="federal_company")
 
     # A persona cannot apply to a company it already works for (or a sister brand
     # of it) — the resume claims that employer. Skip those at ingest so they never

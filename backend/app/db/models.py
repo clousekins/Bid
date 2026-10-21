@@ -38,6 +38,9 @@ class Company(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     normalized_name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     blocked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # A federal (government) employer. Marked by hand from a job's detail; its
+    # jobs are no longer ingested for any persona.
+    federal: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 

@@ -749,6 +749,7 @@ async def _exec_discover(session, row: BackgroundJob, *, mode: str = "standard")
     skip_reasons = {
         "company_already_applied",
         "company_blocked",
+        "federal_company",
         "duplicate_url",
         "duplicate_company",
         "duplicate_external_id",

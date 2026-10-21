@@ -730,6 +730,28 @@ export default function WorkspaceApp({ onGoHome, theme, onToggleTheme }) {
               await client.blockCompany(ws.selected.id);
               await ws.refresh();
             }}
+            onMakeFederal={async () => {
+              if (!ws.selected) return;
+              try {
+                // The job leaves the pipeline, so an apply running on it stops too.
+                if (apply.applySession?.job_id === ws.selected.id) {
+                  await apply.clearApplySession(true);
+                }
+                await client.markFederal(ws.selected.id);
+                await ws.refresh();
+              } catch (e) {
+                ws.setError(String(e.message || e));
+              }
+            }}
+            onUnmakeFederal={async () => {
+              if (!ws.selected) return;
+              try {
+                await client.unmarkFederal(ws.selected.id);
+                await ws.refresh();
+              } catch (e) {
+                ws.setError(String(e.message || e));
+              }
+            }}
             onDelete={async () => {
               if (!ws.selected) return;
               const label = `#${ws.selected.seq_no} ${ws.selected.company}`;
