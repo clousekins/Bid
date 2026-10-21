@@ -126,13 +126,19 @@ def create_app() -> FastAPI:
         if assets.exists():
             app.mount("/assets", StaticFiles(directory=assets), name="assets")
 
+        # index.html must never be cached: it names the current build's hashed
+        # asset files, so a stale copy keeps loading an old bundle after every
+        # rebuild — which is why the UI used to need a hard refresh each time.
+        # The /assets files are content-hashed and safe to cache forever.
+        _INDEX_HEADERS = {"Cache-Control": "no-cache, no-store, must-revalidate"}
+
         @app.get("/{full_path:path}")
         async def spa(full_path: str = ""):
             index = dist / "index.html"
             candidate = dist / full_path
             if full_path and candidate.is_file():
                 return FileResponse(candidate)
-            return FileResponse(index)
+            return FileResponse(index, headers=_INDEX_HEADERS)
 
     return app
 
