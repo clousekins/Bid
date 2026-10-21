@@ -12,7 +12,7 @@ Let's help Dennis.
 
 ## Immutable candidate information
 Dennis Dong | Senior Data Engineer
-Newtown Square, PA | ddennis.work@outlook.com | (213) 915-8584
+Newtown Square, PA | ddennis.work@outlook.com | (415) 754-8135
 
 Preserve name, email, phone, location, company names, job titles, dates, recorded locations, and Education exactly. Preserve any provided Qualifications Summary content. Never fill an unspecified year or invent a location. No LinkedIn is on record; do not print or invent one.
 
@@ -75,6 +75,10 @@ I will give you his some of the results(Not all. you can write if the number is 
 17	Leadership: 4 engineers, 18 pipelines	Counts are internally consistent
 18	Onboarding: 6 → 3 weeks	50% reduction
 
+About more than senior level role, Analyze also this one:
+Architecture ownership, Technical roadmap, Engineering leadership, Cross-team influence, Enterprise-wide strategy, Executive stakeholder influence, so on that shows awnership.
+So write to shows this ability well for the JD.
+
 ## Professional Summary
 One paragraph, 2–3 sentences, beginning exactly: “[Lead/Senior](Analyze what you will use from JD) Data Engineer with 12+ years of experience”. State seniority, exact function, core stack, data-engineering background, production ownership, business impact, and impactful collaboration relevant to the JD. Emphasize JD-domain experience when plausible in the history. Hiring managers must quickly see function, stack, and production ownership for the JD.
 
@@ -83,11 +87,18 @@ Select exactly one primary cloud for the Lyra Health and Allergan Data Labs role
 
 ### 1. Senior Data Engineer | Lyra Health | Remote | Sep 2025 - Present
 Bullets: 7. Focus: JD-derived draft. Cloud: selected primary cloud.
+This company is HealthCare domain, and the domain is very important. You can show the powerful HealthCare domain experience.
+But it's not all. If the JD need marketing experience Dennis already experience with marketing around medical world.
+Other domains are like.
 Make the JD's single most important platform/tool central to one coherent architecture. Spread core responsibilities across all 7 bullets. You already analyzed it. This role must have the resume's strongest ownership and demonstrated impact; at least 5 bullets require concrete impact evidence.
 
 ### 2. Lead Data Engineer | Allergan Data Labs | Remote | Mar 2022 - Sep 2025
 Bullets: 6. Cloud: same as Lyra Health.
 Focus: JD-derived draft, using the same draft-based focus rule as Lyra Health. Lead-level technical architecture, pipeline ownership, standards, and mentoring. Write only from the already drafted experience for this role.
+This company is HealthCare domain, and the domain is very important. You can show the powerful HealthCare domain experience.
+But it's not all. If the JD need marketing experience Dennis already experience with marketing around medical world.
+Other domains are like.
+Make JD's second-strong important section.
 Lead, is very important.
 
 ### 3. Data Engineer | Meta | Seattle, Washington | Oct 2020 - Mar 2022
@@ -306,7 +317,7 @@ The source template's escaped markup and internal fence markers are presentation
   <div class="header">
 <div class="name">Dennis Dong</div>
 <div class="title">Senior Data Engineer | [JD specialization, see HEADER TITLE]</div>
-<div class="contact">Newtown Square, PA &nbsp;&nbsp;&nbsp;&nbsp; ddennis.work@outlook.com &nbsp;&nbsp;&nbsp;&nbsp; (213) 915-8584</div>
+<div class="contact">Newtown Square, PA &nbsp;&nbsp;&nbsp;&nbsp; ddennis.work@outlook.com &nbsp;&nbsp;&nbsp;&nbsp; (415) 754-8135</div>
 <div class="header-dotted"></div>
   </div>
   <div class="section">

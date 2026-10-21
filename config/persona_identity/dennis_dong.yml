@@ -7,7 +7,7 @@ identity:
   legal_name: Dennis Dong
   preferred_name: Dennis Dong
   email: ddennis.work@outlook.com
-  phone: "(213) 915-8584"
+  phone: "(415) 754-8135"
   location_city: Newtown Square
   location_state: PA
   location_country: US
@@ -35,3 +35,14 @@ screening_answers:
     answer: "Senior Data Engineer"
   - question: "Were you referred for this position?"
     answer: "No"
+
+tailor:
+  mode: html_resume_bundle
+  prompt_file: dennis_dong.prompt.md
+  css_file: dennis_dong.css
+  # The accent dennis_dong.css is written in, so the colour picker can repaint it.
+  accent_color: "#1D6E93"
+  # Fill in <strong> on any bullet the model left without emphasis.
+  enforce_bullet_emphasis: true
+  # None recorded. The resume omits the Certification section entirely.
+  certifications_ground_truth: []
