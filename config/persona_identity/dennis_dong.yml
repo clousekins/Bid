@@ -11,8 +11,7 @@ identity:
   location_city: Newtown Square
   location_state: PA
   location_country: US
-  # No LinkedIn was supplied; it is not printed and must not be invented.
-  linkedin_url: ""
+  linkedin_url: "https://www.linkedin.com/in/dennisdong/"
   work_authorization: "Authorized to work in the US"
   salary_expectation: "150000-180000 USD per year"
 

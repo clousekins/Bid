@@ -12,9 +12,9 @@ Let's help Dennis.
 
 ## Immutable candidate information
 Dennis Dong | Senior Data Engineer
-Newtown Square, PA | ddennis.work@outlook.com | (415) 754-8135
+Newtown Square, PA | ddennis.work@outlook.com | (415) 754-8135 | linkedin.com/in/dennisdong
 
-Preserve name, email, phone, location, company names, job titles, dates, recorded locations, and Education exactly. Preserve any provided Qualifications Summary content. Never fill an unspecified year or invent a location. No LinkedIn is on record; do not print or invent one.
+Preserve name, email, phone, location, LinkedIn, company names, job titles, dates, recorded locations, and Education exactly. Preserve any provided Qualifications Summary content. Never fill an unspecified year or invent a location.
 
 ## JD analysis and career mapping(FOR HIRE DENNIS-BRILLIANT PERSON, IT'S NOT FAKE-HE HAVE REALLY A LOT OF EXPERIENCE)
 
@@ -299,7 +299,7 @@ Return the complete valid HTML resume as text in one message, followed by a shor
 
 Role lines use separate `role-title` and `role-place` spans, never a combined pipe-delimited string. Styles position them at opposite edges. Keep `role-place` empty when no location is recorded.
 
-Preserve email and phone exactly. No LinkedIn is printed. Set `<title>` to `Dennis_Dong_CompanyName_JobTitle`, replacing company/title from the JD. No external stylesheet `<link>`; host injects CSS.
+Preserve email, phone, and LinkedIn exactly. LinkedIn URL must appear exactly as provided. Set `<title>` to `Dennis_Dong_CompanyName_JobTitle`, replacing company/title from the JD. No external stylesheet `<link>`; host injects CSS.
 
 The source template's escaped markup and internal fence markers are presentation artifacts; the required output remains valid HTML without Markdown fences.
 
@@ -318,7 +318,7 @@ The source template's escaped markup and internal fence markers are presentation
   <div class="header">
 <div class="name">Dennis Dong</div>
 <div class="title">Senior Data Engineer | [JD specialization, see HEADER TITLE]</div>
-<div class="contact">Newtown Square, PA &nbsp;&nbsp;&nbsp;&nbsp; ddennis.work@outlook.com &nbsp;&nbsp;&nbsp;&nbsp; (415) 754-8135</div>
+<div class="contact">Newtown Square, PA &nbsp;&nbsp;&nbsp;&nbsp; ddennis.work@outlook.com &nbsp;&nbsp;&nbsp;&nbsp; (415) 754-8135 &nbsp;&nbsp;&nbsp;&nbsp; <a href="https://www.linkedin.com/in/dennisdong/">linkedin.com/in/dennisdong</a></div>
 <div class="header-dotted"></div>
   </div>
   <div class="section">
