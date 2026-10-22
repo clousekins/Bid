@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
@@ -30,10 +31,19 @@ _TITLE_KEEP_RE = re.compile(r"[^a-z0-9+#]+")
 
 
 def _load_aliases() -> dict[str, str]:
+    # normalize_company runs thousands of times per ingest (employer and
+    # sister-brand expansion per persona), so parse the file only when it changes.
     path = get_settings().config_dir / "company_aliases.yml"
-    if not path.exists():
+    try:
+        st = path.stat()
+    except OSError:
         return {}
-    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    return _parse_aliases(str(path), st.st_mtime_ns, st.st_size)
+
+
+@lru_cache(maxsize=4)
+def _parse_aliases(path: str, _mtime_ns: int, _size: int) -> dict[str, str]:
+    data = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
     aliases = data.get("aliases") or data
     if not isinstance(aliases, dict):
         return {}

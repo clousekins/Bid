@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import re
 from dataclasses import dataclass, field
 from functools import lru_cache
@@ -39,8 +40,17 @@ class Persona:
 
 
 def _personas_index() -> dict[str, Any]:
+    # Read on every persona lookup, several times per persona per ingest, so it
+    # is parsed only when the file changes. A copy is returned because
+    # set_active_persona edits what it gets back.
     path = get_settings().config_dir / "personas.yml"
-    return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    st = path.stat()
+    return copy.deepcopy(_parse_personas_index(str(path), st.st_mtime_ns, st.st_size))
+
+
+@lru_cache(maxsize=4)
+def _parse_personas_index(path: str, _mtime_ns: int, _size: int) -> dict[str, Any]:
+    return yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
 
 
 def list_personas() -> list[dict[str, Any]]:
