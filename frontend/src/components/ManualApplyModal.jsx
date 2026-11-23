@@ -437,6 +437,7 @@ export default function ManualApplyModal({
         title: form.title.trim(),
         url: form.url.trim(),
         location: form.location.trim(),
+        description: form.description.trim(),
       });
       setJob(updated);
       setForm((prev) => ({
@@ -445,6 +446,7 @@ export default function ManualApplyModal({
         title: updated.title || prev.title,
         url: updated.url || prev.url,
         location: updated.location || prev.location,
+        description: updated.description || prev.description,
       }));
       setUrlInferred(false);
       setStatus(

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Poong Job Desk</title>
+<link rel="stylesheet" href="panel.css" />
+</head>
+<body>
+<header class="bar">
+  <span class="dot" id="dot" title="Backend"></span>
+  <select id="persona" title="Persona"></select>
+  <span class="count" id="count"></span>
+  <button class="icon" id="btnRefresh" title="Reload the list">&#x21bb;</button>
+  <button class="icon" id="btnGear" title="Settings">&#x2699;&#xFE0E;</button>
+</header>
+
+<form class="settings" id="settings" hidden>
+  <label>Backend URL <input id="baseUrl" placeholder="http://127.0.0.1:8000" /></label>
+  <label>Access token <input id="accessToken" type="password" autocomplete="off" /></label>
+  <div class="row">
+    <button type="submit" class="primary">Save &amp; test</button>
+    <span class="muted" id="settingsMsg"></span>
+  </div>
+</form>
+
+<section class="finder">
+  <input id="search" type="search" placeholder="Search company / title, or a number like 123" autocomplete="off" />
+  <ul class="jobs" id="jobs"></ul>
+  <div class="pager" id="pager" hidden>
+    <button class="icon" id="btnFirst" title="First page">&laquo;</button>
+    <button class="icon" id="btnPrev" title="Previous page">&lsaquo;</button>
+    <span class="pageof">Page <input id="pageInput" type="number" min="1" title="Type a page and press Enter" /> of <span id="pageCount">1</span></span>
+    <button class="icon" id="btnNext" title="Next page">&rsaquo;</button>
+    <button class="icon" id="btnLast" title="Last page">&raquo;</button>
+  </div>
+</section>
+
+<section class="detail" id="detail">
+  <p class="empty">Pick a job above.</p>
+</section>
+
+<footer class="status" id="status"></footer>
+
+<script type="module" src="panel.js"></script>
+</body>
+</html>

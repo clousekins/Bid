@@ -8,7 +8,7 @@ from contextlib import AsyncExitStack, asynccontextmanager
 from pathlib import Path
 from typing import Any, AsyncIterator
 
-from openai import APITimeoutError, AsyncOpenAI, RateLimitError
+from openai import APIConnectionError, APITimeoutError, AsyncOpenAI, RateLimitError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
@@ -21,7 +21,7 @@ from app.services import runtime_settings
 from app.services.ats_score import extract_terms, persona_corpus, score_resume
 from app.services.resume_credibility import score_credibility
 from app.services.resume_style import polish_flat_resume_html, replace_document_css
-from app.services.openai_compat import chat_completion
+from app.services.openai_compat import BackgroundResponseFailed, background_response_text
 
 log = logging.getLogger("poong.tailor")
 
@@ -102,23 +102,44 @@ def _retry_wait_seconds(exc: BaseException, attempt: int) -> float:
     return min(30.0, 1.5 * (2 ** (attempt - 1)))
 
 
-async def _chat(system: str, user: str, *, attempts: int = 6) -> str:
-    settings = get_settings()
+# This machine reaches api.openai.com through a VPN tunnel (Astrill) that cuts
+# any connection silent for about ten seconds. A reasoning model thinks longer
+# than that before it writes a byte, so an ordinary request for a resume, even
+# a streamed one, dies with "Server disconnected without sending a response"
+# every time while short calls get through. Background mode never holds a
+# connection open that long: see background_response_text.
+#
+# The tunnel also refuses the odd connect outright, so the create call is
+# retried: ten attempts with the backoff capped at 30s, about three minutes.
+async def _chat(
+    system: str, user: str, *, model: str | None = None, attempts: int = 10
+) -> str:
     client = _client()
+    model = model or runtime_settings.tailor_model()
     last_exc: Exception | None = None
     for attempt in range(1, attempts + 1):
         try:
-            resp = await chat_completion(
+            text = await background_response_text(
                 client,
-                model=runtime_settings.tailor_model(),
-                messages=[
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user},
-                ],
+                model=model,
+                instructions=system,
+                input=user,
                 temperature=0.4,
             )
-            return (resp.choices[0].message.content or "").strip()
-        except (APITimeoutError, RateLimitError, TimeoutError) as exc:
+            if not text:
+                raise BackgroundResponseFailed("The model returned an empty reply.")
+            return text
+        except (
+            APITimeoutError,
+            APIConnectionError,
+            RateLimitError,
+            TimeoutError,
+            BackgroundResponseFailed,
+        ) as exc:
+            log.warning(
+                "openai call failed (attempt %s/%s): %s %s",
+                attempt, attempts, type(exc).__name__, exc.__cause__ or exc,
+            )
             last_exc = exc
             if attempt >= attempts:
                 break
@@ -156,14 +177,20 @@ class _ApiEngine:
     name = "api"
     transcript: tuple[tuple[str, str], ...] = ()
 
+    def __init__(self, model: str | None = None) -> None:
+        # The model the requesting browser picked; None uses runtime.yml's.
+        self.model = model
+
     async def ask(self, system: str, user: str, *, reply_format: str = "") -> str:
         # reply_format is for the web page, which renders Markdown; the API
         # returns text exactly as written and never needed it.
-        return await _chat(system, user)
+        return await _chat(system, user, model=self.model)
 
 
 @asynccontextmanager
-async def _open_engine(engine: str, llm: Any = None) -> AsyncIterator[Any]:
+async def _open_engine(
+    engine: str, llm: Any = None, model: str | None = None
+) -> AsyncIterator[Any]:
     if llm is not None:
         yield llm
     elif engine == "chatgpt":
@@ -171,7 +198,7 @@ async def _open_engine(engine: str, llm: Any = None) -> AsyncIterator[Any]:
             "ChatGPT resumes are started from the Poong extension in a chatgpt.com tab"
         )
     else:
-        yield _ApiEngine()
+        yield _ApiEngine(model)
 
 
 # chatgpt.com shows its reply as rendered Markdown, so raw HTML only survives
@@ -318,7 +345,14 @@ def _inject_css(html: str, css: str) -> str:
     return style + html
 
 
-def _load_persona_css(persona) -> str:
+def _load_persona_css(persona, accent: str | None = None) -> str:
+    """The persona's stylesheet, repainted to `accent`.
+
+    `accent` is the colour the requesting browser picked, so two people
+    generating at once each get their own. None means the request did not say
+    (an older client), which falls back to the last colour saved in
+    runtime.yml; "" means the stylesheet's own accent.
+    """
     css_name = (persona.tailor or {}).get("css_file")
     if not css_name:
         return ""
@@ -327,16 +361,13 @@ def _load_persona_css(persona) -> str:
     if not path.exists():
         return ""
     css = path.read_text(encoding="utf-8")
-    # Repaint to the accent chosen in the UI. A persona that does not declare
-    # the accent its sheet is written in (tailor.accent_color) is left alone.
+    # A persona that does not declare the accent its sheet is written in
+    # (tailor.accent_color) is left alone.
     from app.services import runtime_settings
     from app.services.resume_accent import apply_to_css
 
-    return apply_to_css(
-        css,
-        (persona.tailor or {}).get("accent_color"),
-        runtime_settings.resume_accent(),
-    )
+    chosen = runtime_settings.resume_accent() if accent is None else (accent or None)
+    return apply_to_css(css, (persona.tailor or {}).get("accent_color"), chosen)
 
 
 async def generate_resume_markdown(
@@ -438,6 +469,8 @@ async def tailor_job(
     persona_id: str | None = None,
     engine: str = "api",
     llm: Any = None,
+    accent: str | None = None,
+    model: str | None = None,
 ) -> dict[str, Any]:
     if engine not in ENGINES:
         raise ValueError(f"unknown engine {engine!r}; expected one of {ENGINES}")
@@ -463,10 +496,10 @@ async def tailor_job(
     given, llm = llm, None
     engines = AsyncExitStack()
     try:
-        llm = await engines.enter_async_context(_open_engine(engine, given))
+        llm = await engines.enter_async_context(_open_engine(engine, given, model))
         if mode == "html_resume_bundle":
             resume_html, cover = await generate_html_bundle(persona, job, llm=llm)
-            css = _load_persona_css(persona)
+            css = _load_persona_css(persona, accent)
             if css:
                 resume_html = _inject_css(resume_html, css)
             (folder / f"{display}.html").write_text(resume_html, encoding="utf-8")
@@ -479,7 +512,7 @@ async def tailor_job(
             resume_md = await generate_resume_markdown(persona, job, llm=llm)
             (folder / f"{display}.md").write_text(resume_md, encoding="utf-8")
             resume_html = markdown_to_html(resume_md, title=f"{display} — Resume")
-            css = _load_persona_css(persona)
+            css = _load_persona_css(persona, accent)
             if css:
                 resume_html = polish_flat_resume_html(resume_html, display_name=display)
                 resume_html = replace_document_css(resume_html, css)
@@ -514,7 +547,7 @@ async def tailor_job(
                     resume_html, cover = await generate_html_bundle(
                         persona, job, extra=hint, llm=llm
                     )
-                    css = _load_persona_css(persona)
+                    css = _load_persona_css(persona, accent)
                     if css:
                         resume_html = _inject_css(resume_html, css)
                     (folder / f"{display}.html").write_text(resume_html, encoding="utf-8")
@@ -526,7 +559,7 @@ async def tailor_job(
                     )
                     (folder / f"{display}.md").write_text(resume_md, encoding="utf-8")
                     resume_html = markdown_to_html(resume_md, title=f"{display} — Resume")
-                    css = _load_persona_css(persona)
+                    css = _load_persona_css(persona, accent)
                     if css:
                         resume_html = polish_flat_resume_html(resume_html, display_name=display)
                         resume_html = replace_document_css(resume_html, css)
@@ -675,6 +708,7 @@ async def build_package_from_text(
     persona_id: str,
     raw_text: str,
     engine_label: str = "manual_paste",
+    accent: str | None = None,
 ) -> dict[str, Any]:
     """Build the resume + cover package from text pasted by hand, no LLM call.
 
@@ -709,7 +743,7 @@ async def build_package_from_text(
     folder = ensure_job_folder(generate_pid, job.seq_no or 0, job.company)
 
     if mode == "html_resume_bundle":
-        css = _load_persona_css(persona)
+        css = _load_persona_css(persona, accent)
         if css:
             resume_html = _inject_css(resume_html, css)
         (folder / f"{display}.html").write_text(resume_html, encoding="utf-8")
@@ -721,7 +755,7 @@ async def build_package_from_text(
     else:
         (folder / f"{display}.md").write_text(resume_md, encoding="utf-8")
         resume_html = markdown_to_html(resume_md, title=f"{display} — Resume")
-        css = _load_persona_css(persona)
+        css = _load_persona_css(persona, accent)
         if css:
             resume_html = polish_flat_resume_html(resume_html, display_name=display)
             resume_html = replace_document_css(resume_html, css)

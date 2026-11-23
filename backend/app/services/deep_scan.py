@@ -8,7 +8,7 @@ from app.db.enums import JobStatus
 from app.db.job_tables import job_model
 from app.db.models import JobRow
 from app.services.employer_resolve import apply_employer_to_job_fields, resolve_employer
-from app.services.folder_writer import job_folder_name, remove_job_folder, sync_job_folder
+from app.services.folder_writer import job_folder_name, sync_job_folder
 from app.services.jd_fetch import FetchResult, fetch_jd_http
 from app.services.jd_fetch_browser import fetch_jd_browser
 from app.services.jd_extract import extract_job_fields_from_jd
@@ -46,15 +46,37 @@ async def fetch_description(url: str) -> tuple[FetchResult, str]:
     return result, http_reason
 
 
+# A scan may re-resolve the employer and re-gate only a job still in these.
+_OPEN_STATUSES = {
+    JobStatus.NEW.value,
+    JobStatus.JD_READY.value,
+    JobStatus.SCAN_FAILED.value,
+    JobStatus.NEEDS_MANUAL.value,
+    JobStatus.REJECTED_ONSITE.value,
+    JobStatus.BLOCKED.value,
+    JobStatus.SKIPPED.value,
+}
+
+
 def _drop_stale_company_folder(job: JobRow, old_company: str, new_folder) -> None:
+    """Fold the old seq-company folder into the new one after a company change.
+
+    Never deletes work: every file the new folder lacks (resume, cover letter,
+    answers) is moved across, and the old folder goes only once it is empty.
+    """
     if not job.seq_no or old_company == job.company:
         return
     stale = get_settings().output_root / job.persona_id / job_folder_name(job.seq_no, old_company)
     try:
-        if stale.resolve() != new_folder.resolve():
-            remove_job_folder(stale)
+        if not stale.is_dir() or stale.resolve() == new_folder.resolve():
+            return
+        for item in stale.iterdir():
+            target = new_folder / item.name
+            if not target.exists():
+                item.rename(target)
+        stale.rmdir()
     except OSError:
-        remove_job_folder(stale)
+        pass
 
 
 async def _apply_resolved_employer(
@@ -119,6 +141,32 @@ async def deep_scan_job(session: AsyncSession, job: JobRow, *, force: bool = Fal
         }
 
     old_company = job.company
+    if job.status not in _OPEN_STATUSES:
+        # Past the JD stage (resume built, applied, interviewing): a re-fetch
+        # refreshes the text only. Re-resolving the employer or re-running the
+        # gates here would rename the company or overwrite the status of a job
+        # already in flight, on whatever the page served this time.
+        job.description = result.text
+        job.jd_fetched = True
+        if not job.salary:
+            from app.services.salary_extract import extract_salary
+
+            job.salary = extract_salary(result.text)
+        folder = sync_job_folder(
+            persona_id=job.persona_id,
+            seq_no=job.seq_no or 0,
+            company=job.company,
+            title=job.title,
+            url=job.url,
+            location=job.location,
+            status=job.status,
+            description=result.text,
+            job_id=job.id,
+        )
+        job.folder_path = str(folder)
+        await session.flush()
+        return {"job_id": job.id, "seq_no": job.seq_no, "status": job.status, "ok": True}
+
     employer_meta = await _apply_resolved_employer(session, job, result.text)
     gate_blocked = employer_meta.get("gate")
 

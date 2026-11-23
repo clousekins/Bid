@@ -21,6 +21,8 @@ from app.services.jd_extract import extract_job_fields_from_jd
 from app.services.persona import get_active_persona_id, load_persona
 from app.services.pipeline import find_job_by_url, is_stale_duplicate, process_listing
 from app.services.deep_scan import deep_scan_job, preview_url_fetch
+from app.services.resume_accent import RequestAccent
+from app.services.runtime_settings import RequestModel
 from app.services.tailor import (
     build_package_from_text,
     build_tailor_prompt,
@@ -49,6 +51,9 @@ class ManualFetchBody(BaseModel):
 class ManualTailorBody(BaseModel):
     job_id: int
     persona_id: str
+    # The resume colour and API model picked in the requesting browser.
+    accent: RequestAccent = None
+    model: RequestModel = None
 
 
 class ManualAnswersBody(BaseModel):
@@ -60,6 +65,7 @@ class ManualAnswersBody(BaseModel):
     title: str | None = None
     url: str | None = None
     description: str | None = None
+    model: RequestModel = None
 
 
 class ManualPromptBody(BaseModel):
@@ -71,6 +77,7 @@ class ManualBuildBody(BaseModel):
     persona_id: str
     job_id: int
     text: str = Field(..., min_length=1)
+    accent: RequestAccent = None
 
 
 def _parse_questions(*, questions: list[str] | None, questions_text: str | None) -> list[str]:
@@ -295,7 +302,9 @@ async def manual_tailor(body: ManualTailorBody, db: AsyncSession = Depends(get_d
     if not (job.description and len(job.description) >= 50):
         raise HTTPException(400, detail="jd_too_short")
     try:
-        result = await tailor_job(db, job, persona_id=body.persona_id)
+        result = await tailor_job(
+            db, job, persona_id=body.persona_id, accent=body.accent, model=body.model
+        )
         await db.commit()
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, detail=str(exc)) from exc
@@ -360,7 +369,7 @@ async def manual_build(body: ManualBuildBody, db: AsyncSession = Depends(get_db)
 
     try:
         result = await build_package_from_text(
-            db, job, persona_id=body.persona_id, raw_text=body.text
+            db, job, persona_id=body.persona_id, raw_text=body.text, accent=body.accent
         )
         await db.commit()
     except RuntimeError as exc:
@@ -421,6 +430,7 @@ async def manual_answers(body: ManualAnswersBody, db: AsyncSession = Depends(get
         },
         resume_excerpt=resume_excerpt,
         jd_excerpt=jd_excerpt,
+        model=body.model,
     )
 
     ordered = [{"question": q, "answer": answers.get(q, "")} for q in questions]

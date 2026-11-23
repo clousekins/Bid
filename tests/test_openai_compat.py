@@ -156,3 +156,104 @@ def test_every_chat_call_site_goes_through_the_helper():
         and "chat.completions.create" in path.read_text(encoding="utf-8")
     ]
     assert not offenders, f"these call the API directly: {offenders}"
+
+
+class _Resp:
+    def __init__(self, status, text="", error=None):
+        self.id = "resp_1"
+        self.status = status
+        self.output_text = text
+        self.error = error
+        self.incomplete_details = None
+
+
+class _BackgroundClient:
+    """A Responses API stand-in: refuses the named parameters on create, then
+    answers each retrieve from a script (a _Resp, or an exception to raise)."""
+
+    def __init__(self, polls, refuses=()):
+        self.polls = list(polls)
+        self.refuses = set(refuses)
+        self.created: list[dict] = []
+        self.cancelled = False
+        self.responses = self
+
+    async def create(self, **kwargs):
+        self.created.append(kwargs)
+        for param in self.refuses:
+            if param in kwargs:
+                # The Responses API sends this one with code null.
+                body = {
+                    "message": f"Unsupported parameter: '{param}' is not supported with this model.",
+                    "type": "invalid_request_error",
+                    "param": param,
+                    "code": None,
+                }
+                # Worded the way the SDK words it, not the API.
+                raise BadRequestError(
+                    f"Error code: 400 - {{'error': {body}}}",
+                    response=httpx.Response(400, request=httpx.Request("POST", "https://api.openai.com")),
+                    body=body,
+                )
+        return _Resp("queued")
+
+    async def retrieve(self, _id):
+        step = self.polls.pop(0)
+        if isinstance(step, Exception):
+            raise step
+        return step
+
+    async def cancel(self, _id):
+        self.cancelled = True
+
+
+@pytest.fixture
+def _fast_polls(monkeypatch):
+    monkeypatch.setattr(openai_compat, "BACKGROUND_POLL_S", 0)
+
+
+def _dropped():
+    from openai import APIConnectionError
+
+    return APIConnectionError(request=httpx.Request("GET", "https://api.openai.com"))
+
+
+@pytest.mark.usefixtures("_fast_polls")
+class TestBackgroundResponse:
+    async def test_polls_through_dropped_connections(self):
+        client = _BackgroundClient([_Resp("in_progress"), _dropped(), _dropped(), _Resp("completed", " done ")])
+        text = await openai_compat.background_response_text(client, model="m", instructions="s", input="u")
+        assert text == "done"
+        assert client.created[0]["background"] is True
+
+    async def test_drops_a_parameter_refused_with_a_null_code(self):
+        client = _BackgroundClient([_Resp("completed", "ok")], refuses={"temperature"})
+        text = await openai_compat.background_response_text(
+            client, model="m", instructions="s", input="u", temperature=0.4
+        )
+        assert text == "ok"
+        assert "temperature" in client.created[0]
+        assert "temperature" not in client.created[1]
+
+    async def test_a_failed_run_is_reported_as_retryable(self):
+        error = type("E", (), {"message": "server_error"})()
+        client = _BackgroundClient([_Resp("failed", error=error)])
+        with pytest.raises(openai_compat.BackgroundResponseFailed):
+            await openai_compat.background_response_text(client, model="m", instructions="s", input="u")
+
+    async def test_cancelling_stops_the_run_on_openai(self):
+        import asyncio
+
+        class _Hang(_BackgroundClient):
+            async def retrieve(self, _id):
+                await asyncio.sleep(10)
+
+        client = _Hang([])
+        task = asyncio.create_task(
+            openai_compat.background_response_text(client, model="m", instructions="s", input="u")
+        )
+        await asyncio.sleep(0.05)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert client.cancelled

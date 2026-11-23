@@ -9,7 +9,7 @@ Work internally in this order: analyze JD → map proficiency and career timelin
 
 ## Immutable candidate information
 lexander Mak | Senior Data Engineer
-Columbia, Maryland | alexandermak1992@outlook.com | (820) 386-8258 | linkedin.com/in/alexander-m-695908140
+Columbia, Maryland | alexandermak1992@outlook.com | (213) 915-8584 | linkedin.com/in/alexander-m-695908140
 
 Preserve name, email, phone, location, LinkedIn, company names, job titles, dates, recorded locations, Education, and Certifications exactly. Preserve any provided Qualifications Summary content. Never fill an unspecified year or invent a location.
 
@@ -20,7 +20,15 @@ Classify requirements:
 - Tier 3 — Supporting engineering: testing, CI/CD, observability, governance, security, performance, data quality, incident response, documentation, collaboration, and related practices. Support the architecture.
 - Tier 4 — Preferred/secondary: nice-to-have tools, platforms, domain exposure, and supporting experience. Include relevant evidence without distracting from the target role.
 
-For every skill, extract explicit years or proficiency wording.
+About responsibilities, you have to add all of the responsibilities to Dennis's experience.
+MOST IMPORTANT : DENNIS'S OVERALL RESPONSIBILITIES MUST BE AT LEAST EQUAL TO THE JD REQUIREMENT BECAUSE AGAIN HE HAVE VERY STRONG EXPERIENCE WITH THE RESPONSIBILITY.
+THE SENIOR/LEAD/STAFF/PRINCIPAL RESPONSIBILITIES MUST BE IN HIS LAST TWO ROLES.
+AND OTHERS ARE IN ALL OF HIS HISTORY.
+BUT NOT ONLY DESCRIBE JD'S RESPONSIBILITY, HE HAVE MORE MORE EXPERIENCE WITH THAT.
+SO IN THE JD PROJECT, ROLE FIELD HE HAVE MORE AND MUST BE DESCRIBED.
+
+
+For every skills and responsibilities, extract explicit years or proficiency wording.
 - Exposure/familiarity: under 2 years; seen or occasionally used.
 - Basic experience: 1–2 years; basic tasks.
 - Working knowledge: 2–3 years; normal tasks with occasional help.
@@ -47,7 +55,7 @@ Preferred example: “Optimized Snowflake workloads through Query Profile analys
 Weaker example: “Optimized Snowflake warehouse schemas, clustering strategies, joins, and query patterns, cutting median dashboard query time by 58% and lowering compute consumption by 31%.”
 
 ## Professional Summary
-One paragraph, 2–3 sentences, beginning exactly: “Senior Data Engineer with 10+ years of experience”. State seniority, exact function, core stack, data-engineering background, production ownership, business impact, and impactful collaboration relevant to the JD. Emphasize JD-domain experience when plausible in the history. Hiring managers must quickly see function, stack, and production ownership for the JD.
+One paragraph, 2–3 sentences, beginning exactly: “Senior Data Engineer with 6+ years of experience”. State seniority, exact function, core stack, data-engineering background, production ownership, business impact, and impactful collaboration relevant to the JD. Emphasize JD-domain experience when plausible in the history. Hiring managers must quickly see function, stack, and production ownership for the JD.
 
 ## Professional Experience: fixed history and constraints
 Select exactly one primary cloud for both American Express roles: AWS, Azure, or GCP. Choose the JD's most architecturally central provider; default to AWS if none is named. Keep each role's architecture coherent.
@@ -269,7 +277,7 @@ The source template's escaped markup and internal fence markers are presentation
   <div class="header">
 <div class="name">Alexander Mak</div>
 <div class="title">Senior Data Engineer | [JD specialization, see HEADER TITLE]</div>
-<div class="contact">Columbia, Maryland &nbsp;&nbsp;&nbsp;&nbsp; alexandermak1992@outlook.com &nbsp;&nbsp;&nbsp;&nbsp; (820) 386-8258 &nbsp;&nbsp;&nbsp;&nbsp; <a href="https://www.linkedin.com/in/alexander-m-695908140">linkedin.com/in/alexander-m-695908140</a></div>
+<div class="contact">Columbia, Maryland &nbsp;&nbsp;&nbsp;&nbsp; alexandermak1992@outlook.com &nbsp;&nbsp;&nbsp;&nbsp; (213) 915-8584 &nbsp;&nbsp;&nbsp;&nbsp; <a href="https://www.linkedin.com/in/alexander-m-695908140">linkedin.com/in/alexander-m-695908140</a></div>
 <div class="header-dotted"></div>
   </div>
   <div class="section">

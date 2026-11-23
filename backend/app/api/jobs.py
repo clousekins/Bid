@@ -49,6 +49,8 @@ from app.services.pipeline import (
     process_listing,
 )
 from app.services.renumber import renumber_all_jobs
+from app.services.resume_accent import RequestAccent
+from app.services.runtime_settings import RequestModel
 from app.services.tailor import tailor_job
 from app.validators.dedupe import normalize_company
 
@@ -141,6 +143,7 @@ class JobFieldsPatch(BaseModel):
     location: str | None = None
     apply_url: str | None = None
     salary: str | None = None
+    description: str | None = None
 
 
 class RangeDelete(BaseModel):
@@ -1012,6 +1015,18 @@ async def patch_job_fields(
         job.location = body.location.strip() or None
     if body.salary is not None:
         job.salary = body.salary.strip() or None
+    if body.description is not None:
+        jd = body.description.strip()
+        if len(jd) < 50:
+            raise HTTPException(400, detail="jd_too_short")
+        job.description = jd
+        # A row waiting on a scan has its JD now; later stages keep theirs.
+        if job.status in {JobStatus.NEW.value, JobStatus.SCAN_FAILED.value}:
+            job.status = JobStatus.JD_READY.value
+        if not job.salary:
+            from app.services.salary_extract import extract_salary
+
+            job.salary = extract_salary(jd)
 
     job.updated_at = utcnow()
     if job.company != old_company:
@@ -1289,6 +1304,10 @@ async def deep_scan_one(job_id: int, db: AsyncSession = Depends(get_db)):
 
 class TailorBody(BaseModel):
     persona_id: str | None = None
+    # The resume colour picked in the requesting browser.
+    accent: RequestAccent = None
+    # The API model picked in the requesting browser.
+    model: RequestModel = None
 
 
 @router.post("/{job_id}/tailor")
@@ -1302,7 +1321,13 @@ async def tailor_one(
         raise HTTPException(404, detail="not_found")
     try:
         persona_id = (body.persona_id if body else None) or None
-        result = await tailor_job(db, job, persona_id=persona_id)
+        result = await tailor_job(
+            db,
+            job,
+            persona_id=persona_id,
+            accent=body.accent if body else None,
+            model=body.model if body else None,
+        )
         await db.commit()
         return result
     except Exception as exc:  # noqa: BLE001

@@ -17,6 +17,9 @@ resolve custom properties and would print the accent as black.
 from __future__ import annotations
 
 import re
+from typing import Annotated
+
+from pydantic import AfterValidator
 
 HEX = re.compile(r"^#[0-9A-Fa-f]{6}$")
 
@@ -50,6 +53,18 @@ def normalise(value: str | None) -> str | None:
     if not HEX.match(text):
         raise ValueError(f"{value!r} is not a #rrggbb colour")
     return text.upper()
+
+
+def request_accent(value: str | None) -> str | None:
+    """A colour sent with a generate request, checked before it reaches a
+    stylesheet. None (not sent) stays None; "" means the stylesheet's own."""
+    if value is None:
+        return None
+    return normalise(value) or ""
+
+
+# For request bodies: a bad colour is refused with a 422 before any work starts.
+RequestAccent = Annotated[str | None, AfterValidator(request_accent)]
 
 
 def apply_to_css(css: str, base: str | None, chosen: str | None) -> str:

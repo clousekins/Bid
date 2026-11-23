@@ -14,6 +14,7 @@ from app.db.session import get_db
 from app.services import chatgpt_bridge
 from app.services.employer_conflicts import persona_employers
 from app.services.persona import get_active_persona_id, list_personas, load_persona
+from app.services.resume_accent import RequestAccent
 
 router = APIRouter(prefix="/api/chatgpt", tags=["chatgpt"])
 
@@ -127,6 +128,8 @@ async def list_jobs(
 class StartBody(BaseModel):
     job_id: int
     persona_id: str
+    # The resume colour; unsent falls back to the last one saved in runtime.yml.
+    accent: RequestAccent = None
 
 
 class ReplyBody(BaseModel):
@@ -156,7 +159,7 @@ async def start_session(body: StartBody, db: AsyncSession = Depends(get_db)):
         load_persona(body.persona_id)
     except ValueError as exc:
         raise HTTPException(400, detail=str(exc)) from exc
-    return await chatgpt_bridge.start(body.job_id, body.persona_id)
+    return await chatgpt_bridge.start(body.job_id, body.persona_id, accent=body.accent)
 
 
 @router.post("/sessions/{session_id}/reply")

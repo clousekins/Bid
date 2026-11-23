@@ -33,6 +33,9 @@ For every skill, extract explicit years or proficiency wording.
 - Advanced expertise: 7–11 or more years; senior mastery/design.
 - Expert-level: 9–11 or more years; lead, architect, troubleshoot, mentor.
 
+You have to explain at least this years of experience.
+If you can add at least one more year to those.
+
 Map Tier 1 experience across the whole career timeline. Don't show the Tier 1 only in the last experience, but also show in every history.(Ex, If Tier 1 has a cloud platform like Azure Databricks, then you can add it in all possible histories except the early relational-only roles(Ohio Data Engineer and Intelivix, because those predate the cloud lakehouse work)).
 Also Tier 2 is important if possible, insert into last and before last history as possible as can.
  Other skills support Tiers 1–2; omit those that cannot fit, while retaining as much relevant coverage as possible. Include technologies needed to support the core architecture. Preferred skills may strongly affect fit; include as many as possible in the latest role when coherent. Earlier experience must support progression into the two latest roles.
@@ -41,6 +44,9 @@ BUT THE IMPORTANT RULE: THE LAST ROLE MUST BE MORE SENIOR THAN THE BEFORE ROLE. 
 
 Analyze JD ownership, responsibility, and domain; use matching ownership language and credible domain impact. Build the detailed Experience draft against these requirements. If the JD requires “use X and Y to do Z,” demonstrate that relationship and impact.
 
+Don't write only for the skills show his responsibility equal or more(better) than JD requirement.
+You can write like this:
+"Mentored junior data engineers in designing and optimizing scalable ETL/ELT pipelines using Python, PySpark, SQL, Databricks, Apache Spark, and Delta Lake, providing hands-on guidance in data modeling, incremental processing and cloud-based data architectures across AWS, Azure, and GCP, while conducting code reviews and promoting data quality, performance, and engineering best practices."
 
 Write from the draft. Do not remove drafted skills or responsibility/ownership language; combine sentences if needed. Every bullet must show technically possible work. Describe mechanisms and impact rather than merely naming tools. Write naturally, without awkward or AI-sounding phrasing.
 

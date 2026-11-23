@@ -1,18 +1,19 @@
 import { useEffect, useState } from "react";
-import { client } from "../api.js";
+import { client, getTailorModel, setTailorModelChoice } from "../api.js";
 
 /**
  * Which OpenAI model the API tailor path uses.
  *
  * The list is the chat-capable models on the account (so the ids are real, not
- * guessed); the choice is a runtime setting, so it persists across restarts and
- * takes effect on the next Generate — no .env edit or restart. Only the API-key
- * path uses it; the ChatGPT/Claude extension path drives the model in the browser.
+ * guessed). The choice is kept in this browser and sent with each generate
+ * request, so two people picking different models each get their own. A
+ * browser that has never picked starts from the server's saved default. Only
+ * the API-key path uses it; the ChatGPT/Claude extension path drives the model
+ * in the browser.
  */
 export default function ModelSelect() {
   const [model, setModel] = useState("");
   const [models, setModels] = useState([]);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [loaded, setLoaded] = useState(false);
 
@@ -22,12 +23,15 @@ export default function ModelSelect() {
       .tailorModel()
       .then((d) => {
         if (cancelled) return;
-        setModel(d.model || "");
+        const mine = getTailorModel();
+        if (!mine && d.model) setTailorModelChoice(d.model);
+        setModel(mine || d.model || "");
         setModels(Array.isArray(d.models) ? d.models : []);
         setLoaded(true);
       })
       .catch((e) => {
         if (cancelled) return;
+        setModel(getTailorModel() || "");
         setError(String(e.message || e));
         setLoaded(true);
       });
@@ -36,20 +40,9 @@ export default function ModelSelect() {
     };
   }, []);
 
-  const persist = async (next) => {
-    const prev = model;
+  const choose = (next) => {
+    setTailorModelChoice(next);
     setModel(next);
-    setSaving(true);
-    setError("");
-    try {
-      const saved = await client.setTailorModel(next);
-      setModel(saved.model || next);
-    } catch (e) {
-      setModel(prev);
-      setError(String(e.message || e));
-    } finally {
-      setSaving(false);
-    }
   };
 
   if (!loaded) return null;
@@ -63,12 +56,7 @@ export default function ModelSelect() {
         API model
       </label>
       {options.length ? (
-        <select
-          id="tailor-model"
-          value={model}
-          disabled={saving}
-          onChange={(e) => persist(e.target.value)}
-        >
+        <select id="tailor-model" value={model} onChange={(e) => choose(e.target.value)}>
           {options.map((m) => (
             <option key={m} value={m}>
               {m}
@@ -81,7 +69,7 @@ export default function ModelSelect() {
         </span>
       )}
       <span className="muted model-select-hint">
-        Used by the API-key Generate path (not the extension).
+        Saved in this browser only. Used by the API-key Generate path (not the extension).
       </span>
       {error ? <p className="error-text">{error}</p> : null}
     </div>

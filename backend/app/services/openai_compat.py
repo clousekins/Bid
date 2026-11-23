@@ -21,10 +21,11 @@ gets the value the caller chose.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
-from openai import BadRequestError
+from openai import APIConnectionError, BadRequestError, InternalServerError
 
 log = logging.getLogger(__name__)
 
@@ -47,16 +48,22 @@ def _refused_parameter(err: BadRequestError) -> str | None:
     """
     code = getattr(err, "code", None)
     param = getattr(err, "param", None)
+    message = ""
 
-    if code is None or param is None:
-        body = getattr(err, "body", None)
-        if isinstance(body, dict):
-            detail = body.get("error") if isinstance(body.get("error"), dict) else body
-            code = code or detail.get("code")
-            param = param or detail.get("param")
+    body = getattr(err, "body", None)
+    if isinstance(body, dict):
+        detail = body.get("error") if isinstance(body.get("error"), dict) else body
+        code = code or detail.get("code")
+        param = param or detail.get("param")
+        message = str(detail.get("message") or "")
 
     if code not in _UNSUPPORTED_CODES:
-        return None
+        # The Responses API sends the same refusal with `code: null`, and says
+        # so only in the message: "Unsupported parameter: 'temperature' is not
+        # supported with this model." That text is in the body; the exception's
+        # own message is "Error code: 400 - {...}".
+        if code is not None or not message.startswith(("Unsupported parameter", "Unsupported value")):
+            return None
     return str(param) if param else None
 
 
@@ -81,3 +88,78 @@ async def chat_completion(client: Any, *, model: str, messages: list[Any], **par
             log.info(
                 "openai: %s does not accept %r — retrying without it", model, param
             )
+
+
+# How long a background response may run before it is given up on, and how
+# often it is checked.
+class BackgroundResponseFailed(RuntimeError):
+    """The model run itself failed on OpenAI's side; worth another try."""
+
+
+BACKGROUND_DEADLINE_S = 15 * 60
+BACKGROUND_POLL_S = 4.0
+_POLL_ERRORS_ALLOWED = 30
+
+
+async def background_response_text(
+    client: Any, *, model: str, instructions: str, input: str, **params: Any
+) -> str:
+    """One Responses API call run in background mode, polled until it is done.
+
+    For networks that drop an idle connection. A reasoning model can think for
+    a minute before it sends a byte, and a VPN tunnel that cuts connections
+    silent for about ten seconds kills that request every time, streamed or
+    not. In background mode the request returns at once with an id, and each
+    poll after it is a short call of its own, so no connection is open long
+    enough to be cut. A poll that fails is just tried again.
+
+    Parameters the model refuses are dropped and remembered, as in
+    chat_completion.
+    """
+    refused = _REFUSED.setdefault(model, set())
+    attempt = {k: v for k, v in params.items() if k not in refused}
+    while True:
+        try:
+            resp = await client.responses.create(
+                model=model, instructions=instructions, input=input, background=True, **attempt
+            )
+            break
+        except BadRequestError as err:
+            param = _refused_parameter(err)
+            if not param or param not in attempt:
+                raise
+            refused.add(param)
+            attempt.pop(param)
+            log.info("openai: %s does not accept %r — retrying without it", model, param)
+
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + BACKGROUND_DEADLINE_S
+    poll_errors = 0
+    try:
+        while resp.status in ("queued", "in_progress"):
+            if loop.time() > deadline:
+                raise TimeoutError(f"OpenAI response {resp.id} still {resp.status} after {BACKGROUND_DEADLINE_S}s")
+            await asyncio.sleep(BACKGROUND_POLL_S)
+            try:
+                resp = await client.responses.retrieve(resp.id)
+            except (APIConnectionError, InternalServerError) as exc:
+                poll_errors += 1
+                if poll_errors > _POLL_ERRORS_ALLOWED:
+                    raise
+                log.warning("openai: polling %s failed (%s), trying again", resp.id, exc.__cause__ or exc)
+    except BaseException:
+        # Cancelled or given up: stop the model writing an answer nobody reads.
+        if resp.status in ("queued", "in_progress"):
+            try:
+                await asyncio.shield(client.responses.cancel(resp.id))
+            except BaseException:  # noqa: BLE001
+                pass
+        raise
+
+    if resp.status == "completed":
+        return (resp.output_text or "").strip()
+    if resp.status == "incomplete":
+        reason = getattr(resp.incomplete_details, "reason", None) or "unknown"
+        raise RuntimeError(f"OpenAI response incomplete: {reason}")
+    error = getattr(resp, "error", None)
+    raise BackgroundResponseFailed(f"OpenAI response {resp.status}: {getattr(error, 'message', None) or resp.status}")

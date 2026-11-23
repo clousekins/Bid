@@ -190,7 +190,7 @@ async def test_resume_build_skips_disabled_jobs(factory):
 async def test_ingestion_ignores_a_disabled_duplicate(factory):
     async with factory() as session:
         first = await _add(session, "Acme", "https://example.com/a")
-        # A second Acme job inside the 7-day window is normally duplicate_company.
+        # Disabling a job frees its URL and role for a fresh listing.
         await _set_enabled(session, first, False)
         r2 = await process_listing(
             session,

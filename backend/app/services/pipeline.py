@@ -317,19 +317,24 @@ async def find_recent_job_by_company(
     session: AsyncSession,
     persona_id: str,
     normalized_company: str,
+    title: str,
     *,
     exclude_ids: set[int] | None = None,
 ) -> JobRow | None:
-    """The newest non-rejected listing from this company in this persona's table
-    still inside the window.
+    """The newest non-rejected listing of this same role at this company in this
+    persona's table, still inside the window.
 
-    One job per company per REINSERT_STALE_DAYS, per persona: a company that
-    already has a non-rejected listing in this table takes no more until it ages
-    out. A rejected listing is written off, so it frees the company. exclude_ids
-    drops rows the persona disabled by hand.
+    Only the same role counts: a company's other openings are let in, however
+    many of its jobs the table already holds. What closes a company is an
+    application there (company_is_applied) or marking it federal — both checked
+    before this. The same role under another link — a CSV re-export, a board
+    repost — is still a duplicate until it ages out (REINSERT_STALE_DAYS). A
+    rejected listing is written off; exclude_ids drops rows the persona disabled
+    by hand.
     """
     model = job_model(persona_id)
-    if not normalized_company:
+    key = normalize_title(title)
+    if not normalized_company or not key:
         return None
     where = [
         model.normalized_company == normalized_company,
@@ -337,13 +342,12 @@ async def find_recent_job_by_company(
     ]
     if exclude_ids:
         where.append(model.id.notin_(exclude_ids))
-    row = (
-        await session.execute(
-            select(model).where(*where).order_by(model.created_at.desc()).limit(1)
-        )
-    ).scalar_one_or_none()
-    if row is not None and not is_stale_duplicate(row):
-        return row
+    rows = (
+        await session.execute(select(model).where(*where).order_by(model.created_at.desc()))
+    ).scalars().all()
+    for row in rows:
+        if normalize_title(row.title or "") == key and not is_stale_duplicate(row):
+            return row
     return None
 
 
@@ -499,9 +503,10 @@ async def process_listing(
             ok=False, skipped=True, reason="duplicate_url", job=existing_url
         )
 
-    # One job per company per the re-insert window (per persona).
+    # The same role at this company, reposted under another link, inside the
+    # re-insert window (per persona). Other roles at the company come in.
     recent_company = await find_recent_job_by_company(
-        session, pid, normalized, exclude_ids=disabled_exclude
+        session, pid, normalized, title, exclude_ids=disabled_exclude
     )
     if recent_company:
         return ProcessResult(

@@ -67,7 +67,7 @@ async def test_parallel_tailor_progress_has_concurrency(tmp_path, monkeypatch):
 
     seen: list[int] = []
 
-    async def fake_tailor(session, job, *, persona_id=None):
+    async def fake_tailor(session, job, *, persona_id=None, accent=None, model=None):
         seen.append(job.id)
         await asyncio.sleep(0.05)
         return {"job_id": job.id, "ok": True, "persona_id": persona_id or "phong_v_cao"}
@@ -104,3 +104,91 @@ async def test_parallel_tailor_progress_has_concurrency(tmp_path, monkeypatch):
         assert prog["done"] == 3
         assert len(prog["items"]) == 3
         assert set(seen) == set(ids)
+
+
+@pytest.mark.asyncio
+async def test_stop_ends_a_resume_batch_at_once(tmp_path, monkeypatch):
+    """Stop must not wait for the resumes in progress to finish."""
+    import asyncio
+
+    from app.config import get_settings
+    from app.db import session as sess
+    from app.db.enums import BackgroundJobKind, BackgroundJobStatus, JobStatus
+    from app.db.models import BackgroundJob
+    from app.db.session import get_session_factory, init_db
+    from app.services import bg_jobs
+    from app.services.pipeline import process_listing
+
+    GEN_PID = "andrew_nguyen"
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{(tmp_path / 'stop.db').as_posix()}")
+    monkeypatch.setenv("ACCESS_TOKEN", "")
+    monkeypatch.setenv("PERSONA_OUTPUT_ROOT", str(tmp_path / "applications"))
+    monkeypatch.setenv("TAILOR_CONCURRENCY", "2")
+    get_settings.cache_clear()
+    sess._engine = None
+    sess._session_factory = None
+    await init_db()
+    # This test runs the real worker. Its event, locks and task belong to this
+    # test's event loop, so they are put back afterwards for the next test.
+    for name in ("_worker_task", "_wake", "_locks", "_progress_lock"):
+        monkeypatch.setattr(bg_jobs, name, None)
+
+    factory = get_session_factory()
+    async with factory() as session:
+        ids = []
+        for i in range(1, 5):
+            r = await process_listing(
+                session,
+                {
+                    "company": f"Stop{i}",
+                    "title": "Senior Engineer",
+                    "url": f"https://example.com/stop/{i}",
+                    "location": "Remote, US",
+                    "description": "A" * 80,
+                },
+                persona_id=GEN_PID,
+                skip_content_gates=True,
+            )
+            r.job.status = JobStatus.JD_READY.value
+            ids.append(r.job.id)
+        await session.commit()
+
+    running: list[int] = []
+    stopped: list[int] = []
+
+    async def slow_tailor(session, job, *, persona_id=None, accent=None, model=None):
+        running.append(job.id)
+        try:
+            await asyncio.sleep(600)  # a resume that would take ten minutes
+        except asyncio.CancelledError:
+            stopped.append(job.id)
+            raise
+        return {"job_id": job.id, "ok": True}
+
+    monkeypatch.setattr("app.services.tailor.tailor_job", slow_tailor)
+
+    row = await bg_jobs.enqueue(
+        kind=BackgroundJobKind.TAILOR, persona_id=GEN_PID, job_ids=ids, generate_as=GEN_PID
+    )
+    try:
+        for _ in range(200):  # both workers busy on a resume
+            if len(running) == 2:
+                break
+            await asyncio.sleep(0.05)
+        assert len(running) == 2
+        task = bg_jobs._running[row.id]
+
+        await bg_jobs.request_cancel(row.id)
+        await asyncio.wait({task}, timeout=5)
+        assert task.done()
+
+        async with factory() as session:
+            bg = await session.get(BackgroundJob, row.id)
+            assert bg.status == BackgroundJobStatus.CANCELLED.value
+        assert sorted(stopped) == sorted(running)  # both resumes in progress stopped
+        assert not bg_jobs._worker_task.done()  # the worker carries on
+    finally:
+        worker = bg_jobs._worker_task
+        if worker:
+            worker.cancel()
+            await asyncio.wait({worker}, timeout=5)

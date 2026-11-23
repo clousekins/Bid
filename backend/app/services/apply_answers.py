@@ -578,8 +578,13 @@ async def generate_field_answers(
     job_meta: dict[str, Any],
     resume_excerpt: str = "",
     jd_excerpt: str = "",
+    model: str | None = None,
 ) -> dict[str, str]:
-    """Return map label -> answer string for each field."""
+    """Return map label -> answer string for each field.
+
+    `model` is the API model the requesting browser picked; None uses
+    runtime.yml's.
+    """
     defaults = static_defaults(persona)
     answers: dict[str, str] = {}
     unresolved: list[dict[str, Any]] = []
@@ -608,6 +613,7 @@ async def generate_field_answers(
             job_meta=job_meta,
             resume_excerpt=resume_excerpt,
             jd_excerpt=jd_excerpt,
+            model=model,
         )
         for label, ans in gpt.items():
             if not label:
@@ -647,6 +653,7 @@ async def _gpt_answer_fields(
     job_meta: dict[str, Any],
     resume_excerpt: str,
     jd_excerpt: str,
+    model: str | None = None,
 ) -> dict[str, str]:
     settings = get_settings()
     if not settings.openai_api_key:
@@ -702,7 +709,7 @@ async def _gpt_answer_fields(
         client,
         # Same runtime model as resume/screening-answer generation, so the
         # Generate-stage "API model" picker controls every API answer path.
-        model=runtime_settings.tailor_model(),
+        model=model or runtime_settings.tailor_model(),
         messages=[
             {"role": "system", "content": system},
             {"role": "user", "content": json.dumps(user, ensure_ascii=False)},

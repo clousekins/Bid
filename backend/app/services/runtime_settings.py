@@ -8,10 +8,12 @@ active persona in personas.yml rather than baked into the environment.
 from __future__ import annotations
 
 import logging
+import re
 from datetime import datetime
-from typing import Any
+from typing import Annotated, Any
 
 import yaml
+from pydantic import AfterValidator
 
 from app.config import get_settings
 
@@ -90,6 +92,27 @@ def tailor_model() -> str:
     if stored in (None, ""):
         return get_settings().openai_model
     return str(stored)
+
+
+_MODEL_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,99}$")
+
+
+def request_model(value: str | None) -> str | None:
+    """A model id sent with a generate request, or None to use tailor_model().
+
+    Each browser keeps its own pick and sends it, so two people generating at
+    once each get the model they chose.
+    """
+    text = str(value or "").strip()
+    if not text:
+        return None
+    if not _MODEL_ID.match(text):
+        raise ValueError(f"{value!r} is not a model id")
+    return text
+
+
+# For request bodies: a malformed model id is refused with a 422.
+RequestModel = Annotated[str | None, AfterValidator(request_model)]
 
 
 def chatgpt_timeout_seconds() -> int:

@@ -18,6 +18,8 @@ from app.services.fetch_sites import (
 )
 from app.services.job_domains import list_job_domains, normalize_domain_ids
 from app.services.persona import get_active_persona_id
+from app.services.resume_accent import RequestAccent
+from app.services.runtime_settings import RequestModel
 
 router = APIRouter(prefix="/api/sync", tags=["sync"])
 
@@ -34,6 +36,9 @@ class RangeBody(BaseModel):
     domains: list[str] | None = None  # e.g. ["de","ai","sf"] — filter discover/fresh
     # Regenerate even when this persona already has a resume package for the job.
     force: bool = False
+    # Tailor only: the resume colour picked in the requesting browser.
+    accent: RequestAccent = None
+    model: RequestModel = None
 
 
 class DiscoverSiteBody(BaseModel):
@@ -235,6 +240,8 @@ async def sync_tailor(body: RangeBody):
         job_ids=ids,
         generate_as=gen_pid,
         force=bool(body.force),
+        accent=body.accent,
+        model=body.model,
     )
     return {
         "job_id": row.id,

@@ -1,0 +1,200 @@
+:root {
+  --bg: #ffffff;
+  --panel: #f5f6f8;
+  --ink: #16181d;
+  --muted: #666c78;
+  --line: #dcdfe5;
+  --accent: #2f6bdd;
+  --accent-ink: #ffffff;
+  --sel: #e7eefc;
+  --ok: #1b7f4b;
+  --warn: #9a6400;
+  --bad: #b3261e;
+  --chip: #eef1f6;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15171c;
+    --panel: #1d2027;
+    --ink: #e7e9ee;
+    --muted: #9aa1ad;
+    --line: #2e323b;
+    --accent: #5b8ff0;
+    --accent-ink: #0d1117;
+    --sel: #23314d;
+    --ok: #4cc38a;
+    --warn: #e0a84a;
+    --bad: #f07067;
+    --chip: #262a33;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--ink);
+  font: 12.5px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+button, input, select, textarea { font: inherit; color: inherit; }
+
+button {
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  cursor: pointer;
+}
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: .5; cursor: default; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+button.danger { color: var(--bad); }
+button.icon { padding: 2px 7px; font-size: 14px; line-height: 1.2; }
+
+input, select, textarea {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  padding: 4px 6px;
+  min-width: 0;
+}
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+.muted { color: var(--muted); }
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+.bar select { flex: 1; }
+.count { color: var(--muted); white-space: nowrap; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+.dot.ok { background: var(--ok); }
+.dot.bad { background: var(--bad); }
+
+.settings {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+}
+/* `display: grid` above would otherwise beat the hidden attribute. */
+.settings[hidden] { display: none; }
+.settings label { display: grid; gap: 2px; color: var(--muted); }
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.finder { padding: 6px 8px 4px; border-bottom: 1px solid var(--line); }
+.finder input { width: 100%; }
+
+/* The list is the small part on top; drag the bottom edge to give it more. */
+.jobs {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  height: 210px;
+  min-height: 80px;
+  max-height: 70vh;
+  overflow-y: auto;
+  resize: vertical;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.jobs li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+}
+.jobs li:last-child { border-bottom: 0; }
+.jobs li:hover { background: var(--panel); }
+.jobs li.sel { background: var(--sel); }
+.jobs li.off { opacity: .55; }
+.jobs .seq { color: var(--muted); font-variant-numeric: tabular-nums; flex: none; min-width: 34px; }
+.jobs .what { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jobs .what b { font-weight: 600; }
+.jobs .note { padding: 10px; color: var(--muted); cursor: default; }
+.pager { display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 4px; }
+.pager[hidden] { display: none; }
+.pageof { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); padding: 0 4px; }
+.pageof input { width: 52px; text-align: center; padding: 2px 4px; }
+
+.pill {
+  flex: none;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--chip);
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.pill.ok { color: var(--ok); }
+.pill.warn { color: var(--warn); }
+.pill.bad { color: var(--bad); }
+
+/* A file you can pick up: drag it onto an upload box or the desktop. */
+.file {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 7px;
+  border: 1px dashed var(--accent);
+  border-radius: 5px;
+  background: var(--chip);
+  color: var(--accent);
+  font-size: 11px;
+  cursor: grab;
+  user-select: none;
+}
+.file:active { cursor: grabbing; }
+.file.big { padding: 5px 10px; font-size: 12.5px; }
+.file.missing { border-color: var(--line); color: var(--muted); cursor: not-allowed; }
+
+.detail { flex: 1; overflow-y: auto; padding: 8px; }
+.empty { color: var(--muted); }
+.detail h2 { margin: 0 0 4px; font-size: 14px; }
+.detail .sub { color: var(--muted); margin-bottom: 6px; }
+.pills { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+
+.group { margin: 10px 0 0; }
+.group > .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
+.buttons { display: flex; flex-wrap: wrap; gap: 4px; }
+
+.fields { display: grid; grid-template-columns: 70px 1fr; gap: 3px 8px; align-items: center; }
+.fields dt { color: var(--muted); }
+.fields dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.fields input { width: 100%; }
+.fields a { color: var(--accent); }
+
+.out { margin-top: 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
+.out .head { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-bottom: 1px solid var(--line); }
+.out .head b { flex: 1; }
+.out textarea { width: 100%; height: 180px; border: 0; border-radius: 0 0 6px 6px; resize: vertical; font: 11.5px/1.4 ui-monospace, Consolas, monospace; }
+
+details.jd { margin-top: 10px; }
+details.jd summary { cursor: pointer; color: var(--muted); }
+details.jd pre { white-space: pre-wrap; font: inherit; margin: 6px 0 0; max-height: 300px; overflow-y: auto; }
+
+.status {
+  padding: 4px 8px;
+  border-top: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--muted);
+  min-height: 24px;
+  overflow-wrap: anywhere;
+}
+.status.bad { color: var(--bad); }
+.status.ok { color: var(--ok); }

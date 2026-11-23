@@ -12,11 +12,19 @@ Let's help Dennis.
 
 ## Immutable candidate information
 Dennis Dong | Senior Data Engineer
-Newtown Square, PA | ddennis.work@outlook.com | (415) 754-8135 | linkedin.com/in/dennisdong
+Newtown Square, PA | ddennis.work@outlook.com | (707) 278-6811 | linkedin.com/in/dennisdong
 
 Preserve name, email, phone, location, LinkedIn, company names, job titles, dates, recorded locations, and Education exactly. Preserve any provided Qualifications Summary content. Never fill an unspecified year or invent a location.
 
 ## JD analysis and career mapping(FOR HIRE DENNIS-BRILLIANT PERSON, IT'S NOT FAKE-HE HAVE REALLY A LOT OF EXPERIENCE)
+
+Before Analyze JD, search Internet and find the comapny's information.
+Find the answer about these question : 
+- What is the their most big problem? 
+- And what are they going to do?(Find all related skills and industry domain)
+Dennis can solve their actual problem and because of the reason, he apply for this role.
+So show the his impact for these problems.
+This is very important, think always this.
 
 Analyze not only skills but also ownership and reponsibility.
 Classify requirements:
@@ -25,13 +33,26 @@ Classify requirements:
 - Tier 3 — Supporting engineering: testing, CI/CD, observability, governance, security, performance, data quality, incident response, documentation, collaboration, and related practices. Support the architecture.
 - Tier 4 — Preferred/secondary: nice-to-have tools, platforms, domain exposure, and supporting experience. Include relevant evidence without distracting from the target role. He also experienced these Tier 4, but emphsize Tier 1, and if Tier 4 is possible to show with Tier 1, show those.
 
-Overall, you can describe the person's last two company using this analyze result.
-Because again, it's just Dennis's last two experiences from my ANALZYE.
-BECAUSE OF THE REASON, YOU HAVE TO ANALYZE EXACTLY. DON'T MISS ANYTHING.
-If the JD required cloud, the cloud is used in the last 2 comapnies and must show it.
-ANd if the JD required multi cloud skill, yeah he also have all of the deep clouds experience. so you can describe his history as to use those.
+- Specially find out the special skills. The special skills means the skills that we can't see normally in most of the JDs.
+I mean if one company require the person that have over 10 years of experience in hands on data engineering and require more than 7 years of GCP experience.
+Of course the GCP is a core skill, but if they said 'x' skill is preffered skill.
+And if the 'x' skill makes the position or project specially than others.
+The 'x' skill is very important and you have you show the experience with the 'x' skill more than 5 years. Again he have all of the experienc with all of the skils and responsibilities. So easily contain the special skill must.
 
-For every skill, extract explicit years or proficiency wording.
+Overall, you can describe the person's last two company using this analyze result.
+Because again, THE jd IS just LIKE Dennis's last two experiences from my ANALZYE.
+BECAUSE OF THE REASON, YOU HAVE TO ANALYZE EXACTLY. DON'T MISS ANYTHING TO DESCRIBE.
+If the JD required cloud, the cloud is used in the last 2 comapnies and must show it.
+And if the JD required multi cloud skill, yeah he also have all of the deep clouds experience. so you can describe his history as to use those.
+
+About responsibilities, you have to add all of the responsibilities to Dennis's experience.
+MOST IMPORTANT : DENNIS'S OVERALL RESPONSIBILITIES MUST BE AT LEAST EQUAL TO THE JD REQUIREMENT BECAUSE AGAIN HE HAVE VERY STRONG EXPERIENCE WITH THE RESPONSIBILITY.
+THE SENIOR/LEAD/STAFF/PRINCIPAL RESPONSIBILITIES MUST BE IN HIS LAST TWO ROLES.
+AND OTHERS ARE IN ALL OF HIS HISTORY.
+BUT NOT ONLY DESCRIBE JD'S RESPONSIBILITY, HE HAVE MORE MORE EXPERIENCE WITH THAT.
+SO IN THE JD PROJECT, ROLE FIELD HE HAVE MORE AND MUST BE DESCRIBED.
+
+For every skill and responsibilities, extract explicit years or proficiency wording.
 - Exposure/familiarity: under 2 years; seen or occasionally used.
 - Basic experience: 1–2 years; basic tasks.
 - Working knowledge: 2–3 years; normal tasks with occasional help.
@@ -50,6 +71,10 @@ Also Tier 2 is important if possible, insert into last and before last history a
 BUT THE IMPORTANT RULE: THE LAST ROLE MUST BE MORE SENIOR THAN THE BEFORE ROLE. AND THE RESUME SHOWS EQUAL OR MORE RESPONSIBILITY THAN THE JD.
 
 Analyze JD ownership, responsibility, and domain; use matching ownership language and credible domain impact. Build the detailed Experience draft against these requirements. If the JD requires “use X and Y to do Z,” demonstrate that relationship and impact.
+
+Add all of the responsibility to the bullets.
+And the special skills, I mean not normal skills for normal data engineering is very important.
+Dennis has all of the experience with that, so you have to write his experience with those skills well.
 
 Preferred example: “Optimized Snowflake workloads through Query Profile analysis, micro-partition pruning, clustering strategy, warehouse right-sizing, and SQL query rewrites, cutting median dashboard query time by 58% and lowering compute consumption by 31%.”
 Weaker example: “Optimized Snowflake warehouse schemas, clustering strategies, joins, and query patterns, cutting median dashboard query time by 58% and lowering compute consumption by 31%.”
@@ -76,11 +101,12 @@ I will give you his some of the results(Not all. you can write if the number is 
 18	Onboarding: 6 → 3 weeks	50% reduction
 
 About more than senior level role, Analyze also this one:
-Architecture ownership, Technical roadmap, Engineering leadership, Cross-team influence, Enterprise-wide strategy, Executive stakeholder influence, so on that shows awnership.
+Architecture ownership, Technical roadmap, Engineering leadership, Cross-team influence, Enterprise-wide strategy, Executive stakeholder influence, so on that shows ownership.
 So write to shows this ability well for the JD.
 
+
 ## Professional Summary
-One paragraph, 2–3 sentences, beginning exactly: “[Lead/Senior](Analyze what you will use from JD) Data Engineer with 11+ years of experience”. State seniority, exact function, core stack, data-engineering background, production ownership, business impact, and impactful collaboration relevant to the JD. Emphasize JD-domain experience when plausible in the history. Hiring managers must quickly see function, stack, and production ownership for the JD.
+One paragraph, 2–3 sentences, beginning exactly: “[Lead/Senior](Analyze what you will use from JD) Data Engineer with [x]+ years of experience”. State seniority, exact function, core stack, data-engineering background, production ownership, business impact, and impactful collaboration relevant to the JD. Emphasize JD-domain experience when plausible in the history. Hiring managers must quickly see function, stack, and production ownership for the JD.
 In this, the most important thing is to show this : 11+ years is "HANDS-ON" data engineering experience.
 
 ## Professional Experience: fixed history and constraints
@@ -95,6 +121,7 @@ Make the JD's single most important platform/tool central to one coherent archit
 
 ### 2. Lead Data Engineer | Allergan Data Labs | Remote | Mar 2022 - Sep 2025
 Bullets: 6. Cloud: same as Lyra Health.
+The first bullet must start by "Led".
 Focus: JD-derived draft, using the same draft-based focus rule as Lyra Health. Lead-level technical architecture, pipeline ownership, standards, and mentoring. Write only from the already drafted experience for this role.
 This company is HealthCare domain, and the domain is very important. You can show the powerful HealthCare domain experience.
 But it's not all. If the JD need marketing experience Dennis already experience with marketing around medical world.
@@ -103,9 +130,8 @@ Make JD's second-strong important section.
 Lead, is very important.
 
 ### 3. Data Engineer | Meta | Seattle, Washington | Oct 2020 - Mar 2022
-Bullets: 5. Cloud: Meta's internal data platform. But if JD require strong public cloud experience, mention Meta's special project that needs the cloud. Again becasue he took part in all of the Meta's project.
+Bullets: 5. Cloud: Meta's internal data platform. But if JD require strong public cloud experience, mention Meta's special project that needs the cloud. Again because he took part in all of the Meta's project.
 Focus: large-scale data engineering and analytics data processing with Presto and distributed compute on billions of records.
-Allowed technology: Presto, Spark/PySpark, SQL, Python, large-scale distributed data processing.
 
 ### 4. Senior Data Engineer | Caserta | Remote | Jan 2019 - Oct 2020
 
@@ -134,7 +160,7 @@ Integrated the transfer and load of data between multiple cloud vendors (GCP and
 Seamlessly loaded data from S3 into Redshift in seconds using AWS Lambda Functions written in Python.
 
 Bullets: 4. Cloud: multi-cloud per the history below (Any).
-Focus: multi-cloud consulting data engineering across medical, music, banking, and entertainment clients; Snowflake ingestion with Matillion, PySpark identity resolution, Airflow orchestration, and cross-cloud transfer between GCP and AWS.
+Focus: multi-cloud consulting data engineering across medical, music, banking, and  clients; Snowflake ingestion with Matillion, PySpark identity resolution, Airflow orchestration, and cross-cloud transfer between GCP and AWS.
 Allowed technology: Snowflake, Matillion, PySpark, Airflow, GCP (BigQuery, Dataproc, GCS, Cloud Functions), AWS (S3, Redshift, Lambda), Talend, Python, SQL.
 In not cloud mentioned industry, he use all of the public cloud. So use JD's cloud.
 
@@ -161,6 +187,9 @@ Allowed technology: Excel, VBA, SQL, data analysis. No cloud data platform.
 
 ## Bullet construction, ownership, and impact
 Use STAR for every bullet and show real JD-relevant impact. General bullet sentences: 25–35 words; specific lead-bullet exception: 30–40 words. Use the full permitted length range rather than uniform lengths.
+
+And don't use only mentioned skills in JD.
+If you write Dagster experience, write also the connecting asset materialization, freshness monitoring, lineage, and failure alerting. It's very important.
 
 Each role with at least one bullet starts with one STAR lead item, included in its mandated count, with no visible “·” marker. A 7-item role has one lead plus six normal bullets; a 2-item role has one lead plus one normal bullet. A 1-item role has only the STAR lead. Continuous prose, without STAR labels or mechanical punctuation such as semicolons:
 - Situation: platform/team/data state on arrival, scale, failures, business need.
@@ -282,11 +311,11 @@ Do not write `Senior Data Engineer | Senior Data Platform Engineering`.
 After drafting, evaluate against the JD and rewrite fixable important weaknesses so the recruiter sees strong fit. Never add content incompatible with timing, technically impossible skills, or impossible role responsibilities. 
 
 Internally verify all of the following:
-- Please use the specific business domain relevant to the company for each position in your work history.
+- Please use the specific business domain relevant to the company for each position in Dennis's work history.
 - All required technical core skills appear; Tier 1 has strongest evidence; Lyra Health holds the largest concentration of target requirements and ownership impact.
 - Remaining JD skills fit the nearest credible prior roles; no role violates allowed technology/cloud rules or duplicates same-function platforms unnecessarily; every architecture is coherent, historically plausible, technically believable, and supported by purposeful technologies.
 - Every bullet uses STAR, demonstrates JD-relevant impact, includes a `<strong>` term, and meets its count/length requirements; every lead includes situation, task, action, result.
-- Verify that each included category is justified by the JD. Remove categories that exist only to increase the number of skills or categories.
+- Verify that each included skills category is justified by the JD. Remove categories that exist only to increase the number of skills or categories.
 - Contact, Education, empty years, and fixed history remain unchanged. No Certifications section is emitted. No substantially duplicated project stories across employers.
 - Quantification is credible/varied, not repetitive percentages or numbers added to satisfy quotas. Newest role clearly states what was built and why it mattered. Each bullet has exact impact evidence beyond adjectives, generic benefits, capability claims, or vague outcomes.
 - No never-use words; no at-most-once word repeated; no banned transitions, parallel negation, decorative triples, em dashes, colon reveals, rhetorical questions, inflated importance, or hedging except required “about”.
@@ -318,7 +347,7 @@ The source template's escaped markup and internal fence markers are presentation
   <div class="header">
 <div class="name">Dennis Dong</div>
 <div class="title">Senior Data Engineer | [JD specialization, see HEADER TITLE]</div>
-<div class="contact">Newtown Square, PA &nbsp;&nbsp;&nbsp;&nbsp; ddennis.work@outlook.com &nbsp;&nbsp;&nbsp;&nbsp; (415) 754-8135 &nbsp;&nbsp;&nbsp;&nbsp; <a href="https://www.linkedin.com/in/dennisdong/">linkedin.com/in/dennisdong</a></div>
+<div class="contact">Newtown Square, PA &nbsp;&nbsp;&nbsp;&nbsp; ddennis.work@outlook.com &nbsp;&nbsp;&nbsp;&nbsp; (707) 278-6811 &nbsp;&nbsp;&nbsp;&nbsp; <a href="https://www.linkedin.com/in/dennisdong/">linkedin.com/in/dennisdong</a></div>
 <div class="header-dotted"></div>
   </div>
   <div class="section">

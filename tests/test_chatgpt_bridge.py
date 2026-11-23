@@ -43,7 +43,7 @@ async def job_id(tmp_path, monkeypatch):
 def _fake_tailor(asks: list[tuple[str, str, str]], outcome: dict):
     """A tailor_job that asks the given questions through the engine it is handed."""
 
-    async def fake(db, job, *, persona_id=None, engine="api", llm=None):
+    async def fake(db, job, *, persona_id=None, engine="api", llm=None, accent=None):
         assert engine == "chatgpt" and llm is not None
         replies = [await llm.ask(system, user, reply_format=fmt) for system, user, fmt in asks]
         return {**outcome, "job_id": job.id, "replies": replies}

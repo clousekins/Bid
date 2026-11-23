@@ -21,6 +21,12 @@ _worker_task: asyncio.Task | None = None
 _wake: asyncio.Event | None = None
 _locks: dict[str, asyncio.Lock] | None = None
 _progress_lock: asyncio.Lock | None = None
+# The task running each background job, so Stop can cancel it outright.
+_running: dict[int, asyncio.Task] = {}
+# Kinds whose Stop cancels the task at once. The fetches check the flag
+# between steps and write their CSV on the way out, so they keep the polite
+# stop; a resume batch has nothing to finish.
+_STOPPED_AT_ONCE = {BackgroundJobKind.TAILOR.value}
 
 
 def _utcnow() -> datetime:
@@ -99,6 +105,8 @@ async def enqueue(
     job_ids: list[int] | None = None,
     generate_as: str | None = None,
     force: bool = False,
+    accent: str | None = None,
+    model: str | None = None,
     options: dict[str, Any] | None = None,
 ) -> BackgroundJob:
     factory = get_session_factory()
@@ -110,6 +118,12 @@ async def enqueue(
         progress["generate_as"] = generate_as
     if force:
         progress["force"] = True
+    # Kept with the run, so a colour picked elsewhere meanwhile does not
+    # change this batch. "" is kept too: it means the stylesheet's own.
+    if accent is not None:
+        progress["accent"] = accent
+    if model:
+        progress["model"] = model
     if options:
         progress["options"] = options
         progress.update({k: v for k, v in options.items() if k in {"site", "window", "max_jobs", "domains", "roles"}})
@@ -200,6 +214,25 @@ def _force_regenerate(row: BackgroundJob) -> bool:
     return bool(data.get("force"))
 
 
+def _run_accent(row: BackgroundJob) -> str | None:
+    """The resume colour this run was started with, or None if none was sent."""
+    try:
+        data = json.loads(row.progress or "{}")
+    except json.JSONDecodeError:
+        return None
+    accent = data.get("accent")
+    return None if accent is None else str(accent)
+
+
+def _run_model(row: BackgroundJob) -> str | None:
+    """The API model this run was started with, or None for runtime.yml's."""
+    try:
+        data = json.loads(row.progress or "{}")
+    except json.JSONDecodeError:
+        return None
+    return str(data["model"]) if data.get("model") else None
+
+
 def _generate_persona_id(row: BackgroundJob) -> str | None:
     try:
         data = json.loads(row.progress or "{}")
@@ -216,10 +249,21 @@ async def request_cancel(job_id: int) -> bool:
         if not row:
             return False
         row.cancel_requested = True
-        if row.status == BackgroundJobStatus.QUEUED.value:
+        stop_now = row.kind in _STOPPED_AT_ONCE
+        if row.status == BackgroundJobStatus.QUEUED.value or (
+            stop_now and row.status == BackgroundJobStatus.RUNNING.value
+        ):
             row.status = BackgroundJobStatus.CANCELLED.value
+            row.updated_at = _utcnow()
         await session.commit()
-        return True
+    # A resume in progress can take minutes; waiting for it to finish made Stop
+    # feel broken. Cancelling the task stops every resume in the run where it
+    # is, and the OpenAI request with it (see background_response_text).
+    task = _running.get(job_id)
+    if stop_now and task and not task.done():
+        task.cancel()
+        log.info("bg job %s stopped mid-run", job_id)
+    return True
 
 
 async def heal_stuck_jobs(*, older_than_minutes: int = 2) -> int:
@@ -270,6 +314,11 @@ async def _worker_loop() -> None:
             # Reap finished tasks
             done = {t for t in running if t.done()}
             for t in done:
+                # A stopped run ends cancelled; result() would raise
+                # CancelledError, which is not an Exception and would end
+                # this loop.
+                if t.cancelled():
+                    continue
                 try:
                     t.result()
                 except Exception:  # noqa: BLE001
@@ -283,6 +332,8 @@ async def _worker_loop() -> None:
                     break
                 task = asyncio.create_task(_run_job(picked), name=f"bg-{picked}")
                 running.add(task)
+                _running[picked] = task
+                task.add_done_callback(lambda t, k=picked: _running.pop(k, None))
                 # Small yield so lock state updates before next pick
                 await asyncio.sleep(0)
 
@@ -516,6 +567,8 @@ async def _exec_tailor(session, row: BackgroundJob) -> None:
     # Capture generation persona BEFORE rebuilding progress
     gen_pid = _generate_persona_id(row) or row.persona_id
     force = _force_regenerate(row)
+    accent = _run_accent(row)
+    run_model = _run_model(row)
 
     # Listing ownership/status does not decide whether this persona needs a package.
     jobs = await _load_jobs_for_bg(
@@ -557,6 +610,10 @@ async def _exec_tailor(session, row: BackgroundJob) -> None:
         "concurrency": concurrency,
         "force": force,
     }
+    if accent is not None:
+        progress["accent"] = accent
+    if run_model:
+        progress["model"] = run_model
     ids = _progress_job_ids(row)
     if ids is not None:
         progress["job_ids"] = ids
@@ -588,7 +645,9 @@ async def _exec_tailor(session, row: BackgroundJob) -> None:
                             "reason": "job_missing",
                         }
                     else:
-                        result = await _tailor(work, job, persona_id=gen_pid)
+                        result = await _tailor(
+                            work, job, persona_id=gen_pid, accent=accent, model=run_model
+                        )
                         await work.commit()
                         if result.get("ok"):
                             log.info(

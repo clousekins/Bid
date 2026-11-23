@@ -241,13 +241,17 @@ export function useBatchJobs(refresh) {
         /* ignore */
       }
     }
+    // The backend stops a resume batch at once, so there is nothing left to
+    // poll for: end the loop now rather than on its next tick.
+    setBgJobId(null);
     setBusy(false);
-    setBatchProgress("Stop requested");
+    setBatchProgress("Stopped");
     setActiveJob((prev) =>
       prev
-        ? { ...prev, status: "cancelled", detail: "Stop requested", indeterminate: false }
+        ? { ...prev, status: "cancelled", detail: "Stopped", indeterminate: false }
         : null
     );
+    Promise.resolve(refresh?.()).catch(() => {});
   };
 
   const dismissActiveJob = () => {

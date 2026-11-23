@@ -98,6 +98,7 @@ def _expect(reply_format: str) -> str:
 class _Session:
     job_id: int
     persona_id: str
+    accent: str | None = None
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
     created: float = field(default_factory=time.monotonic)
     # The prompt waiting for a reply, its number, and what it should return.
@@ -171,7 +172,12 @@ async def _run(s: _Session) -> None:
                 s.error = "job_missing"
                 return
             s.result = await tailor_job(
-                db, job, persona_id=s.persona_id, engine="chatgpt", llm=ExtensionChat(s)
+                db,
+                job,
+                persona_id=s.persona_id,
+                engine="chatgpt",
+                llm=ExtensionChat(s),
+                accent=s.accent,
             )
             await db.commit()
     except asyncio.CancelledError:
@@ -245,10 +251,10 @@ def _get(session_id: str) -> _Session:
     return s
 
 
-async def start(job_id: int, persona_id: str) -> dict[str, Any]:
+async def start(job_id: int, persona_id: str, *, accent: str | None = None) -> dict[str, Any]:
     """Begin one job; answers with its first prompt."""
     _forget_stale()
-    s = _Session(job_id=job_id, persona_id=persona_id)
+    s = _Session(job_id=job_id, persona_id=persona_id, accent=accent)
     _sessions[s.id] = s
     s.task = asyncio.create_task(_run(s), name=f"chatgpt-{s.id[:8]}")
     log.info("chatgpt: session %s started for job %s as %s", s.id[:8], job_id, persona_id)

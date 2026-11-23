@@ -1,8 +1,12 @@
 import { useEffect, useState } from "react";
-import { client } from "../api.js";
+import { client, getResumeAccent, setResumeAccentChoice } from "../api.js";
 
 /**
  * The colour a generated resume is printed in.
+ *
+ * The choice is kept in this browser and sent with each generate request, so
+ * two people picking different colours each get their own. A browser that has
+ * never picked starts from the server's saved default.
  *
  * The swatches are served by the backend rather than hard-coded here, so the
  * palette has one definition and the picker cannot drift from what the
@@ -15,8 +19,6 @@ import { client } from "../api.js";
 export default function AccentControl({ onChange }) {
   const [palette, setPalette] = useState([]);
   const [accent, setAccent] = useState(null);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -26,7 +28,9 @@ export default function AccentControl({ onChange }) {
       .then((s) => {
         if (cancelled) return;
         setPalette(s.palette || []);
-        setAccent(s.accent || null);
+        const mine = getResumeAccent();
+        if (mine === null) setResumeAccentChoice(s.accent || "");
+        setAccent((mine === null ? s.accent : mine) || null);
         setLoaded(true);
       })
       .catch(() => setLoaded(true));
@@ -35,21 +39,13 @@ export default function AccentControl({ onChange }) {
     };
   }, []);
 
-  const choose = async (value) => {
+  const choose = (value) => {
     // Clicking the colour it already is clears the choice, so there is a way
     // back to the stylesheet's own accent without a separate reset button.
     const next = accent && value.toUpperCase() === accent.toUpperCase() ? "" : value;
-    setSaving(true);
-    setError("");
-    try {
-      const saved = await client.setResumeAccent(next);
-      setAccent(saved.accent || null);
-      onChange?.(saved);
-    } catch (e) {
-      setError(String(e.message || e));
-    } finally {
-      setSaving(false);
-    }
+    setResumeAccentChoice(next);
+    setAccent(next || null);
+    onChange?.({ accent: next || null });
   };
 
   if (!loaded || !palette.length) return null;
@@ -80,7 +76,6 @@ export default function AccentControl({ onChange }) {
               title={`${swatch.name} · ${swatch.value}`}
               className={`accent-swatch${on ? " on" : ""}`}
               style={{ background: swatch.value }}
-              disabled={saving}
               onClick={() => choose(swatch.value)}
             />
           );
@@ -88,10 +83,9 @@ export default function AccentControl({ onChange }) {
       </div>
 
       <p className="accent-hint muted">
-        Applied when a resume is generated. Resumes already on disk keep the colour
-        they were made with.
+        Saved in this browser only, and applied when a resume is generated here.
+        Resumes already on disk keep the colour they were made with.
       </p>
-      {error ? <p className="error-text">{error}</p> : null}
     </div>
   );
 }

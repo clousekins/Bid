@@ -7,14 +7,11 @@ identity:
   legal_name: Patrick Almeida
   preferred_name: Patrick Almeida
   email: patrick.a.ework@gmail.com
-  # No phone or LinkedIn was supplied. They are left empty on purpose and are
-  # not printed on the resume; do not invent either. Fill them here and in
-  # patrick_almeida.prompt.md if they become available.
-  phone: ""
+  phone: "+55 81 98445-4503"
   location_city: Santo Agostinho
   location_state: Pernambuco
   location_country: BR
-  linkedin_url: ""
+  linkedin_url: "https://www.linkedin.com/in/patrick-almeida-9452bb445/"
   # CONFIRM THIS. He is based in Brazil and his experience is Brazilian. The
   # answer decides how every screening form is filled in; mirrored from the
   # other Brazil-based persona until confirmed.

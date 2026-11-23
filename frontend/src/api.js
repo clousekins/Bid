@@ -8,6 +8,44 @@ function getToken() {
   return localStorage.getItem("poong_token") || "";
 }
 
+// The resume colour and the API model are this browser's own choices, not
+// server settings, so two people generating at the same time each get what
+// they picked. They go with every generate request. null = never picked here
+// (the server falls back to its saved default); a colour of "" = the
+// stylesheet's own colour.
+const ACCENT_KEY = "poong_resume_accent";
+const MODEL_KEY = "poong_tailor_model";
+
+function readChoice(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function saveChoice(key, value) {
+  try {
+    localStorage.setItem(key, value || "");
+  } catch {
+    /* private window: the choice lasts for this page only */
+  }
+}
+
+export const getResumeAccent = () => readChoice(ACCENT_KEY);
+export const setResumeAccentChoice = (value) => saveChoice(ACCENT_KEY, value);
+export const getTailorModel = () => readChoice(MODEL_KEY);
+export const setTailorModelChoice = (value) => saveChoice(MODEL_KEY, value);
+
+function withChoices(body = {}) {
+  const out = { ...body };
+  const accent = getResumeAccent();
+  if (accent !== null) out.accent = accent;
+  const model = getTailorModel();
+  if (model) out.model = model;
+  return out;
+}
+
 async function api(path, options = {}) {
   const token = getToken();
   const headers = { ...(options.headers || {}) };
@@ -117,7 +155,7 @@ export const client = {
   deepScanOne: (id) => api(`/api/jobs/${id}/deep-scan`, { method: "POST" }),
   manualFetch: (body) => api("/api/manual-apply/fetch", { method: "POST", json: body }),
   tailorOne: (id, body = {}) =>
-    api(`/api/jobs/${id}/tailor`, { method: "POST", json: body }),
+    api(`/api/jobs/${id}/tailor`, { method: "POST", json: withChoices(body) }),
   deepScanRange: (body) => api("/api/sync/deep-scan", { method: "POST", json: body }),
   discoverJobs: (body = {}) => api("/api/sync/discover", { method: "POST", json: body }),
   discoverFreshJobs: (body = {}) =>
@@ -139,12 +177,12 @@ export const client = {
     });
     return api(`/api/sync/ats-catalog/boards?${q}`);
   },
-  tailorRange: (body) => api("/api/sync/tailor", { method: "POST", json: body }),  deepScanIds: (job_ids) =>
+  tailorRange: (body) => api("/api/sync/tailor", { method: "POST", json: withChoices(body) }),  deepScanIds: (job_ids) =>
     api("/api/sync/deep-scan", { method: "POST", json: { job_ids } }),
   tailorIds: (job_ids, persona_id) =>
     api("/api/sync/tailor", {
       method: "POST",
-      json: { job_ids, persona_id },
+      json: withChoices({ job_ids, persona_id }),
     }),
   applyPreview: (body) => api("/api/sync/apply-preview", { method: "POST", json: body }),
   getBgJob: (id) => api(`/api/jobs-bg/${id}`),
@@ -165,10 +203,13 @@ export const client = {
   applyConfirm: (id) => api(`/api/apply/${id}/confirm`, { method: "POST" }),
   applyCancel: (id) => api(`/api/apply/${id}/cancel`, { method: "POST" }),
   manualPrepare: (body) => api("/api/manual-apply/prepare", { method: "POST", json: body }),
-  manualTailor: (body) => api("/api/manual-apply/tailor", { method: "POST", json: body }),
-  manualAnswers: (body) => api("/api/manual-apply/answers", { method: "POST", json: body }),
+  manualTailor: (body) =>
+    api("/api/manual-apply/tailor", { method: "POST", json: withChoices(body) }),
+  manualAnswers: (body) =>
+    api("/api/manual-apply/answers", { method: "POST", json: withChoices(body) }),
   manualPrompt: (body) => api("/api/manual-apply/prompt", { method: "POST", json: body }),
-  manualBuild: (body) => api("/api/manual-apply/build", { method: "POST", json: body }),
+  manualBuild: (body) =>
+    api("/api/manual-apply/build", { method: "POST", json: withChoices(body) }),
   settings: () => api("/api/settings"),
   tailorModel: () => api("/api/settings/tailor-model"),
   setTailorModel: (model) =>
